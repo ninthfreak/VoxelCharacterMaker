@@ -23,7 +23,7 @@ figures. Godot 4, GDScript.
 | Rigid-part rig and test poses | done |
 | Editor: preview, wardrobe, garment regions, colours, outfits | done |
 | Face editor | not started |
-| Export (.vox / STL / OBJ) | not started |
+| Export (.vox / STL / OBJ) | deferred to game work (owner's call) |
 | Body editor | not started |
 
 See `docs/NOTES.md` for decisions taken while building, and for the things

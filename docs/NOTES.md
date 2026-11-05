@@ -152,15 +152,19 @@ translucent, so alpha is not stored at all.
 
 ## 4. What is deliberately not built yet
 
-In the spec's own build order (section 11), steps 1–5 are done and 6–8 are not:
+In the spec's own build order (section 11), steps 1–5 are done. Of what is
+left, step 7 is deferred by the owner; 6 and 8 are simply not started yet:
 
 - **Face editor** (step 6). `FaceDef` already reads and regenerates box cells
   and validates stored voxels against them, so the data side is ready; what is
   missing is the grid UI.
-- **Export: .vox, STL, OBJ** (step 7). The STL "edge-contact fix" needed for a
-  watertight export is not written. Note that
-  `TestReport.edge_only_contacts()` already detects the condition, so the test
-  for it exists before the feature does.
+- **Export: .vox, STL, OBJ** (step 7). **Deferred by the owner** until work
+  starts on the actual game. Nothing else depends on it. When it comes round:
+  the STL "edge-contact fix" needed for a watertight export is not written, but
+  `TestReport.edge_only_contacts()` already detects the condition the fix has to
+  remove, so the test for it exists before the feature does. The shipped bodies
+  have no such contacts, so the fix only matters once garments and hand-placed
+  edits can introduce them.
 - **Body editor** (step 8).
 - **Special types beyond hood and skirt.** The generator registry describes its
   own parameters, so adding capes, togas, standing collars or pauldrons needs
