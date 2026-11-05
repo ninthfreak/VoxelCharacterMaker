@@ -47,17 +47,24 @@ func build(p_assembled: CharacterAssembler.Assembled) -> void:
 		joint.name = name
 
 		var parent_node: Node3D = self
-		var parent_pivot := Vector3.ZERO
+		var parent_part: CharacterAssembler.Part = null
 		if not part.parent.is_empty() and joints.has(part.parent):
 			parent_node = joints[part.parent]
-			var parent_part := assembled.part(part.parent)
-			if parent_part != null:
-				parent_pivot = parent_part.pivot
+			parent_part = assembled.part(part.parent)
 
 		# Joints are positioned relative to their parent's pivot, so rotating a
 		# parent carries every child with it.
-		joint.position = VoxelAxes.pivot_to_godot(part.pivot) \
-			- VoxelAxes.pivot_to_godot(parent_pivot)
+		#
+		# The two cases are NOT the same conversion. A root joint's pivot is a
+		# POINT in the rig's own space, so it takes the full affine mapping. A
+		# child's position is the OFFSET between two pivots, so only the linear
+		# part applies -- the translation cancels between them. Mapping
+		# Vector3.ZERO as a stand-in parent pivot instead adds that translation
+		# back in and shifts the whole figure half a metre off-centre.
+		if parent_part == null:
+			joint.position = VoxelAxes.pivot_to_godot(part.pivot)
+		else:
+			joint.position = VoxelAxes.direction_to_godot(part.pivot - parent_part.pivot)
 		parent_node.add_child(joint)
 		joints[name] = joint
 

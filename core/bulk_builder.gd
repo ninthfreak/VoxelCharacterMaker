@@ -94,18 +94,26 @@ static func stencil(bulk: int, edge_style: int) -> Dictionary:
 	return out
 
 
-## Cells of the part that have at least one open face, i.e. the part's surface.
+## Cells with at least one face open to the outside of the FIGURE.
 ##
 ## Growth only ever needs to start from the surface: under both metrics the
 ## nearest source cell to any exterior cell is a surface cell, so seeding from
 ## interior cells cannot change the result, only cost time.
-static func surface_of(part_cells: Dictionary, candidates: Variant = null) -> Array:
+##
+## "Open" is judged against the whole figure, not against the owning part. A
+## part's cells at a joint have no neighbour within their own part, but the
+## figure is solid there -- the chest sits straight on the pelvis. Judging by
+## the part alone turns every joint seam into an exposed surface, and a tunic
+## then grows down through the hips while the trousers grow up underneath it.
+static func surface_of(part_cells: Dictionary, candidates: Variant = null,
+		occupancy: Dictionary = {}) -> Array:
+	var solid: Dictionary = occupancy if not occupancy.is_empty() else part_cells
 	var source: Variant = candidates if candidates != null else part_cells.keys()
 	var out: Array = []
 	for cell in source:
 		var c: Vector3i = cell
 		for offset in VoxelAxes.NEIGHBOURS:
-			if not part_cells.has(c + offset):
+			if not solid.has(c + offset):
 				out.append(c)
 				break
 	return out
@@ -113,28 +121,39 @@ static func surface_of(part_cells: Dictionary, candidates: Variant = null) -> Ar
 
 ## Grow one region of one part.
 ##
-## part_cells   every cell of the owning part (body plus anything already worn
-##              on it, when the caller wants layers to stack outward)
+## part_cells   every cell of the owning part. Only these are subtracted from
+##              the result, because rule 4 says each part grows independently:
+##              arm and torso bulk may overlap in the rest pose and separate
+##              again when the figure moves.
 ## region_cells the cells of that part inside the region being grown
+## occupancy    every cell of the WHOLE figure, used to decide what counts as
+##              an exposed surface. Defaults to part_cells when a caller has
+##              only one part to consider, as the unit tests do.
+##
+## The two sets are deliberately different. Subtracting per part keeps rule 4;
+## judging exposure per figure keeps rule 3 meaning what it says -- shoulder
+## tops, the crown, foot tops -- rather than every internal joint seam.
+##
 ## Returns Dictionary of Vector3i -> layer (1..bulk), excluding part_cells.
 static func grow(part_cells: Dictionary, region_cells: Variant, bulk: int,
-		edge_style: int = EdgeStyle.SOFT) -> Dictionary:
+		edge_style: int = EdgeStyle.SOFT, occupancy: Dictionary = {}) -> Dictionary:
 	var out := {}
 	if bulk <= 0:
 		return out  # rule 1: bulk 0 only recolours, it adds nothing
 
+	var solid: Dictionary = occupancy if not occupancy.is_empty() else part_cells
 	var sten := stencil(bulk, edge_style)
 	var flat: Array = sten["flat"]
 	var up: Array = sten["up"]
 	var down: Array = sten["down"]
 
-	for cell in surface_of(part_cells, region_cells):
+	for cell in surface_of(part_cells, region_cells, solid):
 		var c: Vector3i = cell
 		_apply(out, part_cells, c, flat)
 		# rule 3: only a surface that actually faces up or down grows that way
-		if not part_cells.has(c + VoxelAxes.UP):
+		if not solid.has(c + VoxelAxes.UP):
 			_apply(out, part_cells, c, up)
-		if not part_cells.has(c + VoxelAxes.DOWN):
+		if not solid.has(c + VoxelAxes.DOWN):
 			_apply(out, part_cells, c, down)
 	return out
 

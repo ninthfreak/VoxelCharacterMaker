@@ -11,7 +11,11 @@ extends VBoxContainer
 ## blind).
 
 var editor: CharacterEditor = null
-var _guard := false  ## set while repopulating, so signals do not loop back
+## Nesting depth of "I am repopulating, ignore signals". A counter, not a flag:
+## fill_options() guards internally, so a flag would be cleared by the inner
+## call and leave the rest of an outer refresh() unguarded -- which is exactly
+## how setting a CheckBox's value ended up triggering a full rebuild.
+var _guard_depth := 0
 
 
 func setup(p_editor: CharacterEditor) -> void:
@@ -96,7 +100,7 @@ func make_list(parent: Container, height: int, multi: bool = false) -> ItemList:
 ## Fill an OptionButton and select `current`, without firing item_selected.
 func fill_options(option: OptionButton, values: Array, current: String,
 		labels: Array = []) -> void:
-	_guard = true
+	begin_guard()
 	option.clear()
 	for i in values.size():
 		var value := String(values[i])
@@ -107,7 +111,7 @@ func fill_options(option: OptionButton, values: Array, current: String,
 			option.select(i)
 	if option.selected < 0 and option.item_count > 0:
 		option.select(0)
-	_guard = false
+	end_guard()
 
 
 func option_value(option: OptionButton) -> String:
@@ -117,12 +121,12 @@ func option_value(option: OptionButton) -> String:
 
 
 func is_guarded() -> bool:
-	return _guard
+	return _guard_depth > 0
 
 
 func begin_guard() -> void:
-	_guard = true
+	_guard_depth += 1
 
 
 func end_guard() -> void:
-	_guard = false
+	_guard_depth = maxi(0, _guard_depth - 1)

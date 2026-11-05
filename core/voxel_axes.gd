@@ -60,9 +60,17 @@ static func pivot_to_godot(pivot: Vector3) -> Vector3:
 	return point_to_godot(pivot)
 
 
-## Asset direction -> Godot direction (no translation).
+## Asset DISPLACEMENT -> Godot displacement: the linear part of
+## point_to_godot, so the voxel scale is included and the translation is not.
+##
+## This is what converts an offset BETWEEN two points, such as the gap between
+## a joint's pivot and its parent's. Leaving the scale out here once put every
+## child joint 24 times too far from its parent, and because a unit axis still
+## came out as a unit axis, the axis tests did not notice.
+##
+## For a face normal, normalise the result; the scale then makes no difference.
 static func direction_to_godot(d: Vector3) -> Vector3:
-	return Vector3(-d.x, d.z, d.y)
+	return Vector3(-d.x, d.z, d.y) * VOXEL_SIZE
 
 
 ## Mirror a voxel index across the body's mirror plane.

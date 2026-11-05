@@ -9,52 +9,55 @@ which parts are solid and which are guesses.
 
 ---
 
-## 1. The one thing that is NOT verified yet
+## 1. Verification status
 
-**No Godot binary could be run in the session that wrote this code.** The engine
-was downloaded successfully (4.7.2 stable, from the official GitHub release),
-but the sandbox refused to execute a freshly downloaded binary.
-
-So: the whole GDScript side has never been compiled, let alone rendered.
-
-What that does and does not mean:
-
-- **Verified, on the real assets, by running code:** every structural claim in
-  `SPEC.md` section 12 about the assets (all six voxel counts, every pivot x in
-  the section 3.2 table, mirror symmetry, one connected piece per body and per
-  part, no edge-only contacts, all 11 expressions fitting all 5 heads,
-  `look_left` mirroring to `look_right`); and the bulk-growth algorithm's
-  behaviour on all six bodies (bulk 0 adds nothing, bulk 1 generates with no
-  gaps, soft never exceeds hard, thicker bulk adds more, nothing grows into the
-  body or below z0, a mirrored definition yields a mirror-symmetric garment).
-- **Verified mechanically, but not by the compiler:** all 345 cross-class
-  references in the 36 GDScript files resolve to a declared member; indentation
-  is tab-only throughout; brackets balance in every file.
-- **Not verified at all:** that the project opens, that any script compiles,
-  that the editor UI lays out sensibly, and that the figure renders right side
-  out.
-
-**First thing to do with a working Godot:**
+**Everything compiles and the acceptance suite is green: 851 checks, 0 failures.**
 
 ```bash
-godot --headless --path . --script res://tests/run_tests.gd
+tests/run.sh                 # measures the assets, then runs the Godot suite
 ```
 
-Expect to spend a pass fixing compile errors. Writing ~4,000 lines of GDScript
-without a compiler and claiming it builds first time would be dishonest.
-Confidence that the *logic* is right: high. Confidence that it *compiles
-unchanged*: low — call it 30 per cent, with the likely faults being API details
-(exact enum names, a signal signature, a method that moved between 4.x
-versions) rather than design.
+Verified by running it:
 
-**The single most likely visual bug: inverted winding.** Godot treats clockwise
-triangles as front-facing, which is the opposite of the usual OpenGL
-convention. `core/mesher.gd` emits clockwise and `tests/test_mesher.gd` asserts
-that explicitly. If the figure renders inside-out — you see the far surface —
-flip the two `_tri` calls in `Mesher.build_part` and the expectation in that
-test. One line each, and nothing else depends on it.
+- Every structural claim in `SPEC.md` section 12 about the assets: all six
+  voxel counts, every pivot x in the section 3.2 table, mirror symmetry, one
+  connected piece per body and per part, no edge-only contacts, all 11
+  expressions fitting all 5 heads.
+- The section 2 coordinate lock, asserted against Godot's own camera
+  convention rather than against this project's arithmetic.
+- The bulk rules one at a time, parametric garments generating with no gaps on
+  all six bodies, bulk 0 adding nothing, layering by reach then draw order,
+  the wardrobe round-tripping byte for byte, both special generators on every
+  head, and the rig's joint chain landing on each part's pivot.
+- The figure renders correctly, which `docs/renders/` shows.
 
----
+### Two real bugs the first run caught
+
+Worth recording, because both were invisible to review and one was invisible to
+the test suite as it then stood.
+
+**1. The rig mixed an affine point map with a relative offset.** A joint's
+position is the offset between its pivot and its parent's, but the root has no
+parent, and `Vector3.ZERO` was being passed as a stand-in and then run through
+the full point mapping -- which adds a translation that should have cancelled.
+The whole figure sat half a metre off-centre. Caught by the first assertion
+that looked at a joint position.
+
+**2. `direction_to_godot` did not apply the voxel scale.** It permuted the axes
+but never multiplied by 1/24, so every child joint sat 24 times too far from
+its parent and the figure exploded into loose slabs. The test suite missed this
+entirely: `test_axes` only checked unit axes, where a missing uniform scale is
+invisible, and the rig test only checked the root. It was obvious in the first
+render and in nothing else.
+
+Both are fixed, and both now have tests that would have caught them: a
+displacement must agree with the difference of the two mapped points, 24 voxels
+up must be one metre, and walking the joint chain from the root must land on
+each part's pivot.
+
+**The lesson worth keeping:** a test suite over a geometry pipeline can be
+large and green and still miss a uniform scale error. The render is not a nice
+extra here, it is part of the check. `tools/render_sheets.gd` exists for that.
 
 ## 2. Discrepancies found in the hand-off package
 
@@ -84,6 +87,27 @@ an unused region is simply never painted. If the intent was that `neck` and
 it is a one-place change.
 
 **Open question for the owner:** which did you mean?
+
+**A bulk-1 garment on both thighs closes the gap between the legs.** Measured:
+the gap between the thighs is exactly 2 voxels on all six bodies, and bulk 1
+grows 1 voxel inward from each thigh, so it fills exactly. 60 to 88 cells
+bridge the gap depending on the build, and standing still, trousers read as a
+skirt. See `docs/renders/six_dressed.png`.
+
+This is not a coding fault: it follows directly from SPEC 7.3 rules 1 and 4,
+and rule 4's own words apply -- the legs do separate again when the figure
+moves. But the standard gap being exactly twice the normal minimum bulk looks
+like a coincidence nobody intended. Four ways out, for the owner to pick:
+
+1. Accept it. Walking separates the legs, and a fused rest pose may not matter.
+2. A per-garment flag, "do not grow toward the mirror line", for paired limb
+   parts. Smallest change; leaves rule 4 intact everywhere else.
+3. Make that the default for paired limb parts, with a flag to opt back in.
+4. Widen the thigh gap in `build_bodies.py`. This changes all six bodies and
+   invalidates the section 12 voxel counts, so it is the most disruptive.
+
+*Recommended:* option 2, because it is reversible and costs nothing until a
+garment asks for it. Not done, because which way this goes is a look decision.
 
 ---
 

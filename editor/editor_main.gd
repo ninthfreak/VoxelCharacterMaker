@@ -82,11 +82,10 @@ func _ready() -> void:
 	if not library.load_all():
 		push_error("asset library: %s" % ", ".join(library.errors))
 
-	_build_ui()
-	history.changed.connect(_refresh_edit_menu)
-
+	# The model is loaded BEFORE any control exists. Panels refresh themselves
+	# as they are set up, and a refresh can reach back into rebuild(), so there
+	# must be no half-built state for it to find.
 	var state := _load_state()
-	wardrobe = null
 	var last_path := String(state.get("wardrobe_path", ""))
 	if not last_path.is_empty() and FileAccess.file_exists(last_path):
 		wardrobe = Wardrobe.load_from(last_path)
@@ -102,8 +101,11 @@ func _ready() -> void:
 		body_id = library.body_ids()[0] if not library.body_ids().is_empty() else ""
 	if library.head(head_shape) == null:
 		head_shape = "round"
-
 	_wear_default_outfit()
+
+	_build_ui()
+	history.changed.connect(_refresh_edit_menu)
+
 	_refresh_all_panels()
 	rebuild()
 	camera.frame(rig.figure_aabb())
@@ -180,10 +182,9 @@ func _build_ui() -> void:
 	colour_panel.name = "Colours"
 	_tabs.add_child(colour_panel)
 
-	for panel in [figure_panel, wardrobe_panel, garment_panel, colour_panel]:
-		panel.setup(self)
-
-	# Status row: counts, then warnings spelled out as words.
+	# Status row: counts, then warnings spelled out as words. Built before the
+	# panels are set up, because setting a panel up refreshes it and a refresh
+	# can reach rebuild(), which writes here.
 	var status_row := HBoxContainer.new()
 	root.add_child(status_row)
 	_status = Label.new()
@@ -194,6 +195,9 @@ func _build_ui() -> void:
 	status_row.add_child(_warning)
 
 	_build_dialogs()
+
+	for panel in [figure_panel, wardrobe_panel, garment_panel, colour_panel]:
+		panel.setup(self)
 
 
 func _build_viewport() -> Control:

@@ -54,6 +54,10 @@ class Context extends RefCounted:
 	## part name -> Dictionary of Vector3i -> true, for the body as assembled so
 	## far (body plus anything already worn).
 	var part_cells: Dictionary = {}
+	## Every cell of the whole figure, for deciding what is an exposed surface.
+	## A generator passes this to BulkBuilder.grow so a garment does not grow
+	## through a joint seam. Empty means "judge by the part alone".
+	var occupancy: Dictionary = {}
 
 	func cells_of(part: String) -> Dictionary:
 		return part_cells.get(part, {})

@@ -38,12 +38,29 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 		"triple product %f" % ex.cross(ey).dot(ez))
 
 	# -- axis directions ----------------------------------------------------
-	t.check(VoxelAxes.direction_to_godot(Vector3(0, 0, 1)).is_equal_approx(Vector3.UP),
+	t.check(VoxelAxes.direction_to_godot(Vector3(0, 0, 1)).normalized()
+			.is_equal_approx(Vector3.UP),
 		"asset +z (up) becomes Godot +Y")
-	t.check(VoxelAxes.direction_to_godot(Vector3(1, 0, 0)).is_equal_approx(Vector3.LEFT),
+	t.check(VoxelAxes.direction_to_godot(Vector3(1, 0, 0)).normalized()
+			.is_equal_approx(Vector3.LEFT),
 		"asset +x (the character's left) becomes Godot -X")
-	t.check(VoxelAxes.direction_to_godot(Vector3(0, -1, 0)).is_equal_approx(Vector3.FORWARD),
+	t.check(VoxelAxes.direction_to_godot(Vector3(0, -1, 0)).normalized()
+			.is_equal_approx(Vector3.FORWARD),
 		"asset -y (the way the figure faces) becomes Godot -Z")
+
+	# A displacement must carry the voxel scale, not just the axis swap:
+	# direction_to_godot is the linear part of point_to_godot and has to agree
+	# with it. Testing only unit axes hid a missing 1/24 here once.
+	t.check(VoxelAxes.direction_to_godot(Vector3(0, 0, 24)).is_equal_approx(Vector3.UP),
+		"24 voxels up is one metre up",
+		str(VoxelAxes.direction_to_godot(Vector3(0, 0, 24))))
+	for pair in [[Vector3(5, -3, 11), Vector3(12, 12, 12)],
+			[Vector3(21, 12, 26), Vector3(12, 12, 16)]]:
+		var from: Vector3 = pair[0]
+		var to: Vector3 = pair[1]
+		t.check(VoxelAxes.direction_to_godot(from - to).is_equal_approx(
+				VoxelAxes.point_to_godot(from) - VoxelAxes.point_to_godot(to)),
+			"a displacement agrees with the difference of the two points")
 
 	# -- the two halves of the lock, with a real camera ---------------------
 	var body := library.body("male_average")

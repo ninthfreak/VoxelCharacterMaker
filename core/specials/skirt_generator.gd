@@ -118,7 +118,8 @@ static func _waistband(ctx: SpecialItem.Context, out: SpecialItem.Result) -> voi
 		var band := ctx.regions.band_at("pelvis", c.z)
 		if band != null and band.name == "waist":
 			source.append(c)
-	var grown := BulkBuilder.grow(pelvis, source, 1, BulkBuilder.EdgeStyle.SOFT)
+	var grown := BulkBuilder.grow(
+		pelvis, source, 1, BulkBuilder.EdgeStyle.SOFT, ctx.occupancy)
 	for cell in grown.keys():
 		out.claim("pelvis", cell, ROLE_CLOTH, int(grown[cell]))
 

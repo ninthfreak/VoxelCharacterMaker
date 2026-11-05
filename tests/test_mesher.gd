@@ -129,6 +129,21 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 		t.check(joint.get_parent() == parent_joint,
 			"%s hangs under %s" % [name2, p2.parent])
 
+	# The real invariant: walking the joint chain from the root must land on
+	# each part's pivot. Checking only the root once let every child joint sit
+	# 24 times too far out, because the offsets were in voxels, not metres.
+	for name4 in assembled.order:
+		var part4 := assembled.part(String(name4))
+		var accumulated := Vector3.ZERO
+		var walk := String(name4)
+		while not walk.is_empty():
+			accumulated += (rig.joints[walk] as Node3D).position
+			walk = assembled.part(walk).parent
+		t.check(accumulated.is_equal_approx(VoxelAxes.point_to_godot(part4.pivot)),
+			"joint %s chains to its pivot" % name4,
+			"got %s, pivot maps to %s" % [
+				accumulated, VoxelAxes.point_to_godot(part4.pivot)])
+
 	# The pelvis is the root, half a metre up, and the figure stands on y = 0.
 	var pelvis_joint: Node3D = rig.joints["pelvis"]
 	t.check(pelvis_joint.position.is_equal_approx(Vector3(0, 0.5, 0)),

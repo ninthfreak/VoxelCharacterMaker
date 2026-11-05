@@ -64,7 +64,8 @@ static func _raised(ctx: SpecialItem.Context, params: Dictionary,
 			source.append(c)
 
 	# A hood is cloth: soft edges.
-	var grown := BulkBuilder.grow(head_cells, source, depth, BulkBuilder.EdgeStyle.SOFT)
+	var grown := BulkBuilder.grow(
+		head_cells, source, depth, BulkBuilder.EdgeStyle.SOFT, ctx.occupancy)
 
 	var opening := _face_opening(ctx, int(params.get("opening", 1)))
 	var lined := bool(params.get("lined", false))
@@ -99,7 +100,8 @@ static func _down(ctx: SpecialItem.Context, params: Dictionary,
 		if band != null and band.name in ["collar", "upper_chest"]:
 			source.append(c)
 
-	var grown := BulkBuilder.grow(chest_cells, source, depth, BulkBuilder.EdgeStyle.SOFT)
+	var grown := BulkBuilder.grow(
+		chest_cells, source, depth, BulkBuilder.EdgeStyle.SOFT, ctx.occupancy)
 	for cell in grown.keys():
 		var c2: Vector3i = cell
 		if c2.y < VoxelAxes.DEPTH_CENTRE:

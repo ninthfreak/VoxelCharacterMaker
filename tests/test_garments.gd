@@ -165,6 +165,53 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	t.note(("rule 2 and 3: %d of the belly's grown cells sit outside its rows, "
 		+ "which is the up/down-facing exception") % outside_rows)
 
+	# Rule 3, the part that is easy to get wrong: "facing up or down" is a fact
+	# about the FIGURE, not about one part. The chest sits straight on the
+	# pelvis, so the chest's bottom row is not an exposed surface and a belly
+	# garment must not grow down through that seam into the hips.
+	var figure: Dictionary = {}
+	for name5 in body.part_names():
+		for cell13 in body.part(name5).cells.keys():
+			figure[cell13] = true
+	var chest_floor := 16
+	var seam_aware := BulkBuilder.grow(
+		chest.cells, region_cells, 2, BulkBuilder.EdgeStyle.SOFT, figure)
+	var through_seam := 0
+	for cell14 in seam_aware.keys():
+		if (cell14 as Vector3i).z < chest_floor:
+			through_seam += 1
+	t.check_equal(through_seam, 0,
+		"a belly garment does not grow down through the chest/pelvis seam")
+
+	var part_only := BulkBuilder.grow(chest.cells, region_cells, 2)
+	var part_only_through := 0
+	for cell15 in part_only.keys():
+		if (cell15 as Vector3i).z < chest_floor:
+			part_only_through += 1
+	t.check(part_only_through > 0,
+		"judging exposure by the part alone is what would let it through",
+		"that is why grow() takes the figure's occupancy")
+
+	# And the same thing end to end: a dressed figure must not have the chest
+	# and the pelvis both claiming the same cell.
+	t.group("garments: joints do not bleed")
+	for id4 in library.body_ids():
+		var dressed2 := _assemble(library, wardrobe, id4,
+			CharacterAssembler.worn_from_outfit(wardrobe, "everyday"))
+		var seam_pairs := {
+			"chest/pelvis": ["chest", "pelvis"],
+			"head/chest": [BodyDef.HEAD_PART, "chest"],
+		}
+		for label in seam_pairs.keys():
+			var pair: Array = seam_pairs[label]
+			var first: Dictionary = dressed2.part(String(pair[0])).cells
+			var second: Dictionary = dressed2.part(String(pair[1])).cells
+			var shared2 := 0
+			for cell16 in first.keys():
+				if second.has(cell16):
+					shared2 += 1
+			t.check_equal(shared2, 0, "%s: %s do not share cells" % [id4, label])
+
 	t.group("garments: layering")
 	# A thick coat over a thin shirt: the coat owns the shared cells.
 	var shirt := GarmentItem.create("shirt", "Shirt", "top")

@@ -142,6 +142,14 @@ static func assemble(req: Request) -> Assembled:
 	var claims: Dictionary = {}
 	var panels: Array = []
 
+	# What counts as an exposed surface is a property of the whole figure, not
+	# of one part: the seam where the chest meets the pelvis is inside the
+	# body, however it looks from the chest's own cells.
+	var occupancy: Dictionary = {}
+	for part_name in base.keys():
+		for cell in (base[part_name] as Dictionary).keys():
+			occupancy[cell] = true
+
 	if out.face != null:
 		_claim_face(claims, out.face, base.get(BodyDef.HEAD_PART, {}))
 
@@ -150,9 +158,9 @@ static func assemble(req: Request) -> Assembled:
 		var item: GarmentItem = e["item"]
 		var colourway := String(e["colourway"])
 		if item.is_special():
-			_claim_special(claims, panels, out, req, item, colourway, base, regions)
+			_claim_special(claims, panels, out, req, item, colourway, base, regions, occupancy)
 		else:
-			_claim_parametric(claims, item, colourway, base, regions)
+			_claim_parametric(claims, item, colourway, base, regions, occupancy)
 
 	# -- 4 and 5. compose, then shade the whole figure -----------------------
 	var solid: Dictionary = {}
@@ -258,7 +266,7 @@ static func _claim_face(claims: Dictionary, face: FaceDef, head_cells: Dictionar
 
 
 static func _claim_parametric(claims: Dictionary, item: GarmentItem, colourway: String,
-		base: Dictionary, regions: RegionMap) -> void:
+		base: Dictionary, regions: RegionMap, occupancy: Dictionary) -> void:
 	var coverage := item.effective_coverage()
 	if coverage.is_empty():
 		return
@@ -285,7 +293,8 @@ static func _claim_parametric(claims: Dictionary, item: GarmentItem, colourway: 
 					})
 				continue
 
-			var grown := BulkBuilder.grow(part_cells, region_cells, bulk, item.edge_style)
+			var grown := BulkBuilder.grow(
+				part_cells, region_cells, bulk, item.edge_style, occupancy)
 			for cell in grown.keys():
 				# Rule 5: grown voxels belong to the region and part they grew
 				# from. Rule 6: reach is how far the ITEM gets from the body.
@@ -297,12 +306,14 @@ static func _claim_parametric(claims: Dictionary, item: GarmentItem, colourway: 
 
 
 static func _claim_special(claims: Dictionary, panels: Array, out: Assembled, req: Request,
-		item: GarmentItem, colourway: String, base: Dictionary, regions: RegionMap) -> void:
+		item: GarmentItem, colourway: String, base: Dictionary, regions: RegionMap,
+		occupancy: Dictionary) -> void:
 	var ctx := SpecialItem.Context.new()
 	ctx.body = out.body
 	ctx.head = out.head
 	ctx.regions = regions
 	ctx.part_cells = base
+	ctx.occupancy = occupancy
 
 	var result := SpecialItem.generate(item.special_type, ctx, item.special_params)
 	for w in result.warnings:

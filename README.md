@@ -23,6 +23,7 @@ figures. Godot 4, GDScript.
 | Rigid-part rig and test poses | done |
 | Editor: preview, wardrobe, garment regions, colours, outfits | done |
 | Face editor | not started |
+| Review renders (`docs/renders/`) | done |
 | Export (.vox / STL / OBJ) | deferred to game work (owner's call) |
 | Body editor | not started |
 
@@ -43,6 +44,7 @@ same character assembled the way the game will do it, with no editor involved.
 ## Tests
 
 Every acceptance check in `SPEC.md` section 12 is an automated test.
+**851 checks, all passing** on Godot 4.7.2.
 
 ```bash
 godot --headless --path . --script res://tests/run_tests.gd
@@ -56,6 +58,20 @@ python3 tools/verify_assets.py
 ```
 
 Run that after regenerating anything in `assets/`, then run the Godot tests.
+
+## Review renders
+
+A test suite over a geometry pipeline can be green and still have the figure
+come out wrong, so looking at it is part of checking it:
+
+```bash
+xvfb-run -a godot --path . --rendering-driver opengl3 \
+    --script res://tools/render_sheets.gd -- --out docs/renders
+```
+
+Drop `xvfb-run -a` on a machine with a display. Writes the six bodies bare,
+the six dressed in one parametric outfit, every test pose, and the special
+items, all labelled and orthographic so they can be compared.
 
 ## Regenerating assets
 
