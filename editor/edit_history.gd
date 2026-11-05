@@ -24,7 +24,9 @@ class Entry extends RefCounted:
 		label = p_label
 		data = p_data
 
-var _entries: Array[Entry] = []
+## Array of Entry. Untyped on purpose: a typed array of an inner class is
+## fragile in GDScript.
+var _entries: Array = []
 var _at: int = -1
 
 

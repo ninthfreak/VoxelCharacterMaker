@@ -104,12 +104,16 @@ func refresh() -> void:
 		_palette.add_item("%s   %s" % [key, JsonIO.colour_to_hex(w.colour(key))])
 
 	var item := editor.selected_item()
-	_role_names = item.roles.duplicate() if item != null else ([] as Array[String])
+	_role_names.clear()
+	_colourway_names.clear()
+	if item != null:
+		_role_names.append_array(item.roles)
+		_colourway_names.append_array(item.colourway_names())
+
 	_roles.clear()
 	for role in _role_names:
 		_roles.add_item(role)
 
-	_colourway_names = item.colourway_names() if item != null else ([] as Array[String])
 	_colourways.clear()
 	for name in _colourway_names:
 		_colourways.add_item(name)
