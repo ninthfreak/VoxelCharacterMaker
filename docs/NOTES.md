@@ -60,8 +60,10 @@ test. One line each, and nothing else depends on it.
 
 **`assets/README.md` overstates one contact.** It says "arms touch only the
 chest at the shoulder (exception: female heavy's forearm rests against the
-hip)". Measured, female heavy's forearm is **2 voxels clear** of the pelvis —
-the closest of the six bodies, but not touching. So the strict `SPEC.md` section
+hip)". Measured, female heavy's forearm is **2 voxels clear** of the pelvis
+(Chebyshev distance 2, so a full empty voxel sits between them — not a face
+contact and not even a diagonal one). It is the closest clearance of the six
+bodies, and the same 2 to the thigh and the chest. So the strict `SPEC.md` section
 3.1 rule, "every part touches only its parent", holds on **all six bodies** with
 no exception, and `tests/test_assets.gd` asserts it with no exception. The
 README's note appears to be stale. Nothing needs fixing in the assets; the note
