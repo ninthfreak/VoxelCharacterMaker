@@ -1,0 +1,49 @@
+; Engine configuration file.
+; Generated for Godot 4.7. See SPEC.md for the project's design.
+
+config_version=5
+
+[application]
+
+config/name="Voxel Character Maker"
+config/description="Voxel character system and in-engine character editor. See SPEC.md."
+run/main_scene="res://editor/editor_main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/stretch/mode="canvas_items"
+
+[dotnet]
+
+project/assembly_name="Voxel Character Maker"
+
+[editor]
+
+export/convert_text_resources_to_binary=false
+
+[file_customization]
+
+folder_colors={
+"res://assets/": "orange",
+"res://core/": "blue",
+"res://editor/": "purple",
+"res://runtime/": "green",
+"res://tests/": "yellow"
+}
+
+[importer_defaults]
+
+json={
+"json/keep_as_text": true
+}
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+anti_aliasing/quality/msaa_3d=0
+textures/canvas_textures/default_texture_filter=0

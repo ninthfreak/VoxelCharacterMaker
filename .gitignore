@@ -1,0 +1,21 @@
+# Godot 4
+.godot/
+/android/
+*.translation
+
+# Export output
+/build/
+export_presets.cfg
+
+# Editor / OS noise
+*.tmp
+*~
+.DS_Store
+Thumbs.db
+
+# Python bytecode from tools/
+__pycache__/
+*.pyc
+
+# build_bodies.py also writes .npz debug dumps beside the assets
+assets/*.npz

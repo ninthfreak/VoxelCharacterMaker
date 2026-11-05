@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <rect width="32" height="32" fill="#1b1f2a"/>
+  <!-- a chunky voxel figure, lit from the upper left front: light / mid / dark -->
+  <g>
+    <!-- head -->
+    <rect x="12" y="4" width="8" height="7" fill="#ffd6ac"/>
+    <rect x="12" y="4" width="8" height="2" fill="#ffe6cc"/>
+    <rect x="18" y="6" width="2" height="5" fill="#be805c"/>
+    <!-- eyes, the only face feature -->
+    <rect x="13" y="7" width="2" height="2" fill="#2a2a34"/>
+    <rect x="17" y="7" width="2" height="2" fill="#2a2a34"/>
+    <!-- torso -->
+    <rect x="11" y="12" width="10" height="9" fill="#3a747c"/>
+    <rect x="11" y="12" width="10" height="2" fill="#6fa3a9"/>
+    <rect x="19" y="14" width="2" height="7" fill="#274f54"/>
+    <!-- arms -->
+    <rect x="8" y="13" width="3" height="8" fill="#3a747c"/>
+    <rect x="8" y="13" width="3" height="1" fill="#6fa3a9"/>
+    <rect x="21" y="13" width="3" height="8" fill="#274f54"/>
+    <!-- legs -->
+    <rect x="12" y="21" width="3" height="7" fill="#60553a"/>
+    <rect x="17" y="21" width="3" height="7" fill="#423a27"/>
+    <rect x="12" y="21" width="3" height="1" fill="#8a7b56"/>
+    <!-- feet -->
+    <rect x="11" y="28" width="4" height="2" fill="#262a3a"/>
+    <rect x="17" y="28" width="4" height="2" fill="#1a1d28"/>
+  </g>
+</svg>
