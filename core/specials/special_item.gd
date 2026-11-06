@@ -62,30 +62,13 @@ class Context extends RefCounted:
 	func cells_of(part: String) -> Dictionary:
 		return part_cells.get(part, {})
 
-	## Inclusive x extent of a part's cells in one row, or a zero rect if empty.
+	## Inclusive x extent of a part's cells in one row, or a reversed range
+	## when the row is empty. The measuring is VoxelTopology's.
 	func row_extent_x(part: String, z: int) -> Vector2i:
-		var lo := 9999
-		var hi := -9999
-		for cell in cells_of(part).keys():
-			var c: Vector3i = cell
-			if c.z == z:
-				lo = mini(lo, c.x)
-				hi = maxi(hi, c.x)
-		if hi < lo:
-			return Vector2i(0, -1)
-		return Vector2i(lo, hi)
+		return VoxelTopology.row_extent_x(cells_of(part), z)
 
 	func row_extent_y(part: String, z: int) -> Vector2i:
-		var lo := 9999
-		var hi := -9999
-		for cell in cells_of(part).keys():
-			var c: Vector3i = cell
-			if c.z == z:
-				lo = mini(lo, c.y)
-				hi = maxi(hi, c.y)
-		if hi < lo:
-			return Vector2i(0, -1)
-		return Vector2i(lo, hi)
+		return VoxelTopology.row_extent_y(cells_of(part), z)
 
 	## The first row at or below `from_z` that has any cells of the part.
 	func highest_row(part: String, from_z: int) -> int:

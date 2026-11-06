@@ -89,19 +89,24 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 	var hem_trim := bool(params.get("hem_trim", true))
 
 	# Front and back panels span the hip width; side panels span its depth.
-	_panel(out, PANEL_FRONT, "pelvis", Vector3(VoxelAxes.MIRROR_X, VoxelAxes.DEPTH_CENTRE, top_z),
+	# Once the flare widens a row, a front panel's end and a side panel's end
+	# reach the same corner cell. Two rigid parts in one cell z-fight at rest
+	# and tear apart when they swing differently, so the first panel to claim
+	# a cell keeps it: front and back first, which own the corners.
+	var taken := {}
+	_panel(out, taken, PANEL_FRONT, "pelvis", Vector3(VoxelAxes.MIRROR_X, VoxelAxes.DEPTH_CENTRE, top_z),
 		SpecialItem.DRIVER_FORWARD_THIGH,
 		ext_x, ext_y.x - 1, true, top_z, hem_z, flare, hem_trim)
-	_panel(out, PANEL_BACK, "pelvis", Vector3(VoxelAxes.MIRROR_X, VoxelAxes.DEPTH_CENTRE, top_z),
+	_panel(out, taken, PANEL_BACK, "pelvis", Vector3(VoxelAxes.MIRROR_X, VoxelAxes.DEPTH_CENTRE, top_z),
 		SpecialItem.DRIVER_BACKWARD_THIGH,
 		ext_x, ext_y.y + 1, true, top_z, hem_z, flare, hem_trim)
 
 	if four:
-		_panel(out, PANEL_LEFT, "pelvis",
+		_panel(out, taken, PANEL_LEFT, "pelvis",
 			Vector3(ext_x.y + 1, VoxelAxes.DEPTH_CENTRE, top_z),
 			SpecialItem.DRIVER_THIGH_L,
 			ext_y, ext_x.y + 1, false, top_z, hem_z, flare, hem_trim)
-		_panel(out, PANEL_RIGHT, "pelvis",
+		_panel(out, taken, PANEL_RIGHT, "pelvis",
 			Vector3(ext_x.x, VoxelAxes.DEPTH_CENTRE, top_z),
 			SpecialItem.DRIVER_THIGH_R,
 			ext_y, ext_x.x - 1, false, top_z, hem_z, flare, hem_trim)
@@ -130,7 +135,8 @@ static func _waistband(ctx: SpecialItem.Context, out: SpecialItem.Result) -> voi
 ## fixed      the coordinate it sits at on the other horizontal axis
 ## across_x   true when the panel's width runs along x (front/back panels)
 ## flare      how many voxels wider each side gets by the hem
-static func _panel(out: SpecialItem.Result, name: String, parent: String, pivot: Vector3,
+static func _panel(out: SpecialItem.Result, taken: Dictionary, name: String,
+		parent: String, pivot: Vector3,
 		driver: String, span: Vector2i, fixed: int, across_x: bool,
 		top_z: int, hem_z: int, flare: int, hem_trim: bool) -> void:
 	out.panel(name, parent, pivot, driver)
@@ -147,6 +153,9 @@ static func _panel(out: SpecialItem.Result, name: String, parent: String, pivot:
 		var role := ROLE_HEM if (hem_trim and z == hem_z) else ROLE_CLOTH
 		for i in range(lo, hi + 1):
 			var cell := Vector3i(i, fixed, z) if across_x else Vector3i(fixed, i, z)
+			if taken.has(cell):
+				continue
+			taken[cell] = true
 			# Panels hang clear of the body, so reach 1: they are the outermost
 			# thing in their own space and nothing layers under them.
 			out.claim(name, cell, role, 1)

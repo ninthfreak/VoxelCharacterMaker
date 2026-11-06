@@ -6,6 +6,8 @@ extends EditorPanel
 ## poses that are the real check on part splits and pivots (SPEC.md section 8).
 
 var _body: OptionButton = null
+## Shown in place of a silent no-op while the Body tab has a body open.
+var _body_note: Label = null
 var _head: OptionButton = null
 var _expression: OptionButton = null
 var _pose: OptionButton = null
@@ -23,6 +25,11 @@ func _build() -> void:
 			return
 		editor.body_id = option_value(_body)
 		editor.rebuild())
+	_body_note = hint(figure, "")
+	_body_note.add_theme_color_override("font_color", Palette.UI_ORANGE)
+	_body_note.visible = false
+	if editor != null:
+		editor.body_editing_changed.connect(refresh)
 
 	_head = labelled(figure, "Head", OptionButton.new()) as OptionButton
 	_head.item_selected.connect(func(_i: int) -> void:
@@ -89,6 +96,14 @@ func refresh() -> void:
 	for id in body_ids:
 		body_labels.append((editor.library.body(id) as BodyDef).display_name())
 	fill_options(_body, body_ids, editor.body_id, body_labels)
+	# While a body is open in the Body tab the preview shows that body, so a
+	# different choice here would do nothing. Say so instead of ignoring it.
+	var editing := editor.body_override != null
+	_body.disabled = editing
+	_body_note.visible = editing
+	if editing:
+		_body_note.text = "The Body tab has a body open; the preview shows that. " \
+			+ "Stop editing there to choose another body here."
 
 	fill_options(_head, editor.library.head_shapes(), editor.head_shape)
 

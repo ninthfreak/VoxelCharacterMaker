@@ -39,6 +39,10 @@ fi
 if [ "$NEEDS_IMPORT" = "1" ]; then
   echo "== importing the project (script cache is missing or stale) =="
   "$GODOT_BIN" --headless --path . --import >/dev/null 2>&1 || true
+  # Godot only rewrites the cache when the class list changes. After an edit
+  # that adds no class, the file keeps its old time, stays "older than a
+  # script", and every later run would import again. Mark it current.
+  [ -f "$CACHE" ] && touch "$CACHE"
 fi
 
 echo

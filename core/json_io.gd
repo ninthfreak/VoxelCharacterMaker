@@ -99,6 +99,34 @@ static func hex_to_colour(s: String) -> Color:
 	return c
 
 
+# ------------------------------------------------------------------ numbers --
+
+## JSON has one number type, and Godot parses every number as a float. A value
+## stored as the int 1 is written "1", reloaded as 1.0, and written "1.0" --
+## so any field that is not cast back on load breaks the byte-for-byte
+## round-trip. This settles it: whole-valued floats become ints, recursively,
+## so the value is the same after every load and writes the same every time.
+static func normalise_numbers(value: Variant) -> Variant:
+	match typeof(value):
+		TYPE_FLOAT:
+			var f: float = value
+			if is_finite(f) and is_equal_approx(f, roundf(f)) and absf(f) < 9.0e15:
+				return int(roundf(f))
+			return f
+		TYPE_DICTIONARY:
+			var out := {}
+			var d: Dictionary = value
+			for key in d.keys():
+				out[key] = normalise_numbers(d[key])
+			return out
+		TYPE_ARRAY:
+			var arr: Array = []
+			for item in (value as Array):
+				arr.append(normalise_numbers(item))
+			return arr
+	return value
+
+
 # ------------------------------------------------------------------ vectors --
 
 static func to_vec3i(v: Variant) -> Vector3i:

@@ -44,6 +44,10 @@ var _part_names: Array[String] = []
 var _open_dialog: FileDialog = null
 var _save_dialog: FileDialog = null
 var _dirty := false
+## Where this body was last saved by the user, as opposed to the library file
+## it came from. Only a path chosen here is safe to save over without asking:
+## the library file is what build_bodies.py regenerates.
+var _saved_path := ""
 
 
 func _build() -> void:
@@ -168,6 +172,9 @@ func _build_dialogs() -> void:
 	_save_dialog.title = "Save the body as"
 	_save_dialog.add_filter("*.json", "Body file")
 	_save_dialog.file_selected.connect(_do_save)
+	# If this save was answering an unsaved-changes prompt and gets cancelled,
+	# whatever the prompt was guarding must not run later on its own.
+	_save_dialog.canceled.connect(func() -> void: editor.cancel_pending())
 	add_child(_save_dialog)
 
 
@@ -177,22 +184,40 @@ func is_editing() -> bool:
 	return edit != null
 
 
-## The editor shell asks this before routing undo, so a brush stroke and a
-## colourway change do not end up in one interleaved stack.
-func owns_undo() -> bool:
-	return is_editing()
+## Unsaved edits that would be lost by closing this body.
+func has_unsaved() -> bool:
+	return is_editing() and _dirty
 
 
-func handle_undo(redo: bool) -> void:
+func edit_display_name() -> String:
+	return edit.display_name() if edit != null else ""
+
+
+## Restore a snapshot from the editor's undo timeline.
+func restore_snapshot(snapshot: Dictionary) -> void:
 	if edit == null:
-		return
-	var snapshot := history.redo() if redo else history.undo()
-	if snapshot.is_empty():
 		return
 	edit.restore(snapshot)
 	_dirty = true
 	_push_preview()
 	refresh()
+
+
+## "Save first" from an unsaved-changes prompt. A body saved here before goes
+## straight back to that file; one that has only ever been the library's copy
+## goes through Save As, because overwriting the generated file should be a
+## deliberate choice rather than a side effect of quitting.
+func save_for_prompt() -> void:
+	if not _saved_path.is_empty():
+		_do_save(_saved_path)
+	else:
+		_on_save_as()
+
+
+## "Discard changes" from a prompt: the edits are let go. Whatever the prompt
+## was guarding (stop, open another, quit) does the rest.
+func discard_unsaved() -> void:
+	_dirty = false
 
 
 ## Jump the slice to a given row, for a screenshot or a future shortcut.
@@ -216,33 +241,46 @@ func _on_edit_current() -> void:
 	if body == null:
 		editor.set_status_hint("No body to edit.")
 		return
-	_begin(BodyEdit.from_body(body), "Edit %s" % body.display_name())
+	var start := func() -> void:
+		_begin(BodyEdit.from_body(body), "Edit %s" % body.display_name())
+	editor.guard_unsaved(start, true, false)
 
 
 func _begin(new_edit: BodyEdit, label: String) -> void:
 	edit = new_edit
 	history.reset(edit.snapshot(), label)
+	editor.forget_edits(CharacterEditor.DOC_BODY)
 	_dirty = false
+	_saved_path = ""
 	if _part_names.is_empty():
 		_grid.active_part = BodyEdit.PAINTABLE[0]
 	_grid.body = edit
 	_push_preview()
 	refresh()
+	editor.body_editing_changed.emit()
 	editor.set_status_hint("Editing %s. The preview follows what you draw."
 		% edit.display_name())
 
 
 func _on_stop() -> void:
-	if edit != null and _dirty:
-		editor.set_status_hint("This body has unsaved edits; save it first or "
-			+ "press Stop editing again to discard them.")
-		_dirty = false
+	if edit == null:
 		return
+	# The same Save / Discard / Cancel prompt as quitting, rather than a
+	# press-twice rule that quietly forgot the edits were unsaved.
+	editor.guard_unsaved(_stop_now, true, false)
+
+
+func _stop_now() -> void:
 	edit = null
+	_dirty = false
+	_saved_path = ""
 	_grid.body = null
+	history.reset({}, "No body open")
+	editor.forget_edits(CharacterEditor.DOC_BODY)
 	editor.body_override = null
 	editor.rebuild()
 	refresh()
+	editor.body_editing_changed.emit()
 
 
 ## Hand the edited body to the preview, so the pose preview and every garment
@@ -268,6 +306,7 @@ func _on_erased(cells: Array) -> void:
 func _after_stroke(label: String) -> void:
 	_dirty = true
 	history.commit(label, edit.snapshot())
+	editor.note_edit(CharacterEditor.DOC_BODY)
 	_push_preview()
 	refresh()
 
@@ -414,7 +453,8 @@ func _on_clear_problems() -> void:
 # -------------------------------------------------------------------- files --
 
 func _on_open() -> void:
-	_open_dialog.popup_centered_ratio(0.6)
+	var show := func() -> void: _open_dialog.popup_centered_ratio(0.6)
+	editor.guard_unsaved(show, true, false)
 
 
 func _do_open(path: String) -> void:
@@ -439,8 +479,13 @@ func _do_save(path: String) -> void:
 		target += ".json"
 	var err := edit.save_to(target)
 	if not err.is_empty():
+		editor.cancel_pending()
 		editor.set_status_hint("Could not save: %s" % err)
 		return
 	_dirty = false
+	_saved_path = target
 	refresh()
 	editor.set_status_hint("Saved %s" % target.get_file())
+	# If this save answered an unsaved-changes prompt, carry on with what it
+	# was guarding.
+	editor.resume_pending()

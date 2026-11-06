@@ -169,6 +169,20 @@ static func row_extent_x(cells: Dictionary, z: int) -> Vector2i:
 	return Vector2i(lo, hi)
 
 
+## Inclusive y extent of the cells in one row, or a reversed range when none.
+static func row_extent_y(cells: Dictionary, z: int) -> Vector2i:
+	var lo := 9999
+	var hi := -9999
+	for cell in cells.keys():
+		var c: Vector3i = cell
+		if c.z == z:
+			lo = mini(lo, c.y)
+			hi = maxi(hi, c.y)
+	if hi < lo:
+		return Vector2i(0, -1)
+	return Vector2i(lo, hi)
+
+
 ## Mid-x of the cells in rows z0..z1, in corner space.
 ##
 ## This is how tools/build_bodies.py measures a joint pivot, so a body edited

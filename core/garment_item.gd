@@ -244,7 +244,7 @@ func to_json() -> Dictionary:
 
 	if is_special():
 		out["special_type"] = special_type
-		out["special_params"] = special_params.duplicate(true)
+		out["special_params"] = JsonIO.normalise_numbers(special_params)
 	else:
 		var cov := {}
 		for key in coverage.keys():
@@ -283,7 +283,11 @@ static func from_json(p_id: String, data: Dictionary) -> GarmentItem:
 
 	if item.is_special():
 		item.special_type = String(data.get("special_type", ""))
-		item.special_params = (data.get("special_params", {}) as Dictionary).duplicate(true)
+		# Free-form, so nothing casts these back the way the fixed fields are
+		# cast; normalise or an int parameter comes back as a float and the
+		# file stops round-tripping.
+		item.special_params = JsonIO.normalise_numbers(
+			data.get("special_params", {})) as Dictionary
 	else:
 		var raw_cov: Dictionary = data.get("coverage", {})
 		for key in raw_cov.keys():

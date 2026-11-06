@@ -290,6 +290,26 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 		t.check(panel_cells > 0, "%s: the panels have geometry" % id3,
 			"%d cells" % panel_cells)
 
+	# A flared hem makes the front and side panels reach the same corner cell.
+	# Two rigid parts in one cell z-fight at rest and split when they swing.
+	for flare in range(0, 4):
+		skirt.special_params["flare"] = flare
+		var flared := _assemble(library, wardrobe, "male_heavy",
+			[{"item": "skirt", "colourway": "default"}])
+		var panel_owner := {}
+		var doubled_cells := 0
+		for name5 in flared.order:
+			var part5 := flared.part(String(name5))
+			if not part5.is_panel():
+				continue
+			for cell17 in part5.cells.keys():
+				if panel_owner.has(cell17):
+					doubled_cells += 1
+				panel_owner[cell17] = name5
+		t.check_equal(doubled_cells, 0,
+			"flare %d: no cell belongs to two skirt panels" % flare)
+	skirt.special_params["flare"] = 1
+
 	var hood := GarmentItem.create("hood", "Hood", "hat")
 	hood.kind = GarmentItem.Kind.SPECIAL
 	hood.special_type = "hood"

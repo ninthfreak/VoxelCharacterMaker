@@ -62,6 +62,14 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 				VoxelAxes.point_to_godot(from) - VoxelAxes.point_to_godot(to)),
 			"a displacement agrees with the difference of the two points")
 
+	# godot_to_point undoes point_to_godot exactly. Picking depends on it, and
+	# it lives beside the forward mapping so a convention change moves both.
+	for sample in [Vector3(0, 0, 0), Vector3(12, 12, 12), Vector3(21.5, 6, 33),
+			Vector3(3, 17.25, 41)]:
+		var p: Vector3 = sample
+		t.check(VoxelAxes.godot_to_point(VoxelAxes.point_to_godot(p)).is_equal_approx(p),
+			"godot_to_point inverts point_to_godot at %s" % p)
+
 	# -- the two halves of the lock, with a real camera ---------------------
 	var body := library.body("male_average")
 	var head := library.head("round")

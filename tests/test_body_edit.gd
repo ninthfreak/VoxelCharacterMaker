@@ -173,6 +173,32 @@ static func _mirror(t: TestReport, library: AssetLibrary) -> void:
 	t.check_equal(edit.owner_at(mirrored), "upper_arm_R",
 		"its mirror belongs to the right arm")
 
+	# The slice grid looks down on the figure, so screen-left is the
+	# character's RIGHT. Choosing upper_arm_L and painting there must paint the
+	# right arm (and mirror the left arm into place), not put the left arm on
+	# the right-hand side of the body.
+	var wrong_side := Vector3i(3, 11, 21)
+	t.check(not VoxelAxes.is_left(wrong_side), "x3 is on the character's right")
+	edit.paint(wrong_side, "upper_arm_L")
+	t.check_equal(edit.owner_at(wrong_side), "upper_arm_R",
+		"painting upper_arm_L on the character's right paints the right arm")
+	t.check_equal(edit.owner_at(VoxelAxes.mirror_voxel(wrong_side)), "upper_arm_L",
+		"and the left arm gets the mirrored cell on the left")
+	var crossed := 0
+	for name in ["upper_arm", "forearm", "thigh", "shin"]:
+		for cell3 in edit.part_cells(name + "_L").keys():
+			if not VoxelAxes.is_left(cell3):
+				crossed += 1
+		for cell4 in edit.part_cells(name + "_R").keys():
+			if VoxelAxes.is_left(cell4):
+				crossed += 1
+	t.check_equal(crossed, 0, "no paired part ever ends up on the wrong side")
+	t.check(edit.pivot_of("upper_arm_L").x > VoxelAxes.MIRROR_X,
+		"so the left arm's pivot stays on the left",
+		str(edit.pivot_of("upper_arm_L")))
+	t.check_equal(BodyEdit.part_for_side("chest", wrong_side), "chest",
+		"a centred part is not affected by which side it is painted on")
+
 	# Painting a centred part mirrors within that same part.
 	var chest_cell := Vector3i(16, 10, 23)
 	edit.paint(chest_cell, "chest")

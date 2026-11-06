@@ -21,11 +21,17 @@ extends Control
 ##     nothing depends on remembering what mode you are in
 
 const STATE_PATH := "user://editor_state.cfg"
+## Where the last file and figure are remembered. A variable so the test suite
+## can point it elsewhere before the editor starts, rather than overwrite the
+## state of whoever runs the tests.
+var state_path := STATE_PATH
 const DEFAULT_WARDROBE := "user://wardrobe.vxwardrobe.json"
 
 signal figure_changed
 signal wardrobe_replaced
 signal selection_changed
+## A body was opened in, or closed from, the Body tab.
+signal body_editing_changed
 
 ## The item the Wardrobe and Garment tabs are both working on. Shared so that
 ## picking a region on the figure edits the item you were already looking at,
@@ -57,6 +63,10 @@ var _viewport_container: SubViewportContainer = null
 var _status: Label = null
 var _title: Label = null
 var _warning: Label = null
+## Messages from the last action ("Saved ...", "Picked ..."). Kept apart from
+## _warning, which rebuild() owns: sharing one label meant every rebuild wiped
+## the message the action had just set, so "Saved" was never seen.
+var _hint: Label = null
 var _tabs: TabContainer = null
 var _menu_file: MenuButton = null
 var _menu_edit: MenuButton = null
@@ -76,13 +86,25 @@ var _save_dialog: FileDialog = null
 var _unsaved_dialog: ConfirmationDialog = null
 var _message_dialog: AcceptDialog = null
 var _pending_after_prompt: Callable = Callable()
+## Which document the open unsaved-changes prompt is about.
+var _prompt_doc := ""
 
 enum FileMenu { NEW, OPEN, SAVE, SAVE_AS, REOPEN_LAST, QUIT }
 enum EditMenu { UNDO, REDO }
 
 
 func _ready() -> void:
+	# This script is @tool so its panels' helpers can run in the editor, but the
+	# app itself must not: opening this scene in the Godot editor would
+	# otherwise build the whole UI inside the editor's viewport, read and write
+	# user state, and -- with the close request taken over below -- interfere
+	# with closing Godot itself.
+	if Engine.is_editor_hint():
+		return
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Closing the window must go through the unsaved-changes prompt like Quit
+	# does; Godot accepts the close straight away unless told not to.
+	get_tree().set_auto_accept_quit(false)
 	library = AssetLibrary.new()
 	if not library.load_all():
 		push_error("asset library: %s" % ", ".join(library.errors))
@@ -197,12 +219,15 @@ func _build_ui() -> void:
 	status_row.add_child(_status)
 	_warning = Label.new()
 	_warning.add_theme_color_override("font_color", Palette.UI_ORANGE)
-	# Shares the row rather than being squeezed off the end of it: the hint
-	# line is where every "that did not work, and here is why" message lands.
-	_warning.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_warning.clip_text = true
 	status_row.add_child(_warning)
+	_hint = Label.new()
+	_hint.add_theme_color_override("font_color", Palette.UI_SKY)
+	# Shares the row rather than being squeezed off the end of it.
+	_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_hint.clip_text = true
+	status_row.add_child(_hint)
 
 	_build_dialogs()
 
@@ -312,6 +337,9 @@ func _build_dialogs() -> void:
 	_save_dialog.title = "Save wardrobe as"
 	_save_dialog.add_filter("*.json", "Wardrobe file")
 	_save_dialog.file_selected.connect(_do_save_as)
+	# A cancelled save must drop whatever was waiting on it, or a later save
+	# would carry it out -- quitting, say, long after the user changed their mind.
+	_save_dialog.canceled.connect(cancel_pending)
 	add_child(_save_dialog)
 
 	# Save / Discard / Cancel, spelled out rather than Yes/No.
@@ -323,6 +351,7 @@ func _build_dialogs() -> void:
 	var discard := _unsaved_dialog.add_button("Discard changes", true, "discard")
 	discard.pressed.connect(_on_discard_changes)
 	_unsaved_dialog.confirmed.connect(_on_save_then_continue)
+	_unsaved_dialog.canceled.connect(cancel_pending)
 	add_child(_unsaved_dialog)
 
 	_message_dialog = AcceptDialog.new()
@@ -352,6 +381,10 @@ func _fit_view_if_untouched() -> void:
 func rebuild() -> void:
 	if library == null:
 		return
+	# One place, rather than at every delete, undo and load: a solo item that
+	# is gone hides every other worn item while showing nothing itself.
+	if not solo_item.is_empty() and (wardrobe == null or wardrobe.item(solo_item) == null):
+		solo_item = ""
 	var request := CharacterAssembler.Request.make(library, body_id, head_shape, expression)
 	request.body_override = body_override
 	request.wardrobe = wardrobe
@@ -396,6 +429,7 @@ func commit(label: String) -> void:
 		return
 	wardrobe.mark_dirty()
 	history.commit(label, wardrobe.to_json())
+	note_edit(DOC_WARDROBE)
 	rebuild()
 
 
@@ -545,15 +579,10 @@ func _pick_region_at(screen_position: Vector2) -> void:
 	set_status_hint("Picked %s" % wardrobe_region_label(region))
 
 
-## Inverse of VoxelAxes.point_to_godot, offset by the part's pivot.
+## A point in a joint's local space -> the voxel under it. The conversion
+## itself is VoxelAxes's, so a change of convention there reaches picking too.
 func _godot_local_to_cell(local: Vector3, pivot: Vector3) -> Vector3i:
-	var pivot_godot := VoxelAxes.point_to_godot(pivot)
-	var p := local + pivot_godot
-	var asset := Vector3(
-		VoxelAxes.MIRROR_X - p.x * VoxelAxes.VOXELS_PER_METRE,
-		p.z * VoxelAxes.VOXELS_PER_METRE + VoxelAxes.DEPTH_CENTRE,
-		p.y * VoxelAxes.VOXELS_PER_METRE,
-	)
+	var asset := VoxelAxes.godot_to_point(local + VoxelAxes.point_to_godot(pivot))
 	return Vector3i(floori(asset.x), floori(asset.y), floori(asset.z))
 
 
@@ -565,6 +594,8 @@ func wardrobe_region_label(region_key: String) -> String:
 # -------------------------------------------------------------------- input --
 
 func _gui_input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
 	_route_viewport_input(event)
 
 
@@ -586,6 +617,8 @@ func _route_viewport_input(event: InputEvent) -> void:
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.echo:
 		return
@@ -618,38 +651,135 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 # ------------------------------------------------------------------- undo ----
+#
+# Two documents can be edited at once -- the wardrobe, and a body open in the
+# Body tab -- and each keeps its own snapshot history. The timeline records
+# which document each edit belonged to, in the order they happened, so Ctrl+Z
+# always reverses the most recent edit, whichever document it was in, and the
+# Edit menu names exactly what that will be.
+#
+# (Routing every undo to the body while one was open, as this used to, made
+# the menu describe one edit while Ctrl+Z undid another, and left wardrobe
+# edits made during body editing impossible to undo until editing stopped.)
+
+const DOC_WARDROBE := "wardrobe"
+const DOC_BODY := "body"
+
+var _timeline: Array[String] = []
+var _timeline_at := -1  ## index of the most recent edit still applied
+
+
+## Record that an edit just landed in `doc`. Anything that had been undone is
+## no longer reachable, exactly as with a single stack.
+func note_edit(doc: String) -> void:
+	while _timeline.size() > _timeline_at + 1:
+		_timeline.remove_at(_timeline.size() - 1)
+	_timeline.append(doc)
+	_timeline_at = _timeline.size() - 1
+	_refresh_edit_menu()
+
+
+## Drop every timeline entry for `doc`, because its history was replaced (a
+## new or opened wardrobe, a body opened or closed).
+func forget_edits(doc: String) -> void:
+	var kept: Array[String] = []
+	var new_at := -1
+	for i in _timeline.size():
+		if _timeline[i] == doc:
+			continue
+		kept.append(_timeline[i])
+		if i <= _timeline_at:
+			new_at = kept.size() - 1
+	_timeline = kept
+	_timeline_at = new_at
+	_refresh_edit_menu()
+
+
+func _history_for(doc: String) -> EditHistory:
+	if doc == DOC_BODY:
+		return body_panel.history if body_panel != null else null
+	return history
+
+
+## The document the next undo would act on, or "" when there is nothing.
+func next_undo_doc() -> String:
+	return _timeline[_timeline_at] if _timeline_at >= 0 else ""
+
+
+func next_redo_doc() -> String:
+	return _timeline[_timeline_at + 1] if _timeline_at + 1 < _timeline.size() else ""
+
+
+func _menu_label(verb: String, doc: String, undoing: bool) -> String:
+	if doc.is_empty():
+		return verb
+	var h := _history_for(doc)
+	var what := ""
+	if h != null:
+		what = h.undo_label() if undoing else h.redo_label()
+	var prefix := "body: " if doc == DOC_BODY else ""
+	return "%s %s%s" % [verb, prefix, what]
+
 
 func _refresh_edit_menu() -> void:
 	if _menu_edit == null:
 		return
 	var popup := _menu_edit.get_popup()
 	popup.clear()
-	var undo_text := "Undo"
-	if history.can_undo():
-		undo_text = "Undo %s" % history.undo_label()
-	popup.add_item(undo_text, EditMenu.UNDO)
-	popup.set_item_disabled(0, not history.can_undo())
-	var redo_text := "Redo"
-	if history.can_redo():
-		redo_text = "Redo %s" % history.redo_label()
-	popup.add_item(redo_text, EditMenu.REDO)
-	popup.set_item_disabled(1, not history.can_redo())
+	var undo_doc := next_undo_doc()
+	var redo_doc := next_redo_doc()
+	popup.add_item(_menu_label("Undo", undo_doc, true), EditMenu.UNDO)
+	popup.set_item_disabled(0, undo_doc.is_empty())
+	popup.add_item(_menu_label("Redo", redo_doc, false), EditMenu.REDO)
+	popup.set_item_disabled(1, redo_doc.is_empty())
 
 
 func _on_edit_menu(id: int) -> void:
-	# The body editor keeps its own stack, because undoing a brush stroke and
-	# undoing a colourway change are not one sequence anyone wants interleaved.
-	if body_panel != null and body_panel.owns_undo():
-		body_panel.handle_undo(id == EditMenu.REDO)
-		return
+	if id == EditMenu.REDO:
+		redo()
+	else:
+		undo()
 
-	var snapshot: Dictionary = {}
-	match id:
-		EditMenu.UNDO:
-			snapshot = history.undo()
-		EditMenu.REDO:
-			snapshot = history.redo()
+
+## Reverse the most recent edit in either document. Returns false when there
+## was nothing to undo.
+func undo() -> bool:
+	while _timeline_at >= 0:
+		var doc := _timeline[_timeline_at]
+		var h := _history_for(doc)
+		if h == null or not h.can_undo():
+			# Older than that document's history reaches (it caps its length),
+			# so this entry can never be undone; drop it and look further back.
+			_timeline.remove_at(_timeline_at)
+			_timeline_at -= 1
+			continue
+		_timeline_at -= 1
+		_apply_snapshot(doc, h.undo())
+		_refresh_edit_menu()
+		return true
+	_refresh_edit_menu()
+	return false
+
+
+func redo() -> bool:
+	var doc := next_redo_doc()
+	if doc.is_empty():
+		return false
+	var h := _history_for(doc)
+	if h == null or not h.can_redo():
+		return false
+	_timeline_at += 1
+	_apply_snapshot(doc, h.redo())
+	_refresh_edit_menu()
+	return true
+
+
+func _apply_snapshot(doc: String, snapshot: Dictionary) -> void:
 	if snapshot.is_empty():
+		return
+	if doc == DOC_BODY:
+		if body_panel != null:
+			body_panel.restore_snapshot(snapshot)
 		return
 	var restored := Wardrobe.from_json(snapshot)
 	if restored == null:
@@ -683,15 +813,12 @@ func _prune_worn() -> void:
 func _on_file_menu(id: int) -> void:
 	match id:
 		FileMenu.NEW:
-			_guard_unsaved(func() -> void:
-				wardrobe = Wardrobe.create_default()
-				history.reset(wardrobe.to_json(), "New wardrobe")
-				_wear_default_outfit()
-				wardrobe_replaced.emit()
-				_refresh_all_panels()
-				rebuild())
+			var start_new := func() -> void:
+				_replace_wardrobe(Wardrobe.create_default(), "New wardrobe")
+			guard_unsaved(start_new, false, true)
 		FileMenu.OPEN:
-			_guard_unsaved(func() -> void: _open_dialog.popup_centered_ratio(0.6))
+			var show_open := func() -> void: _open_dialog.popup_centered_ratio(0.6)
+			guard_unsaved(show_open, false, true)
 		FileMenu.SAVE:
 			_save_current()
 		FileMenu.SAVE_AS:
@@ -703,11 +830,31 @@ func _on_file_menu(id: int) -> void:
 			if last.is_empty():
 				_message("No previous file to reopen.")
 				return
-			_guard_unsaved(func() -> void: _do_open(last))
+			var reopen := func() -> void: _do_open(last)
+			guard_unsaved(reopen, false, true)
 		FileMenu.QUIT:
-			_guard_unsaved(func() -> void:
-				_save_state()
-				get_tree().quit())
+			_quit_when_safe()
+
+
+## Quit, after asking about anything unsaved in either document. Both File >
+## Quit and the window's close button come here.
+func _quit_when_safe() -> void:
+	var quit_now := func() -> void:
+		_save_state()
+		get_tree().quit()
+	guard_unsaved(quit_now, true, true)
+
+
+## Swap in a different wardrobe: the history and its timeline entries go with
+## the old one.
+func _replace_wardrobe(new_wardrobe: Wardrobe, label: String) -> void:
+	wardrobe = new_wardrobe
+	history.reset(wardrobe.to_json(), label)
+	forget_edits(DOC_WARDROBE)
+	_wear_default_outfit()
+	wardrobe_replaced.emit()
+	_refresh_all_panels()
+	rebuild()
 
 
 func _save_current() -> void:
@@ -718,10 +865,9 @@ func _save_current() -> void:
 		return
 	var err := wardrobe.save_to()
 	if err.is_empty():
-		_save_state()
-		set_status_hint("Saved %s" % wardrobe.display_path())
-		rebuild()
+		_after_wardrobe_saved()
 	else:
+		cancel_pending()
 		_message("Could not save: %s" % err)
 
 
@@ -731,11 +877,20 @@ func _do_save_as(path: String) -> void:
 		target += ".json"
 	var err := wardrobe.save_to(target)
 	if err.is_empty():
-		_save_state()
-		set_status_hint("Saved %s" % wardrobe.display_path())
-		rebuild()
+		_after_wardrobe_saved()
 	else:
+		cancel_pending()
 		_message("Could not save: %s" % err)
+
+
+func _after_wardrobe_saved() -> void:
+	_save_state()
+	rebuild()
+	set_status_hint("Saved %s" % wardrobe.display_path())
+	# If this save was the "Save first" answer to a prompt, carry on with
+	# whatever the prompt was guarding. Saving through a file dialog answers
+	# later than the prompt does, so this is the only place that can.
+	resume_pending()
 
 
 func _do_open(path: String) -> void:
@@ -743,42 +898,79 @@ func _do_open(path: String) -> void:
 	if loaded == null:
 		_message("Could not open %s.\n%s" % [path.get_file(), JsonIO.last_error()])
 		return
-	wardrobe = loaded
-	history.reset(wardrobe.to_json(), "Opened %s" % path.get_file())
-	_wear_default_outfit()
+	loaded.path = path
+	_replace_wardrobe(loaded, "Opened %s" % path.get_file())
 	_save_state()
-	wardrobe_replaced.emit()
-	_refresh_all_panels()
-	rebuild()
 	set_status_hint("Opened %s" % wardrobe.display_path())
 
 
-## Run `action` once it is safe to lose the current document.
-func _guard_unsaved(action: Callable) -> void:
-	if wardrobe == null or not wardrobe.dirty:
-		action.call()
+# ----------------------------------------------------------- unsaved guard --
+
+## Run `action` once it is safe to lose what it would discard.
+##
+## check_body      ask about unsaved edits to the body open in the Body tab
+## check_wardrobe  ask about unsaved changes to the wardrobe
+##
+## The body is asked about first; once it is saved or discarded the wardrobe
+## gets its turn, and only then does the action run. Every way out of a prompt
+## either resumes the action or drops it -- nothing is left waiting to fire
+## later on an unrelated save.
+func guard_unsaved(action: Callable, check_body: bool, check_wardrobe: bool) -> void:
+	if check_body and body_panel != null and body_panel.has_unsaved():
+		_pending_after_prompt = func() -> void:
+			guard_unsaved(action, false, check_wardrobe)
+		_prompt(DOC_BODY, "The body you are editing (%s) has unsaved changes."
+			% body_panel.edit_display_name())
 		return
-	_pending_after_prompt = action
-	_unsaved_dialog.dialog_text = "%s has unsaved changes." % wardrobe.display_path()
+	if check_wardrobe and wardrobe != null and wardrobe.dirty:
+		_pending_after_prompt = action
+		_prompt(DOC_WARDROBE, "%s has unsaved changes." % wardrobe.display_path())
+		return
+	action.call()
+
+
+func _prompt(doc: String, text: String) -> void:
+	_prompt_doc = doc
+	_unsaved_dialog.dialog_text = text
 	_unsaved_dialog.popup_centered()
 
 
+## "Save first". Saving may need a file dialog, which answers later; the
+## pending action then resumes from resume_pending() once the save lands, or
+## is dropped by cancel_pending() if the dialog is cancelled.
 func _on_save_then_continue() -> void:
-	_save_current()
-	if wardrobe != null and not wardrobe.dirty:
-		_run_pending()
+	if _prompt_doc == DOC_BODY and body_panel != null:
+		body_panel.save_for_prompt()
+	else:
+		_save_current()
 
 
 func _on_discard_changes() -> void:
-	_unsaved_dialog.hide()
-	_run_pending()
-
-
-func _run_pending() -> void:
+	# Take the action before hiding: the dialog's own signals must not get a
+	# chance to drop it first.
 	var action := _pending_after_prompt
+	var doc := _prompt_doc
 	_pending_after_prompt = Callable()
+	_prompt_doc = ""
+	_unsaved_dialog.hide()
+	if doc == DOC_BODY and body_panel != null:
+		body_panel.discard_unsaved()
 	if action.is_valid():
 		action.call()
+
+
+## Carry on with whatever a prompt was guarding. Harmless when nothing is.
+func resume_pending() -> void:
+	var action := _pending_after_prompt
+	_pending_after_prompt = Callable()
+	_prompt_doc = ""
+	if action.is_valid():
+		action.call()
+
+
+func cancel_pending() -> void:
+	_pending_after_prompt = Callable()
+	_prompt_doc = ""
 
 
 func _message(text: String) -> void:
@@ -787,8 +979,12 @@ func _message(text: String) -> void:
 
 
 func set_status_hint(text: String) -> void:
-	if _warning != null:
-		_warning.text = text
+	if _hint != null:
+		_hint.text = text
+
+
+func status_hint() -> String:
+	return _hint.text if _hint != null else ""
 
 
 # -------------------------------------------------------------------- state --
@@ -800,12 +996,12 @@ func _save_state() -> void:
 	cfg.set_value("editor", "head_shape", head_shape)
 	cfg.set_value("editor", "expression", expression)
 	cfg.set_value("editor", "pose_name", pose_name)
-	cfg.save(STATE_PATH)
+	cfg.save(state_path)
 
 
 func _load_state() -> Dictionary:
 	var cfg := ConfigFile.new()
-	if cfg.load(STATE_PATH) != OK:
+	if cfg.load(state_path) != OK:
 		return {}
 	var out := {}
 	for key in cfg.get_section_keys("editor"):
@@ -814,5 +1010,8 @@ func _load_state() -> Dictionary:
 
 
 func _notification(what: int) -> void:
+	if Engine.is_editor_hint():
+		return
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		_save_state()
+		# Same path as File > Quit: ask first, quit only when it is safe.
+		_quit_when_safe()

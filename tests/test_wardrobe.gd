@@ -39,6 +39,62 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 		t.check(text_on_disk == first, "the bytes on disk match the first write")
 	DirAccess.remove_absolute(TEMP_PATH)
 
+	# The default wardrobe is the easy case: every field in it is one that
+	# from_json casts back. A real file also has special items, whose free-form
+	# parameters are not cast, plus every non-default setting. That is where
+	# the round-trip actually broke (an int 1 came back as 1.0).
+	t.group("wardrobe: round-trip of a full file")
+	var full := Wardrobe.create_default()
+	full.set_colour("sage", Color8(141, 160, 120))
+	var skirt := GarmentItem.create("skirt", "Skirt", "bottom")
+	skirt.kind = GarmentItem.Kind.SPECIAL
+	skirt.special_type = "skirt"
+	skirt.special_params = SpecialItem.default_params("skirt")
+	skirt.special_params["flare"] = 3
+	skirt.roles = ["cloth", "hem"]
+	skirt.colourways = {"default": {"cloth": "moss", "hem": "ochre"},
+		"dusk": {"cloth": "plum", "hem": "bone"}}
+	full.add_item(skirt)
+	var hood := GarmentItem.create("hood", "Hood", "hat")
+	hood.kind = GarmentItem.Kind.SPECIAL
+	hood.special_type = "hood"
+	hood.special_params = SpecialItem.default_params("hood")
+	hood.roles = ["cloth", "lining"]
+	hood.colourways = {"default": {"cloth": "ink", "lining": "rust"}}
+	full.add_item(hood)
+	var sash := GarmentItem.create("sash", "Sash", "accessory")
+	sash.mirror = false
+	sash.edge_style = BulkBuilder.EdgeStyle.HARD
+	sash.draw_order = 57
+	sash.colourways = {"default": {"cloth": "sage"}}
+	sash.set_region("upper_chest.L.F", "cloth", 2)
+	sash.set_region("lower_chest.R.F", "cloth", 0)
+	full.add_item(sash)
+	full.save_outfit("travel", [
+		{"item": "skirt", "colourway": "dusk"},
+		{"item": "hood", "colourway": "default"},
+		{"item": "sash", "colourway": "default"},
+	])
+
+	var once := full.to_text()
+	var twice := Wardrobe.from_json(JSON.parse_string(once)).to_text()
+	var thrice := Wardrobe.from_json(JSON.parse_string(twice)).to_text()
+	t.check(twice == once, "a file with special items round-trips byte for byte",
+		"first difference at line %d" % _first_difference(once, twice))
+	t.check(thrice == twice, "and stays identical on every further round-trip")
+
+	# Through the disk as well, since that is what the requirement means.
+	var path2 := "user://test_wardrobe_full.json"
+	t.check(full.save_to(path2).is_empty(), "the full wardrobe saves")
+	var back := Wardrobe.load_from(path2)
+	t.check(back != null and back.to_text() == once, "and reloads to the same bytes")
+	DirAccess.remove_absolute(path2)
+
+	# The special parameters come back as the type they went in as.
+	var reloaded_skirt := Wardrobe.from_json(JSON.parse_string(once)).item("skirt")
+	t.check_equal(typeof(reloaded_skirt.special_params["flare"]), TYPE_INT,
+		"an int parameter reloads as an int, not a float")
+
 	t.group("wardrobe: colours survive exactly")
 	for key in original.palette_names():
 		var colour := original.colour(key)
@@ -114,3 +170,12 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 		"a file that is not a wardrobe is refused")
 	t.check(Wardrobe.from_json({"format": Wardrobe.FORMAT, "version": 999}) == null,
 		"a file from a newer version is refused rather than half-read")
+
+
+static func _first_difference(a: String, b: String) -> int:
+	var la := a.split("\n")
+	var lb := b.split("\n")
+	for i in mini(la.size(), lb.size()):
+		if la[i] != lb[i]:
+			return i + 1
+	return mini(la.size(), lb.size()) + 1

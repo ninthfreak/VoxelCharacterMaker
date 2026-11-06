@@ -123,11 +123,28 @@ static func mirror_part(part_name: String) -> String:
 	return part_name
 
 
-## True when a cell sits exactly on the mirror plane... which cannot happen:
-## the plane lies BETWEEN x = 11 and x = 12, so every cell has a distinct
-## partner and there is no self-mirroring column to special-case.
-static func is_on_mirror_plane(_cell: Vector3i) -> bool:
-	return false
+## Note: no cell sits on the mirror plane. It lies BETWEEN x = 11 and x = 12,
+## so every cell has a distinct partner and there is no self-mirroring column
+## to special-case.
+
+
+## The half of a pair that belongs on the side of `cell`. A paired part never
+## crosses the mirror line -- thighs do not touch, arms hang clear of each
+## other -- so the side of the cell decides which half it is. Painting
+## "upper_arm_L" on the character's right therefore paints the right arm, and
+## the mirror puts the left arm where it belongs, instead of swapping the two.
+##
+## This matters because the slice grid looks down on the figure: screen-left
+## is the character's RIGHT, and choosing "_L" then painting on the left of
+## the screen is the obvious mistake to make.
+static func part_for_side(part_name: String, cell: Vector3i) -> String:
+	var side := RegionMap.side_of_part(part_name)
+	if side.is_empty():
+		return part_name
+	var cell_is_left := VoxelAxes.is_left(cell)
+	if (side == RegionMap.SIDE_LEFT) == cell_is_left:
+		return part_name
+	return mirror_part(part_name)
 
 
 # ------------------------------------------------------------------ editing --
@@ -142,8 +159,9 @@ func can_paint(part_name: String) -> bool:
 func paint(cell: Vector3i, part_name: String) -> bool:
 	if not can_paint(part_name):
 		return false
-	var touched := _set_owner(cell, part_name)
-	touched = _set_owner(VoxelAxes.mirror_voxel(cell), mirror_part(part_name)) or touched
+	var here := part_for_side(part_name, cell)
+	var touched := _set_owner(cell, here)
+	touched = _set_owner(VoxelAxes.mirror_voxel(cell), mirror_part(here)) or touched
 	if touched:
 		_invalidate()
 	return touched
@@ -166,9 +184,10 @@ func paint_many(cells: Array, part_name: String) -> int:
 	var n := 0
 	for cell in cells:
 		var c: Vector3i = cell
-		if _set_owner(c, part_name):
+		var here := part_for_side(part_name, c)
+		if _set_owner(c, here):
 			n += 1
-		if _set_owner(VoxelAxes.mirror_voxel(c), mirror_part(part_name)):
+		if _set_owner(VoxelAxes.mirror_voxel(c), mirror_part(here)):
 			n += 1
 	if n > 0:
 		_invalidate()

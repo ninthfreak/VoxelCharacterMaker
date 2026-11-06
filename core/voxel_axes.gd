@@ -50,6 +50,17 @@ static func point_to_godot(p: Vector3) -> Vector3:
 	)
 
 
+## Godot metres -> corner-space point (asset). The exact inverse of
+## point_to_godot, kept beside it so that flipping the convention here (see the
+## glTF note at the top) flips picking too.
+static func godot_to_point(g: Vector3) -> Vector3:
+	return Vector3(
+		MIRROR_X - g.x * VOXELS_PER_METRE,
+		g.z * VOXELS_PER_METRE + DEPTH_CENTRE,
+		g.y * VOXELS_PER_METRE,
+	)
+
+
 ## Voxel index -> Godot position of that voxel's centre.
 static func voxel_centre_to_godot(v: Vector3i) -> Vector3:
 	return point_to_godot(Vector3(v.x + 0.5, v.y + 0.5, v.z + 0.5))
