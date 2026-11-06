@@ -11,7 +11,7 @@ which parts are solid and which are guesses.
 
 ## 1. Verification status
 
-**Everything compiles and the acceptance suite is green: 1343 checks, 0 failures.**
+**Everything compiles and the acceptance suite is green: 1383 checks, 0 failures.**
 
 ```bash
 tests/run.sh                 # measures the assets, then runs the Godot suite
@@ -262,18 +262,17 @@ A hooded cloak is a cape plus a hood on one item.
 ### Problems found (difficulty / confidence)
 
 1. **The head's regions are too coarse for a face.** The mid-head front band
-   (z 32-36) overlaps the eye rows (z 30-34), and the lower band (z 28-31)
-   holds the bottom eye rows. So hair can only use crown and back regions
+   (z 31-36) overlaps the eye rows (z 29-33), and the lower band (z 26-30)
+   holds the bottom eye rows. (Unchanged in kind by layout B; see 4c.) So hair can only use crown and back regions
    without covering the eyes, and facial hair *has* to be a drawn shape. It
    works, but it means two ways to author the same thing. Fix: finer face
    bands in the region map -- moderate work, and it changes the 32-a-side
    count the owner settled, so it is the owner's call. Confidence the problem
    is real: high.
-2. **A moustache has two rows to live in.** Between the eyes and the chin
-   there are only z 28-29, and there is no mouth or nose. The test moustache
-   reads as a smudge. This is a property of the head design (SPEC 4), not the
-   editor; a taller lower face or a mouth row would fix it. High confidence,
-   look decision.
+2. ~~A moustache has two rows to live in.~~ Layout B (4c) gave the lower
+   face three rows; the moustache now has a skin row between it and the eyes.
+   On the heart head's narrow chin it still sits low and reads more like a
+   chinstrap -- part of the coming eyes-and-face pass.
 3. **Hats and hoods versus hair.** A hood or hat should hide most hair; right
    now both simply claim cells, and the layering rule decides. The Clothes tab
    has a hair picker so this can at least be checked. A real fix is a "hides
@@ -312,6 +311,57 @@ clothing does not keep chasing body changes. 6 -- to be examined later.
 4. **Specials on features.** Because features are items, hair can already use
    specials: the ponytail is a rigid shape at the nape. Long braids or a bun
    come for free the same way.
+
+## 4c. Layout B: a bigger head (owner's decision)
+
+The head grew from 14 to 16 rows, and from 14 to 16 wide (oval 12 to 14) and
+12 to 14 deep, so faces have more room. The figure stays 42 tall: one belly row
+and one upper-thigh row went, and the forearm lost a row so the hands still
+hang just below the hips. SPEC 3.1, 3.2, 3.4, 4, 5 and 12 are updated.
+
+**One table for every row.** `tools/build_bodies.py` now places every part,
+pivot, ear and the eye box from its `BANDS` table, and `core/body_layout.gd`
+is the Godot copy that every row number in core/, the editor and the runtime
+now comes from. A test checks the copy against every body and head file, and
+`tools/verify_assets.py` reads its rows from the files. Before switching, the
+rewrite was checked by regenerating with the old table: the bodies and three
+heads came out byte-identical; oval and heart differed only by the corner cell
+of each narrowed jaw/crown row, which are now rounded like the others.
+
+**Rounder heads.** Each head row is now a rectangle, inset and then rounded by
+a stepped corner profile. Round, oval and heart use a three-cell corner step
+and round, strong and heart a two-row rounded crown; strong keeps its square
+jaw and boxy stays boxy. The heart's jaw narrowing stops below the eyes, since
+the rounding would otherwise cut the eye box's outer corner.
+
+**Eyes:** unchanged (4 x 5, same columns), now on rows z29-33 with three skin
+rows under them, pending the owner's eye decision. On the oval head the outer
+eye column sits at the edge of the flat face, so one white pixel shows from
+the side -- as it did before.
+
+**What else moved with it:** anchors (face, brow, nape, chest, back, waist,
+hip, wrist, ankle), the head checks, the body editor's pivot windows, the beard
+and moustache drawings (now three rows of face to fill), and the editor's head
+framing.
+
+**A bug the new geometry exposed.** A cape hung one voxel behind the deepest
+point of the *body*, but the tunic and trousers under it reach that same plane,
+so about 150 cells belonged to both the cape and the clothes and the two
+meshes flickered there (z-fighting). It was there before layout B; the new
+shapes only changed which face won on screen. Fixed: shapes now see the figure
+as worn so far, a cape hangs behind everything under it, a skirt's panels
+clear trousers and boots, and within one item the hanging shapes are placed
+last (so a hooded cloak's cape hangs behind its own hood). A test now checks no
+panel shares a voxel with any other part, for every outfit on every body.
+One edge case: a skirt over trousers on the slim feminine body meets the hand,
+which hangs one voxel clear of the hips; the skirt leaves those few cells out.
+
+**Not changed, still deferred:** trousers fill the gap between the thighs
+from both legs, and the tunic does the same at the armpits (two body parts'
+garments in one cell). That is the trouser problem the owner deferred.
+
+**Edited bodies and heads** saved before this change (in `assets/edited/`)
+would be on the old layout and would need redoing; none existed here.
 
 ## 5. Still open, for the owner
 

@@ -65,7 +65,11 @@ func frame(bounds: AABB, aspect: float = 1.0) -> void:
 	var for_height := (bounds.size.y * 0.5) / tan_half
 	var widest := maxf(bounds.size.x, bounds.size.z) * 0.5
 	var for_width := widest / (tan_half * maxf(0.2, aspect))
-	distance = clampf(maxf(for_height, for_width) * FRAME_MARGIN,
+	# Those distances fit the box's middle. Its nearest face is up to `widest`
+	# closer to the camera, and perspective makes it bigger, so step back by
+	# that much too -- a deep head seen from three-quarters otherwise runs off
+	# the edge of the view.
+	distance = clampf(maxf(for_height, for_width) * FRAME_MARGIN + widest,
 		MIN_DISTANCE, MAX_DISTANCE)
 	_apply()
 

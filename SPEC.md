@@ -63,8 +63,13 @@ pelvis (root)
 └── thigh_R ── shin_R
 ```
 
-- Rows: pelvis z12–15, chest z16–26, head z27–41 (neck at z27), upper arm z19–25, forearm+hand z10–18,
-  thigh z6–11, shin+foot z0–5.
+- Rows: pelvis z11–14, chest z15–24, head z25–41 (neck at z25, head proper z26–41), upper arm z17–23,
+  forearm+hand z9–16, thigh z6–10, shin+foot z0–5. Every row comes from one band table (§3.4): in
+  `tools/build_bodies.py` (`BANDS`) and, for the Godot side, `core/body_layout.gd`, checked against each other by a
+  test.
+- **Owner decision (layout B, 2026-11):** the head grew from 14 to 16 rows (and 2 wider and deeper) to give faces and
+  expressions more room. The figure stays 42 tall; the two rows came from one belly row and one upper-thigh row, and
+  the forearm lost a row so the arms keep their reach relative to the legs.
 - **No joint caps.** Parts simply meet; gaps and overlaps at bent joints are accepted (the style is plainly cubes).
 - Contacts: every part touches only its parent. Thighs never touch each other; arms touch only the chest at the
   shoulder. Every part is one connected piece; every body is one piece with no edge-only voxel contacts (so a
@@ -78,9 +83,9 @@ Each part rotates about its joint with its parent. Measured from the built geome
 
 | | pelvis | chest | head | upper_arm_L | forearm_L | thigh_L | shin_L |
 |---|---|---|---|---|---|---|---|
-| all bodies | (12,12,12) | (12,12,16) | (12,12,27) | see below | same x, z19 | see below | same x, z6 |
+| all bodies | (12,12,11) | (12,12,15) | (12,12,25) | see below | same x, z17 | see below | same x, z6 |
 
-Upper-arm pivot (x, 12, 26) and thigh pivot (x, 12, 12), left side; right side mirrors as 24 − x:
+Upper-arm pivot (x, 12, 24) and thigh pivot (x, 12, 11), left side; right side mirrors as 24 − x:
 
 | body | arm x | leg x |
 |---|---|---|
@@ -124,32 +129,39 @@ also split **front/back** at the depth centre. They never use absolute x, so the
 
 | family | regions (rows z) |
 |---|---|
-| head | neck 27 *(trim)*, lower_head 28–31, mid_head 32–36, crown 37–41 |
-| chest | collar 26 *(trim)*, upper_chest 22–25, lower_chest 19–21, belly 16–18 |
-| pelvis | waist 15 *(trim)*, hips 12–14 |
-| upper_arm | shoulder 23–25, upper_arm 20–22, elbow 19 *(trim)* |
-| forearm | forearm 14–18, wrist 13 *(trim)*, hand 10–12 |
-| thigh | upper_thigh 9–11, lower_thigh 7–8, knee 6 *(trim)* |
+| head | neck 25 *(trim)*, lower_head 26–30, mid_head 31–36, crown 37–41 |
+| chest | collar 24 *(trim)*, upper_chest 20–23, lower_chest 17–19, belly 15–16 |
+| pelvis | waist 14 *(trim)*, hips 11–13 |
+| upper_arm | shoulder 21–23, upper_arm 18–20, elbow 17 *(trim)* |
+| forearm | forearm 13–16, wrist 12 *(trim)*, hand 9–11 |
+| thigh | upper_thigh 9–10, lower_thigh 7–8, knee 6 *(trim)* |
 | shin | shin 3–5, ankle 2 *(trim)*, foot 0–1 |
 
-30 regions per side. The band table also lives in every body file under `"regions"`.
+32 regions per side (the owner settled 32: the head and torso split front/back, including the neck and waist trims).
+The band table also lives in every body file under `"regions"`.
 
 ---
 
 ## 4. Heads
 
-Five unisex shapes: **round, boxy, oval, strong, heart** (12–14 wide, 12 deep, 14 tall + 4×4 neck). Every head shares:
-the neck socket (4×4 at z27, x10–13, y10–13), pivot (12, 12, 27), height z28–41, ear rows, and the **eye box**. So hair,
-hats and faces fit every head. Heads are exported blank (no eyes). Note: head widths differ, so pre-drawn hair/hats need
-slack or a per-head fit; parametric ones fit automatically.
+Five unisex shapes: **round, boxy, oval, strong, heart** (14–16 wide, 14 deep, 16 tall + 4×4 neck). Every head shares:
+the neck socket (4×4 at z25, x10–13, y10–13), pivot (12, 12, 25), height z26–41, depth (so one face plane), ear rows,
+and the **eye box**. So hair, hats and faces fit every head. Heads are exported blank (no eyes). Note: head widths
+differ, so pre-drawn hair/hats need slack or a per-head fit; parametric ones fit automatically.
+
+Each head row is a rectangle, inset and then rounded at its corners by a stepped profile (per shape: top and bottom
+insets, corner steps, and jaw/crown narrowing). The larger heads use the extra voxels for rounder corners and crowns
+where it suits the shape: round, oval and heart get a three-cell corner step; strong keeps its square jaw under a
+rounded crown; boxy stays boxy.
 
 ## 5. Faces (eyes only)
 
 The owner wants **eyes only — no brows, no mouths.**
 
-- A face is a **skin-tight overlay** (bulk 0) on the face plane **y = 6**: it recolours head voxels, never adds volume.
-- **Eye box:** 4 wide × 5 tall, top two corners rounded. Screen-left eye x7–10, screen-right eye x13–16, rows z30–34.
-  Fits all five heads (verified).
+- A face is a **skin-tight overlay** (bulk 0) on the face plane **y = 5**: it recolours head voxels, never adds volume.
+- **Eye box:** 4 wide × 5 tall, top two corners rounded. Screen-left eye x7–10, screen-right eye x13–16, rows z29–33
+  (three skin rows under the eyes). Fits all five heads (verified). *The eyes are due to be revisited now the head
+  is larger (owner, 2026-11).*
 - **Roles:** white, pupil (= eye colour; a colourway), line (lids), skin (overlay hides the eye there).
 - **Storage:** each expression is defined **once per eye in box cells** (c from the eye's outer edge, r from its bottom
   row) and mirrored onto the other eye; asymmetric expressions (wink, look left/right) store both eyes.
@@ -290,8 +302,9 @@ reference/   earlier editor prototypes (HTML, PySide) and a CLI exporter
 ## 12. Acceptance checks (automate where possible)
 
 - Coordinate test from §2 passes.
-- Loading each body reproduces its voxel counts (masc. slim 3894, average 4494, heavy 5926; fem. slim 3590,
-  average 3976, heavy 4714 — counts include the round head; bodies files exclude it).
+- Loading each body reproduces its voxel counts (masc. slim 4754, average 5310, heavy 6630; fem. slim 4480,
+  average 4832, heavy 5530 — counts include the round head; bodies files exclude it). Before layout B they were
+  3894, 4494, 5926; 3590, 3976, 4714.
 - Every body: mirror-symmetric, one connected piece, every part one piece, no edge-only contacts, parts touch only
   their parents.
 - Every expression fits every head (no eye cell falls off the face plane).

@@ -62,9 +62,11 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 		return out
 
 	# The anchor: the shoulder line, and a plane just behind the deepest point
-	# of the back anywhere it will hang, so it clears the body when still.
+	# of the back anywhere it will hang -- as worn, so it clears the clothes
+	# under it as well as the body when still. Two parts in one cell would
+	# z-fight.
 	var collar := ctx.regions.band("collar")
-	var top_z: int = collar.z0 if collar != null else 26
+	var top_z: int = collar.z0 if collar != null else BodyLayout.z0("collar")
 	var hem_band := String(LENGTH_BANDS.get(String(params.get("length", "to_knee")), "knee"))
 	var hem_z := ctx.band_floor("", hem_band)
 	if hem_z >= top_z:
@@ -72,11 +74,17 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 		return out
 
 	var back_y := -999
-	for part_name in ["chest", "pelvis", "thigh_L", "thigh_R", "shin_L", "shin_R"]:
-		for cell in ctx.cells_of(part_name).keys():
+	for part_name in ctx.worn_cells.keys():
+		for cell in ctx.worn_of(String(part_name)).keys():
 			var c: Vector3i = cell
 			if c.z >= hem_z and c.z <= top_z:
 				back_y = maxi(back_y, c.y)
+	if ctx.worn_cells.is_empty():
+		for part_name in ["chest", "pelvis", "thigh_L", "thigh_R", "shin_L", "shin_R"]:
+			for cell in ctx.cells_of(part_name).keys():
+				var c2: Vector3i = cell
+				if c2.z >= hem_z and c2.z <= top_z:
+					back_y = maxi(back_y, c2.y)
 	if back_y < 0:
 		out.warnings.append("could not measure the back")
 		return out

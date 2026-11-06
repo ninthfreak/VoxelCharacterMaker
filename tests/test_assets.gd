@@ -29,6 +29,37 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	t.check(regions_problem.is_empty(),
 		"the region band table is identical on all six bodies", regions_problem)
 
+	# BodyLayout is the Godot copy of build_bodies.py's row table; every row
+	# number in core/ comes from it, so it must match what the files say.
+	t.group("assets: the shared row layout matches the files")
+	for id in library.body_ids():
+		var map := library.body(id).regions
+		var differ: Array[String] = []
+		for name in BodyLayout.BANDS.keys():
+			var band := map.band(String(name))
+			if band == null or Vector2i(band.z0, band.z1) != BodyLayout.BANDS[name]:
+				differ.append(String(name))
+		if map.band_names().size() != BodyLayout.BANDS.size():
+			differ.append("(band count %d)" % map.band_names().size())
+		t.check(differ.is_empty(), "%s bands match BodyLayout" % id, ", ".join(differ))
+	for shape in library.head_shapes():
+		var head := library.head(shape)
+		t.check(head.pivot.is_equal_approx(BodyLayout.HEAD_PIVOT), "%s head pivot matches" % shape)
+		t.check_equal(int(head.neck_socket["z"]), BodyLayout.NECK_ROW, "%s neck socket row matches" % shape)
+		t.check_equal(head.eye_rows(), Vector2i(BodyLayout.EYE_Z0, BodyLayout.EYE_Z1),
+			"%s eye rows match" % shape)
+		t.check_equal(head.screen_left_eye_x(),
+			Vector2i(BodyLayout.EYE_X0, BodyLayout.EYE_X0 + BodyLayout.EYE_W - 1),
+			"%s eye columns match" % shape)
+		t.check_equal(head.face_plane_y(), BodyLayout.FACE_PLANE_Y, "%s face plane matches" % shape)
+		var depth_lo := 99
+		var depth_hi := -99
+		for cell in head.cells.keys():
+			if (cell as Vector3i).z > BodyLayout.NECK_ROW:
+				depth_lo = mini(depth_lo, (cell as Vector3i).y)
+				depth_hi = maxi(depth_hi, (cell as Vector3i).y)
+		t.check_equal(depth_hi - depth_lo + 1, BodyLayout.HEAD_DEPTH, "%s head depth matches" % shape)
+
 	t.group("assets: heads")
 	for shape in library.head_shapes():
 		var head := library.head(shape)
@@ -105,4 +136,5 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 		var top := 0
 		for cell in chest.cells.keys():
 			top = maxi(top, (cell as Vector3i).z)
-		t.check_equal(top, 26, "%s chest tops out at z26, under the neck row" % id)
+		t.check_equal(top, BodyLayout.NECK_ROW - 1,
+			"%s chest tops out on the row under the neck" % id)

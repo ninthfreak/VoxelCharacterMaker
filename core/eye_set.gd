@@ -19,12 +19,12 @@ extends RefCounted
 ## twice; asymmetric ones (wink, look left/right) differ. Only painted cells are
 ## stored -- an absent cell is skin, which is what the overlay leaves alone.
 
-## The eye box, shared by every head (SPEC 5): 4 wide x 5 tall, screen-left
-## eye at x7-10, rows z30-34, on the face plane y6.
-const BOX_W := 4
-const BOX_H := 5
-const BOX_X0 := 7
-const BOX_Z0 := 30
+## The eye box, shared by every head (SPEC 5), from BodyLayout: 4 wide x 5
+## tall, screen-left eye starting at BOX_X0, bottom row BOX_Z0, on the face plane.
+const BOX_W := BodyLayout.EYE_W
+const BOX_H := BodyLayout.EYE_H
+const BOX_X0 := BodyLayout.EYE_X0
+const BOX_Z0 := BodyLayout.EYE_Z0
 
 const ROLE_WHITE := "white"
 const ROLE_PUPIL := "pupil"

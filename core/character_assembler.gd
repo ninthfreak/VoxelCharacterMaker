@@ -185,8 +185,11 @@ static func assemble(req: Request) -> Assembled:
 		var colourway := String(e["colourway"])
 		if item.has_coverage():
 			_claim_parametric(claims, item, colourway, base, regions, occupancy)
-		for index in item.specials.size():
-			_claim_special(claims, panels, out, item, index, colourway, base, regions, occupancy)
+		for hanging in [false, true]:
+			for index in item.specials.size():
+				if SpecialItem.hangs_clear(item.special_type(index)) == hanging:
+					_claim_special(claims, panels, out, item, index, colourway, base, regions,
+						occupancy)
 
 	# -- 4 and 5. compose, then shade the whole figure -----------------------
 	var solid: Dictionary = {}
@@ -361,6 +364,22 @@ static func _claim_parametric(claims: Dictionary, item: GarmentItem, colourway: 
 				})
 
 
+## The figure as worn so far, per part or panel: the base cells plus every
+## claim made before now. Recolour-only claims sit on body cells, so they add
+## nothing new.
+static func _worn_so_far(base: Dictionary, claims: Dictionary) -> Dictionary:
+	var out := {}
+	for name in base.keys():
+		out[name] = (base[name] as Dictionary).duplicate()
+	for name in claims.keys():
+		if not out.has(name):
+			out[name] = {}
+		var cells: Dictionary = out[name]
+		for cell in (claims[name] as Dictionary).keys():
+			cells[cell] = true
+	return out
+
+
 static func _claim_special(claims: Dictionary, panels: Array, out: Assembled,
 		item: GarmentItem, index: int, colourway: String, base: Dictionary,
 		regions: RegionMap, occupancy: Dictionary) -> void:
@@ -370,6 +389,7 @@ static func _claim_special(claims: Dictionary, panels: Array, out: Assembled,
 	ctx.regions = regions
 	ctx.part_cells = base
 	ctx.occupancy = occupancy
+	ctx.worn_cells = _worn_so_far(base, claims)
 
 	var type := item.special_type(index)
 	var result := SpecialItem.generate(type, ctx, item.special_params(index))

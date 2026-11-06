@@ -254,12 +254,12 @@ func _open(kind: String) -> void:
 	if kind == KIND_HEAD:
 		edit = HeadEdit.from_head(editor.library.head(head_shape))
 		_grid.active_part = HeadEdit.PART
-		_set_row(32)
+		_set_row(BodyLayout.EYE_Z0 + 2)   # through the eyes
 	else:
 		edit = BodyEdit.from_body(editor.library.body(body_id))
 		if not (_grid.active_part in edit.paintable_parts()):
 			_grid.active_part = edit.paintable_parts()[1]
-		_set_row(22)
+		_set_row(BodyLayout.z0("upper_chest"))
 	history.reset(edit.snapshot(), "Open the %s" % edit.display_name())
 	editor.forget_edits(CharacterEditor.DOC_BODY)
 	_dirty = false

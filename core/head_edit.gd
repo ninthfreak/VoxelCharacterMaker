@@ -4,8 +4,8 @@ extends VoxelEditModel
 
 ## One head shape, editable (SPEC.md section 4).
 ##
-## Every head shares the neck socket (4x4 at z27, x10-13, y10-13), the pivot
-## (12, 12, 27), the height z28-41, and the eye box on the face plane y6. Those
+## Every head shares the neck socket (4x4 on the neck row, x10-13, y10-13),
+## the pivot, the height and the eye box on the face plane (BodyLayout). Those
 ## are what let any hair, hat and face fit any head, so:
 ##
 ##   the neck row cannot be painted at all -- it is the socket, and a head with
@@ -100,8 +100,8 @@ func validate(eye_cells: Dictionary = {}) -> Array:
 			continue
 		top = maxi(top, z)
 		bottom = mini(bottom, z)
-	findings.append(BodyEdit.Finding.new(top == HeadDef.TOP_ROW, "top of the head is row 41",
-		"top row is %d; hair and hats are drawn to sit on 41" % top))
+	findings.append(BodyEdit.Finding.new(top == HeadDef.TOP_ROW, "top of the head is row %d" % HeadDef.TOP_ROW,
+		"top row is %d; hair and hats are drawn to sit on %d" % [top, HeadDef.TOP_ROW]))
 	findings.append(BodyEdit.Finding.new(bottom == HeadDef.NECK_ROW + 1,
 		"head starts straight above the neck", "lowest row is %d" % bottom))
 

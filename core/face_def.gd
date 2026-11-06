@@ -5,11 +5,11 @@ extends RefCounted
 ## One expression: eyes only, as a skin-tight overlay (SPEC.md section 5).
 ##
 ## The owner wants eyes only -- no brows, no mouths. A face recolours head
-## voxels on the face plane y = 6 and never adds volume, so bulk is always 0 and
+## voxels on the face plane and never adds volume, so bulk is always 0 and
 ## blinking is an overlay swap.
 ##
 ## Eye box: 4 wide x 5 tall, top two corners rounded. Screen-left eye x7-10,
-## screen-right eye x13-16, rows z30-34. Fits all five heads.
+## screen-right eye x13-16, rows from BodyLayout.EYE_Z0. Fits all five heads.
 ##
 ## An expression is stored once per eye in BOX CELLS: c counts from that eye's
 ## OUTER edge (away from the nose) and r from its bottom row. Symmetric
@@ -49,10 +49,10 @@ static func load_from(path: String) -> FaceDef:
 	for d in (box.get("drop", []) as Array):
 		drop.append(Vector2i(int(d[0]), int(d[1])))
 	def.eye_box = {
-		"w": int(box.get("w", 4)),
-		"h": int(box.get("h", 5)),
-		"z0": int(box.get("z0", 30)),
-		"x0": int(box.get("x0", 7)),
+		"w": int(box.get("w", BodyLayout.EYE_W)),
+		"h": int(box.get("h", BodyLayout.EYE_H)),
+		"z0": int(box.get("z0", BodyLayout.EYE_Z0)),
+		"x0": int(box.get("x0", BodyLayout.EYE_X0)),
 		"drop": drop,
 		"pupil_cols": Vector2i(int(box["pupil_cols"][0]), int(box["pupil_cols"][1])),
 		"pupil_rows": Vector2i(int(box["pupil_rows"][0]), int(box["pupil_rows"][1])),

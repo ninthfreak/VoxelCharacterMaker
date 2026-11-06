@@ -173,7 +173,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	for name5 in body.part_names():
 		for cell13 in body.part(name5).cells.keys():
 			figure[cell13] = true
-	var chest_floor := 16
+	var chest_floor := BodyLayout.CHEST_PIVOT_Z
 	var seam_aware := BulkBuilder.grow(
 		chest.cells, region_cells, 2, BulkBuilder.EdgeStyle.SOFT, figure)
 	var through_seam := 0

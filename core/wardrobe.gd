@@ -148,7 +148,7 @@ func _add_starter_clothes() -> void:
 
 func _add_starter_features() -> void:
 	# Hair can only use the head's BACK and CROWN regions without covering the
-	# eyes: the front of mid_head (z32-36) contains the eye rows (z30-34). That
+	# eyes: the front of mid_head (z31-36) contains the eye rows (z29-33). That
 	# is a real limit of the region bands for faces; see docs/NOTES.md.
 	var crop := GarmentItem.create_feature("short_crop", "Short crop", "hair")
 	crop.roles = ["hair"]
@@ -182,9 +182,10 @@ func _add_starter_features() -> void:
 	tail.set_special_param(at, "cells", cells)
 	add_item(tail)
 
-	# Facial hair cannot be regions at all: lower_head (z28-31) also contains
+	# Facial hair cannot be regions at all: lower_head (z26-30) also contains
 	# the bottom two eye rows. So a beard is a hand-drawn shape anchored to the
-	# face and wrapped onto it, which fits every head's jaw line.
+	# face and wrapped onto it, which fits every head's jaw line. The face
+	# anchor is the eyes' bottom row; there are three rows of face under it.
 	var beard := GarmentItem.create_feature("short_beard", "Short beard", "facial_hair")
 	beard.roles = ["hair"]
 	beard.colourways = {"default": {"hair": "hair_brown"}, "black": {"hair": "hair_black"}}
@@ -193,13 +194,13 @@ func _add_starter_features() -> void:
 	beard.set_special_param(b, "wrap", true)
 	beard.set_special_param(b, "mirror", true)
 	var beard_cells: Array = []
-	for a in range(0, 7):
-		beard_cells.append([a, 0, -2, "hair"])
-		beard_cells.append([a, 0, -1, "hair"])
-	for side in [5, 6]:
-		beard_cells.append([side, 0, 0, "hair"])
-		beard_cells.append([side, 0, 1, "hair"])
-	beard_cells.append([0, 1, -2, "hair"])
+	for a in range(0, 8):
+		for c in [-3, -2, -1]:
+			beard_cells.append([a, 0, c, "hair"])
+	for side in [6, 7]:          # sideburns, outside the eyes
+		for c in [0, 1, 2]:
+			beard_cells.append([side, 0, c, "hair"])
+	beard_cells.append([0, 1, -3, "hair"])   # a little depth at the chin
 	beard.set_special_param(b, "cells", beard_cells)
 	add_item(beard)
 
@@ -210,8 +211,9 @@ func _add_starter_features() -> void:
 	tache.set_special_param(m, "anchor", "face")
 	tache.set_special_param(m, "wrap", true)
 	tache.set_special_param(m, "mirror", true)
-	tache.set_special_param(m, "cells", [[0, 0, -1, "hair"], [1, 0, -1, "hair"],
-		[2, 0, -1, "hair"], [3, 0, -2, "hair"]])
+	# One skin row under the eyes, then the moustache, drooping at the ends.
+	tache.set_special_param(m, "cells", [[0, 0, -2, "hair"], [1, 0, -2, "hair"],
+		[2, 0, -2, "hair"], [3, 0, -2, "hair"], [3, 0, -3, "hair"]])
 	add_item(tache)
 
 

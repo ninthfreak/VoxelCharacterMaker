@@ -17,6 +17,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	_anchors(t, library)
 	_shapes(t, library)
 	_items_with_specials(t, library)
+	_panels_clear(t, library)
 
 
 # ------------------------------------------------------------- eye sets ----
@@ -327,3 +328,48 @@ static func _figure(library: AssetLibrary, w: Wardrobe, body: String, head: Stri
 	request.eye_set_id = eye_set
 	request.eye_colourway = eye_colourway
 	return CharacterAssembler.assemble(request)
+
+
+# ---------------------------------------------------------- panels clear ----
+
+## A hanging panel is its own rigid part. If it shares a voxel with another
+## part, the two draw faces in the same place and flicker (z-fight), and they
+## tear apart when the panel swings. Capes and skirts must hang clear of what
+## is worn under them, not just of the body.
+static func _panels_clear(t: TestReport, library: AssetLibrary) -> void:
+	t.group("specials: hanging panels clear everything worn under them")
+	var w := Wardrobe.create_default(library)
+	var looks: Array = []
+	for outfit in w.outfit_names():
+		looks.append([outfit, w.outfit(outfit)])
+	looks.append(["dress over trousers", [{"item": "trousers", "colourway": "default"},
+		{"item": "dress", "colourway": "default"}]])
+	for look in looks:
+		var shared := 0
+		var example := ""
+		for body in library.body_ids():
+			var a := _figure(library, w, body, "round", "neutral", "", look[1])
+			# Panels against everything else. (Garments on two body parts can
+			# also meet in one cell -- trousers in the gap between the thighs --
+			# which is the separate, deferred trouser problem.)
+			var fixed := {}
+			for name in a.order:
+				var part := a.part(String(name))
+				if not part.is_panel():
+					for cell in part.cells.keys():
+						fixed[cell] = String(name)
+			var panel_of := {}
+			for name in a.order:
+				var part := a.part(String(name))
+				if not part.is_panel():
+					continue
+				for cell in part.cells.keys():
+					var other := String(fixed.get(cell, panel_of.get(cell, "")))
+					if not other.is_empty():
+						shared += 1
+						if example.is_empty():
+							example = "%s: %s and %s at %s" % [body, other, name, cell]
+					panel_of[cell] = String(name)
+		t.check(shared == 0, "%s: no panel shares a voxel with another part, on any body" % look[0],
+			"%d shared, e.g. %s" % [shared, example])
+

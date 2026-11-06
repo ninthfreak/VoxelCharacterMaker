@@ -59,9 +59,14 @@ class Context extends RefCounted:
 	var body: BodyDef
 	var head: HeadDef
 	var regions: RegionMap
-	## part name -> Dictionary of Vector3i -> true, for the body as assembled so
-	## far (body plus anything already worn).
+	## part name -> Dictionary of Vector3i -> true: the BARE body. Every item
+	## grows from this, not from what is already worn (SPEC 7.3 rule 6).
 	var part_cells: Dictionary = {}
+	## part or panel name -> Dictionary of Vector3i -> true: the figure as worn
+	## so far -- the body plus everything claimed before this shape. A shape
+	## that hangs clear of the figure (a cape, a skirt's panels) measures from
+	## this, so it clears the clothes underneath and not just the skin.
+	var worn_cells: Dictionary = {}
 	## Every cell of the whole figure, for deciding what is an exposed surface.
 	## A generator passes this to BulkBuilder.grow so a garment does not grow
 	## through a joint seam. Empty means "judge by the part alone".
@@ -69,6 +74,10 @@ class Context extends RefCounted:
 
 	func cells_of(part: String) -> Dictionary:
 		return part_cells.get(part, {})
+
+	## One part as worn so far; falls back to the bare part.
+	func worn_of(part: String) -> Dictionary:
+		return worn_cells.get(part, cells_of(part))
 
 	## Inclusive x extent of a part's cells in one row, or a reversed range
 	## when the row is empty. The measuring is VoxelTopology's.
@@ -108,6 +117,13 @@ class Context extends RefCounted:
 ## line here and one new file; the editor builds its controls from param_spec.
 static func types() -> Array[String]:
 	return ["skirt", "cape", "hood", "shape"]
+
+
+## Types that hang cloth panels clear of the figure. They measure the figure as
+## worn, so within one item they are placed after its other shapes: a hooded
+## cloak's cape then hangs behind its own hood's collar, not through it.
+static func hangs_clear(type: String) -> bool:
+	return type in ["skirt", "cape"]
 
 
 static func display_name(type: String) -> String:

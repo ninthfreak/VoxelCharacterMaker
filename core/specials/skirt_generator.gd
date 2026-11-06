@@ -65,7 +65,7 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 		return out
 
 	var hips := ctx.regions.band("hips")
-	var top_z: int = hips.z0 if hips != null else 12
+	var top_z: int = hips.z0 if hips != null else BodyLayout.z0("hips")
 	var length_key := String(params.get("length", "to_knee"))
 	var hem_band := String(LENGTH_BANDS.get(length_key, "knee"))
 	var hem_z := ctx.band_floor("thigh", hem_band)
@@ -80,6 +80,14 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 	if ext_x.y < ext_x.x or ext_y.y < ext_y.x:
 		out.warnings.append("could not measure the pelvis at row %d" % top_z)
 		return out
+	# Below the hips the panels must also clear whatever is already worn on
+	# the legs (trousers, boots): two parts in one cell would z-fight.
+	for part_name in ["pelvis", "thigh_L", "thigh_R", "shin_L", "shin_R"]:
+		for cell in ctx.worn_of(part_name).keys():
+			var c: Vector3i = cell
+			if c.z < top_z and c.z >= hem_z:
+				ext_x = Vector2i(mini(ext_x.x, c.x), maxi(ext_x.y, c.x))
+				ext_y = Vector2i(mini(ext_y.x, c.y), maxi(ext_y.y, c.y))
 
 	if bool(params.get("waistband", true)):
 		_waistband(ctx, out)
@@ -94,6 +102,12 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 	# and tear apart when they swing differently, so the first panel to claim
 	# a cell keeps it: front and back first, which own the corners.
 	var taken := {}
+	# Anything already worn keeps its cells too. On a slim body the hand hangs
+	# one voxel clear of the hips, so a skirt over trousers meets it: the panel
+	# leaves those few cells out rather than share them.
+	for part_name in ctx.worn_cells.keys():
+		for cell in (ctx.worn_cells[part_name] as Dictionary).keys():
+			taken[cell] = true
 	_panel(out, taken, PANEL_FRONT, "pelvis", Vector3(VoxelAxes.MIRROR_X, VoxelAxes.DEPTH_CENTRE, top_z),
 		SpecialItem.DRIVER_FORWARD_THIGH,
 		ext_x, ext_y.x - 1, true, top_z, hem_z, flare, hem_trim)

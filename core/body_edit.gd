@@ -30,24 +30,24 @@ extends VoxelEditModel
 ## Pivot measurement windows, copied from tools/build_bodies.py:pivots().
 ## Each paired part's x is the mid-x of its own cells over these rows.
 const PIVOT_ROWS := {
-	"upper_arm": Vector2i(19, 21),
-	"forearm": Vector2i(13, 18),
-	"thigh": Vector2i(6, 11),
-	"shin": Vector2i(2, 5),
+	"upper_arm": BodyLayout.UPPER_ARM_ROWS,
+	"forearm": BodyLayout.FOREARM_ROWS,
+	"thigh": BodyLayout.THIGH_ROWS,
+	"shin": BodyLayout.SHIN_ROWS,
 }
 
 ## The z of each joint, and the fixed pivots of the centred parts.
 const PIVOT_Z := {
-	"upper_arm": 26,
-	"forearm": 19,
-	"thigh": 12,
-	"shin": 6,
+	"upper_arm": BodyLayout.UPPER_ARM_PIVOT_Z,
+	"forearm": BodyLayout.FOREARM_PIVOT_Z,
+	"thigh": BodyLayout.THIGH_PIVOT_Z,
+	"shin": BodyLayout.SHIN_PIVOT_Z,
 }
 
 const FIXED_PIVOTS := {
-	"pelvis": Vector3(12, 12, 12),
-	"chest": Vector3(12, 12, 16),
-	"head": Vector3(12, 12, 27),
+	"pelvis": Vector3(12, 12, BodyLayout.PELVIS_PIVOT_Z),
+	"chest": Vector3(12, 12, BodyLayout.CHEST_PIVOT_Z),
+	"head": BodyLayout.HEAD_PIVOT,
 }
 
 ## Parts that can be painted. The head is excluded: its geometry belongs to the
@@ -341,7 +341,8 @@ func to_json() -> Dictionary:
 		"mirror_axis_x": int(VoxelAxes.MIRROR_X),
 		"sex": sex,
 		"build": build,
-		"head": "from the head library (head42_*.json); attaches at the neck socket, pivot (12, 12, 27)",
+		"head": "from the head library (head42_*.json); attaches at the neck socket, pivot (12, 12, %d)" \
+			% BodyLayout.NECK_ROW,
 		"parts": out_parts,
 		"regions": out_regions,
 	}

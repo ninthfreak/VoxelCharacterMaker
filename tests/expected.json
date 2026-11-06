@@ -4,15 +4,15 @@
    "build": "average",
    "components": 1,
    "part_voxels": {
-    "chest": 638,
-    "forearm_L": 92,
-    "forearm_R": 92,
+    "chest": 590,
+    "forearm_L": 80,
+    "forearm_R": 80,
     "head": 0,
     "pelvis": 228,
     "shin_L": 111,
     "shin_R": 111,
-    "thigh_L": 144,
-    "thigh_R": 144,
+    "thigh_L": 120,
+    "thigh_R": 120,
     "upper_arm_L": 88,
     "upper_arm_R": 88
    },
@@ -20,27 +20,27 @@
     "chest": [
      12.0,
      12.0,
-     16.0
+     15.0
     ],
     "forearm_L": [
      19.5,
      12.0,
-     19.0
+     17.0
     ],
     "forearm_R": [
      4.5,
      12.0,
-     19.0
+     17.0
     ],
     "head": [
      12.0,
      12.0,
-     27.0
+     25.0
     ],
     "pelvis": [
      12.0,
      12.0,
-     12.0
+     11.0
     ],
     "shin_L": [
      15.0,
@@ -55,42 +55,42 @@
     "thigh_L": [
      15.0,
      12.0,
-     12.0
+     11.0
     ],
     "thigh_R": [
      9.0,
      12.0,
-     12.0
+     11.0
     ],
     "upper_arm_L": [
      19.5,
      12.0,
-     26.0
+     24.0
     ],
     "upper_arm_R": [
      4.5,
      12.0,
-     26.0
+     24.0
     ]
    },
    "sex": "female",
    "stray_contacts": [],
-   "voxels_body_only": 1736,
-   "voxels_with_round_head": 3976
+   "voxels_body_only": 1616,
+   "voxels_with_round_head": 4832
   },
   "female_heavy": {
    "build": "heavy",
    "components": 1,
    "part_voxels": {
-    "chest": 984,
-    "forearm_L": 128,
-    "forearm_R": 128,
+    "chest": 908,
+    "forearm_L": 112,
+    "forearm_R": 112,
     "head": 0,
     "pelvis": 332,
     "shin_L": 179,
     "shin_R": 179,
-    "thigh_L": 156,
-    "thigh_R": 156,
+    "thigh_L": 130,
+    "thigh_R": 130,
     "upper_arm_L": 116,
     "upper_arm_R": 116
    },
@@ -98,27 +98,27 @@
     "chest": [
      12.0,
      12.0,
-     16.0
+     15.0
     ],
     "forearm_L": [
      21.0,
      12.0,
-     19.0
+     17.0
     ],
     "forearm_R": [
      3.0,
      12.0,
-     19.0
+     17.0
     ],
     "head": [
      12.0,
      12.0,
-     27.0
+     25.0
     ],
     "pelvis": [
      12.0,
      12.0,
-     12.0
+     11.0
     ],
     "shin_L": [
      15.5,
@@ -133,42 +133,42 @@
     "thigh_L": [
      15.5,
      12.0,
-     12.0
+     11.0
     ],
     "thigh_R": [
      8.5,
      12.0,
-     12.0
+     11.0
     ],
     "upper_arm_L": [
      21.0,
      12.0,
-     26.0
+     24.0
     ],
     "upper_arm_R": [
      3.0,
      12.0,
-     26.0
+     24.0
     ]
    },
    "sex": "female",
    "stray_contacts": [],
-   "voxels_body_only": 2474,
-   "voxels_with_round_head": 4714
+   "voxels_body_only": 2314,
+   "voxels_with_round_head": 5530
   },
   "female_slim": {
    "build": "slim",
    "components": 1,
    "part_voxels": {
-    "chest": 488,
-    "forearm_L": 68,
-    "forearm_R": 68,
+    "chest": 452,
+    "forearm_L": 59,
+    "forearm_R": 59,
     "head": 0,
     "pelvis": 180,
     "shin_L": 111,
     "shin_R": 111,
-    "thigh_L": 96,
-    "thigh_R": 96,
+    "thigh_L": 80,
+    "thigh_R": 80,
     "upper_arm_L": 66,
     "upper_arm_R": 66
    },
@@ -176,27 +176,27 @@
     "chest": [
      12.0,
      12.0,
-     16.0
+     15.0
     ],
     "forearm_L": [
      18.5,
      12.0,
-     19.0
+     17.0
     ],
     "forearm_R": [
      5.5,
      12.0,
-     19.0
+     17.0
     ],
     "head": [
      12.0,
      12.0,
-     27.0
+     25.0
     ],
     "pelvis": [
      12.0,
      12.0,
-     12.0
+     11.0
     ],
     "shin_L": [
      15.0,
@@ -211,42 +211,42 @@
     "thigh_L": [
      15.0,
      12.0,
-     12.0
+     11.0
     ],
     "thigh_R": [
      9.0,
      12.0,
-     12.0
+     11.0
     ],
     "upper_arm_L": [
      18.5,
      12.0,
-     26.0
+     24.0
     ],
     "upper_arm_R": [
      5.5,
      12.0,
-     26.0
+     24.0
     ]
    },
    "sex": "female",
    "stray_contacts": [],
-   "voxels_body_only": 1350,
-   "voxels_with_round_head": 3590
+   "voxels_body_only": 1264,
+   "voxels_with_round_head": 4480
   },
   "male_average": {
    "build": "average",
    "components": 1,
    "part_voxels": {
-    "chest": 956,
-    "forearm_L": 128,
-    "forearm_R": 128,
+    "chest": 876,
+    "forearm_L": 112,
+    "forearm_R": 112,
     "head": 0,
     "pelvis": 300,
     "shin_L": 111,
     "shin_R": 111,
-    "thigh_L": 144,
-    "thigh_R": 144,
+    "thigh_L": 120,
+    "thigh_R": 120,
     "upper_arm_L": 116,
     "upper_arm_R": 116
    },
@@ -254,27 +254,27 @@
     "chest": [
      12.0,
      12.0,
-     16.0
+     15.0
     ],
     "forearm_L": [
      21.0,
      12.0,
-     19.0
+     17.0
     ],
     "forearm_R": [
      3.0,
      12.0,
-     19.0
+     17.0
     ],
     "head": [
      12.0,
      12.0,
-     27.0
+     25.0
     ],
     "pelvis": [
      12.0,
      12.0,
-     12.0
+     11.0
     ],
     "shin_L": [
      15.0,
@@ -289,42 +289,42 @@
     "thigh_L": [
      15.0,
      12.0,
-     12.0
+     11.0
     ],
     "thigh_R": [
      9.0,
      12.0,
-     12.0
+     11.0
     ],
     "upper_arm_L": [
      21.0,
      12.0,
-     26.0
+     24.0
     ],
     "upper_arm_R": [
      3.0,
      12.0,
-     26.0
+     24.0
     ]
    },
    "sex": "male",
    "stray_contacts": [],
-   "voxels_body_only": 2254,
-   "voxels_with_round_head": 4494
+   "voxels_body_only": 2094,
+   "voxels_with_round_head": 5310
   },
   "male_heavy": {
    "build": "heavy",
    "components": 1,
    "part_voxels": {
-    "chest": 1472,
-    "forearm_L": 194,
-    "forearm_R": 194,
+    "chest": 1336,
+    "forearm_L": 170,
+    "forearm_R": 170,
     "head": 0,
     "pelvis": 520,
     "shin_L": 219,
     "shin_R": 219,
-    "thigh_L": 264,
-    "thigh_R": 264,
+    "thigh_L": 220,
+    "thigh_R": 220,
     "upper_arm_L": 170,
     "upper_arm_R": 170
    },
@@ -332,27 +332,27 @@
     "chest": [
      12.0,
      12.0,
-     16.0
+     15.0
     ],
     "forearm_L": [
      22.0,
      12.0,
-     19.0
+     17.0
     ],
     "forearm_R": [
      2.0,
      12.0,
-     19.0
+     17.0
     ],
     "head": [
      12.0,
      12.0,
-     27.0
+     25.0
     ],
     "pelvis": [
      12.0,
      12.0,
-     12.0
+     11.0
     ],
     "shin_L": [
      16.0,
@@ -367,42 +367,42 @@
     "thigh_L": [
      16.0,
      12.0,
-     12.0
+     11.0
     ],
     "thigh_R": [
      8.0,
      12.0,
-     12.0
+     11.0
     ],
     "upper_arm_L": [
      22.0,
      12.0,
-     26.0
+     24.0
     ],
     "upper_arm_R": [
      2.0,
      12.0,
-     26.0
+     24.0
     ]
    },
    "sex": "male",
    "stray_contacts": [],
-   "voxels_body_only": 3686,
-   "voxels_with_round_head": 5926
+   "voxels_body_only": 3414,
+   "voxels_with_round_head": 6630
   },
   "male_slim": {
    "build": "slim",
    "components": 1,
    "part_voxels": {
-    "chest": 640,
-    "forearm_L": 92,
-    "forearm_R": 92,
+    "chest": 580,
+    "forearm_L": 80,
+    "forearm_R": 80,
     "head": 0,
     "pelvis": 240,
     "shin_L": 111,
     "shin_R": 111,
-    "thigh_L": 96,
-    "thigh_R": 96,
+    "thigh_L": 80,
+    "thigh_R": 80,
     "upper_arm_L": 88,
     "upper_arm_R": 88
    },
@@ -410,27 +410,27 @@
     "chest": [
      12.0,
      12.0,
-     16.0
+     15.0
     ],
     "forearm_L": [
      19.5,
      12.0,
-     19.0
+     17.0
     ],
     "forearm_R": [
      4.5,
      12.0,
-     19.0
+     17.0
     ],
     "head": [
      12.0,
      12.0,
-     27.0
+     25.0
     ],
     "pelvis": [
      12.0,
      12.0,
-     12.0
+     11.0
     ],
     "shin_L": [
      15.0,
@@ -445,28 +445,28 @@
     "thigh_L": [
      15.0,
      12.0,
-     12.0
+     11.0
     ],
     "thigh_R": [
      9.0,
      12.0,
-     12.0
+     11.0
     ],
     "upper_arm_L": [
      19.5,
      12.0,
-     26.0
+     24.0
     ],
     "upper_arm_R": [
      4.5,
      12.0,
-     26.0
+     24.0
     ]
    },
    "sex": "male",
    "stray_contacts": [],
-   "voxels_body_only": 1654,
-   "voxels_with_round_head": 3894
+   "voxels_body_only": 1538,
+   "voxels_with_round_head": 4754
   }
  },
  "faces": {
@@ -482,8 +482,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   },
   "blink": {
    "cells": 40,
@@ -495,8 +495,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   },
   "bored": {
    "cells": 40,
@@ -510,8 +510,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   },
   "happy": {
    "cells": 40,
@@ -523,8 +523,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   },
   "look_down": {
    "cells": 36,
@@ -536,8 +536,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   },
   "look_left": {
    "cells": 36,
@@ -549,8 +549,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   },
   "look_right": {
    "cells": 36,
@@ -562,8 +562,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   },
   "neutral": {
    "cells": 36,
@@ -575,8 +575,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   },
   "sad": {
    "cells": 40,
@@ -590,8 +590,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   },
   "surprised": {
    "cells": 36,
@@ -603,8 +603,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   },
   "wink": {
    "cells": 38,
@@ -618,8 +618,8 @@
    ],
    "x_max": 16,
    "x_min": 7,
-   "z_max": 34,
-   "z_min": 30
+   "z_max": 33,
+   "z_min": 29
   }
  },
  "grid": [
@@ -634,26 +634,26 @@
      7,
      10
     ],
-    "plane_y": 6,
+    "plane_y": 5,
     "right_x": [
      13,
      16
     ],
     "z": [
-     30,
-     34
+     29,
+     33
     ]
    },
    "pivot": [
     12,
     12,
-    27
+    25
    ],
-   "voxels": 2296,
-   "x_max": 19,
-   "x_min": 4,
+   "voxels": 3512,
+   "x_max": 20,
+   "x_min": 3,
    "z_max": 41,
-   "z_min": 27
+   "z_min": 25
   },
   "heart": {
    "eye_box": {
@@ -661,26 +661,26 @@
      7,
      10
     ],
-    "plane_y": 6,
+    "plane_y": 5,
     "right_x": [
      13,
      16
     ],
     "z": [
-     30,
-     34
+     29,
+     33
     ]
    },
    "pivot": [
     12,
     12,
-    27
+    25
    ],
-   "voxels": 2092,
-   "x_max": 19,
-   "x_min": 4,
+   "voxels": 3004,
+   "x_max": 20,
+   "x_min": 3,
    "z_max": 41,
-   "z_min": 27
+   "z_min": 25
   },
   "oval": {
    "eye_box": {
@@ -688,26 +688,26 @@
      7,
      10
     ],
-    "plane_y": 6,
+    "plane_y": 5,
     "right_x": [
      13,
      16
     ],
     "z": [
-     30,
-     34
+     29,
+     33
     ]
    },
    "pivot": [
     12,
     12,
-    27
+    25
    ],
-   "voxels": 1840,
-   "x_max": 18,
-   "x_min": 5,
+   "voxels": 2616,
+   "x_max": 19,
+   "x_min": 4,
    "z_max": 41,
-   "z_min": 27
+   "z_min": 25
   },
   "round": {
    "eye_box": {
@@ -715,26 +715,26 @@
      7,
      10
     ],
-    "plane_y": 6,
+    "plane_y": 5,
     "right_x": [
      13,
      16
     ],
     "z": [
-     30,
-     34
+     29,
+     33
     ]
    },
    "pivot": [
     12,
     12,
-    27
+    25
    ],
-   "voxels": 2240,
-   "x_max": 19,
-   "x_min": 4,
+   "voxels": 3216,
+   "x_max": 20,
+   "x_min": 3,
    "z_max": 41,
-   "z_min": 27
+   "z_min": 25
   },
   "strong": {
    "eye_box": {
@@ -742,27 +742,137 @@
      7,
      10
     ],
-    "plane_y": 6,
+    "plane_y": 5,
     "right_x": [
      13,
      16
     ],
     "z": [
-     30,
-     34
+     29,
+     33
     ]
    },
    "pivot": [
     12,
     12,
-    27
+    25
    ],
-   "voxels": 2288,
-   "x_max": 19,
-   "x_min": 4,
+   "voxels": 3400,
+   "x_max": 20,
+   "x_min": 3,
    "z_max": 41,
-   "z_min": 27
+   "z_min": 25
   }
+ },
+ "layout": {
+  "bands": {
+   "ankle": [
+    2,
+    2
+   ],
+   "belly": [
+    15,
+    16
+   ],
+   "collar": [
+    24,
+    24
+   ],
+   "crown": [
+    37,
+    41
+   ],
+   "elbow": [
+    17,
+    17
+   ],
+   "foot": [
+    0,
+    1
+   ],
+   "forearm": [
+    13,
+    16
+   ],
+   "hand": [
+    9,
+    11
+   ],
+   "hips": [
+    11,
+    13
+   ],
+   "knee": [
+    6,
+    6
+   ],
+   "lower_chest": [
+    17,
+    19
+   ],
+   "lower_head": [
+    26,
+    30
+   ],
+   "lower_thigh": [
+    7,
+    8
+   ],
+   "mid_head": [
+    31,
+    36
+   ],
+   "neck": [
+    25,
+    25
+   ],
+   "shin": [
+    3,
+    5
+   ],
+   "shoulder": [
+    21,
+    23
+   ],
+   "upper_arm": [
+    18,
+    20
+   ],
+   "upper_chest": [
+    20,
+    23
+   ],
+   "upper_thigh": [
+    9,
+    10
+   ],
+   "waist": [
+    14,
+    14
+   ],
+   "wrist": [
+    12,
+    12
+   ]
+  },
+  "eye_box": {
+   "left_x": [
+    7,
+    10
+   ],
+   "plane_y": 5,
+   "right_x": [
+    13,
+    16
+   ],
+   "z": [
+    29,
+    33
+   ]
+  },
+  "face_plane_y": 5,
+  "neck_row": 25,
+  "top_row": 41
  },
  "mirror_x": 12,
  "note": "Generated by tools/verify_assets.py from the assets in assets/. Do not hand-edit."

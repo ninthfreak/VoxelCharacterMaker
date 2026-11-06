@@ -4,17 +4,18 @@ extends RefCounted
 
 ## One head shape from the library (SPEC.md section 4).
 ##
-## Every head shares the neck socket (4x4 at z27, x10-13, y10-13), the pivot
-## (12, 12, 27), the height z28-41, the ear rows and the eye box, so hair, hats
-## and faces fit all five. Heads are exported blank: no eyes.
+## Every head shares the neck socket (4x4 on the neck row, x10-13, y10-13), the
+## pivot, the height, the depth, the ear rows and the eye box -- all from
+## BodyLayout -- so hair, hats and faces fit all five. Heads are exported blank:
+## no eyes.
 ##
-## Head widths differ (12-14), so a pre-drawn hair or hat needs slack or a
+## Head widths differ (14-16), so a pre-drawn hair or hat needs slack or a
 ## per-head fit. Parametric wardrobe items grow from the surface and fit
 ## automatically.
 
-const EXPECTED_PIVOT := Vector3(12, 12, 27)
-const NECK_ROW := 27
-const TOP_ROW := 41
+const EXPECTED_PIVOT := BodyLayout.HEAD_PIVOT
+const NECK_ROW := BodyLayout.NECK_ROW
+const TOP_ROW := BodyLayout.TOP_ROW
 
 var shape: String = ""
 var pivot: Vector3 = EXPECTED_PIVOT
@@ -31,10 +32,10 @@ static func load_from(path: String) -> HeadDef:
 	var def := HeadDef.new()
 	def.source_path = path
 	def.shape = String(data.get("shape", ""))
-	def.pivot = JsonIO.to_vec3(data.get("pivot", [12, 12, 27]))
+	def.pivot = JsonIO.to_vec3(data.get("pivot", JsonIO.from_vec3(EXPECTED_PIVOT)))
 	def.cells = JsonIO.voxel_set(data.get("voxels", []))
 
-	var socket: Array = data.get("neck_socket", [[10, 13], [10, 13], 27])
+	var socket: Array = data.get("neck_socket", [[10, 13], [10, 13], NECK_ROW])
 	def.neck_socket = {
 		"x": Vector2i(int(socket[0][0]), int(socket[0][1])),
 		"y": Vector2i(int(socket[1][0]), int(socket[1][1])),

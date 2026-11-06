@@ -25,8 +25,8 @@ const VOXEL_SIZE := 1.0 / VOXELS_PER_METRE
 ## Grid of a character's reference box: 24 wide x 24 deep x 48 tall.
 const GRID := Vector3i(24, 24, 48)
 
-## The figure is 42 voxels tall (1.75 m).
-const FIGURE_HEIGHT := 42
+## The figure is 42 voxels tall (1.75 m): rows 0 to BodyLayout.TOP_ROW.
+const FIGURE_HEIGHT: int = BodyLayout.TOP_ROW + 1
 
 ## Mirror plane in corner space: mirror of x is MIRROR_SUM - x for corner
 ## coordinates, and MIRROR_X_MAX - x for voxel indices.
@@ -38,7 +38,7 @@ const MIRROR_X_MAX := 23
 const DEPTH_CENTRE := 12
 
 ## Face plane for the skin-tight face overlay (SPEC section 5).
-const FACE_PLANE_Y := 6
+const FACE_PLANE_Y: int = BodyLayout.FACE_PLANE_Y
 
 
 ## Corner-space point (asset) -> Godot metres.

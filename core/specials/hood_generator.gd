@@ -111,8 +111,8 @@ static func _down(ctx: SpecialItem.Context, params: Dictionary,
 
 ## The face opening, sized from the eye box every head shares.
 static func _face_opening(ctx: SpecialItem.Context, slack: int) -> Dictionary:
-	var box_x := Vector2i(7, 16)
-	var box_z := Vector2i(30, 34)
+	var box_x := Vector2i(BodyLayout.EYE_X0, VoxelAxes.MIRROR_X_MAX - BodyLayout.EYE_X0)
+	var box_z := Vector2i(BodyLayout.EYE_Z0, BodyLayout.EYE_Z1)
 	if ctx.head != null:
 		box_x = Vector2i(
 			ctx.head.screen_left_eye_x().x,

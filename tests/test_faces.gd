@@ -29,7 +29,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 		for cell in absolute.keys():
 			if (cell as Vector3i).y != VoxelAxes.FACE_PLANE_Y:
 				off_plane += 1
-		t.check_equal(off_plane, 0, "%s has every cell on y = 6" % name2)
+		t.check_equal(off_plane, 0, "%s has every cell on the face plane" % name2)
 
 		# The eye box is 4 wide x 5 tall per eye, so no expression may exceed it.
 		var xs_low := 99
@@ -42,9 +42,9 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 			xs_high = maxi(xs_high, c.x)
 			zs_low = mini(zs_low, c.z)
 			zs_high = maxi(zs_high, c.z)
-		t.check(xs_low >= 7 and xs_high <= 16,
+		t.check(xs_low >= BodyLayout.EYE_X0 and xs_high <= VoxelAxes.MIRROR_X_MAX - BodyLayout.EYE_X0,
 			"%s stays inside the eye box in x" % name2, "x %d..%d" % [xs_low, xs_high])
-		t.check(zs_low >= 30 and zs_high <= 34,
+		t.check(zs_low >= BodyLayout.EYE_Z0 and zs_high <= BodyLayout.EYE_Z1,
 			"%s stays inside the eye box in z" % name2, "z %d..%d" % [zs_low, zs_high])
 
 	t.group("faces: symmetry")

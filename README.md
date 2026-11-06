@@ -60,7 +60,7 @@ same character assembled the way the game will do it, with no editor involved.
 ## Tests
 
 Every acceptance check in `SPEC.md` section 12 is an automated test.
-**1343 checks, all passing** on Godot 4.7.2.
+**1383 checks, all passing** on Godot 4.7.2.
 
 ```bash
 godot --headless --path . --script res://tests/run_tests.gd

@@ -83,7 +83,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	var to_camera := camera.affine_inverse()
 
 	# 1. a camera on the -Z side must see the face.
-	# The face plane is y = 6, the back of the head is the largest y on the head.
+	# The face plane is the front of the head, the back of the head is the largest y on the head.
 	var back_y := 0
 	for cell in head.cells.keys():
 		back_y = maxi(back_y, (cell as Vector3i).y)
@@ -128,8 +128,8 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	for id in library.body_ids():
 		var b := library.body(id)
 		var pelvis := b.part("pelvis")
-		t.check(pelvis.pivot.is_equal_approx(Vector3(12, 12, 12)),
-			"%s pelvis pivot is (12, 12, 12)" % id, str(pelvis.pivot))
+		t.check(pelvis.pivot.is_equal_approx(Vector3(12, 12, BodyLayout.PELVIS_PIVOT_Z)),
+			"%s pelvis pivot is (12, 12, %d)" % [id, BodyLayout.PELVIS_PIVOT_Z], str(pelvis.pivot))
 		for part_name in ["upper_arm", "forearm", "thigh", "shin"]:
 			var left := b.part(part_name + "_L")
 			var right := b.part(part_name + "_R")

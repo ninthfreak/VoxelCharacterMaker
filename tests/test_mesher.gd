@@ -144,10 +144,11 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 			"got %s, pivot maps to %s" % [
 				accumulated, VoxelAxes.point_to_godot(part4.pivot)])
 
-	# The pelvis is the root, half a metre up, and the figure stands on y = 0.
+	# The pelvis is the root, at the hips' bottom row, and the figure stands on y = 0.
 	var pelvis_joint: Node3D = rig.joints["pelvis"]
-	t.check(pelvis_joint.position.is_equal_approx(Vector3(0, 0.5, 0)),
-		"the pelvis joint is half a metre above the rig origin",
+	var hip_height := float(BodyLayout.PELVIS_PIVOT_Z) / VoxelAxes.VOXELS_PER_METRE
+	t.check(pelvis_joint.position.is_equal_approx(Vector3(0, hip_height, 0)),
+		"the pelvis joint is at the bottom of the hips above the rig origin",
 		str(pelvis_joint.position))
 	var bounds := rig.figure_aabb()
 	t.check_near(bounds.position.y, 0.0, "the figure's feet are at y = 0", 0.001)

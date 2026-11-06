@@ -11,10 +11,11 @@ corner space, so an even-width part pivots on a boundary and a 90-degree turn st
 - `build_bodies.py` — generates everything below. `build(sex, build, head)` returns (part, material) arrays.
 - `body42_{sex}_{build}.vox` — MagicaVoxel, baked light/mid/dark shading. sex in male, female; build in slim, average, heavy.
 - `body42_{sex}_{build}_parts.json` — per part: parent, pivot, voxel list; plus the region-band table.
-- `head42_{shape}.vox` / `.json` — unisex heads: round, boxy, oval, strong, heart. Every head shares the neck socket
-  (4x4 at z27), pivot (12, 12, 27), height (z28-41), eye box and ear rows, so hair, hats and faces fit all.
-- `face42_{name}.json` — eyes only, as skin-tight overlays (bulk 0) on the face plane y6; heads and bodies are exported blank.
-  Eye box: 4 wide x 5 tall, top corners rounded; screen-left eye x7-10, screen-right eye x13-16, rows z30-34; fits all heads.
+- `head42_{shape}.vox` / `.json` — unisex heads: round, boxy, oval, strong, heart (14-16 wide, 14 deep, 16 tall). Every
+  head shares the neck socket (4x4 at z25), pivot (12, 12, 25), height (z26-41), depth, eye box and ear rows, so hair,
+  hats and faces fit all.
+- `face42_{name}.json` — eyes only, as skin-tight overlays (bulk 0) on the face plane y5; heads and bodies are exported blank.
+  Eye box: 4 wide x 5 tall, top corners rounded; screen-left eye x7-10, screen-right eye x13-16, rows z29-33; fits all heads.
   Each expression is stored per eye in box cells (c from the eye's outer edge, r from its bottom row) plus absolute voxels.
   Roles: white, pupil (eye colour), line (lids), skin. Expressions: neutral, blink, happy, angry, sad, surprised, bored,
   wink, look_left, look_right, look_down. Blink and expression changes are overlay swaps.
@@ -22,15 +23,15 @@ corner space, so an even-width part pivots on a boundary and a 90-degree turn st
 
 ## Parts (11, rigid)
 
-pelvis (root, z12-15) -> chest (z16-26) -> head (z27-41); chest -> upper_arm (z19-25) -> forearm+hand (z10-18);
-pelvis -> thigh (z6-11) -> shin+foot (z0-5). No joint caps; parts simply meet. Thighs never touch each other;
+pelvis (root, z11-14) -> chest (z15-24) -> head (z25-41); chest -> upper_arm (z17-23) -> forearm+hand (z9-16);
+pelvis -> thigh (z6-10) -> shin+foot (z0-5). No joint caps; parts simply meet. Thighs never touch each other;
 arms touch only the chest at the shoulder (exception: female heavy's forearm rests against the hip).
 
 ## Row bands (identical on all six bodies)
 
-head: neck 27 (trim), lower 28-31, mid 32-36, crown 37-41.  chest/pelvis: collar 26 (trim), upper chest 22-25,
-lower chest 19-21, belly 16-18, waist 15 (trim), hips 12-14.  arm: shoulder 23-25, upper arm 20-22, elbow 19 (trim),
-forearm 14-18, wrist 13 (trim), hand 10-12.  leg: upper thigh 9-11, lower thigh 7-8, knee 6 (trim), shin 3-5,
+head: neck 25 (trim), lower 26-30, mid 31-36, crown 37-41.  chest/pelvis: collar 24 (trim), upper chest 20-23,
+lower chest 17-19, belly 15-16, waist 14 (trim), hips 11-13.  arm: shoulder 21-23, upper arm 18-20, elbow 17 (trim),
+forearm 13-16, wrist 12 (trim), hand 9-11.  leg: upper thigh 9-10, lower thigh 7-8, knee 6 (trim), shin 3-5,
 ankle 2 (trim), foot 0-1.  Torso bands split front/back at the depth centre; everything splits left/right at x12.
 
 ## Builds
