@@ -291,12 +291,18 @@ A hooded cloak is a cape plus a hood on one item.
    too: a long skirt over trousers is two layers of cloth panel. Still
    deferred, as agreed.
 
+**Owner's answers (problems above):** 1 -- to be worked out together. 2 --
+probably not a problem; later. 3 -- hats will likely need a few options for
+how they interact with hair; to be decided. 4 -- to look into once the owner
+is using the real program. 5 -- agreed; a final body should be fixed early so
+clothing does not keep chasing body changes. 6 -- to be examined later.
+
 ### Opportunities
 
-1. **A character record.** Preview selections are not saved. Saving them as a
-   "character" (body, head, eye set + colour, hair + colour, facial hair,
-   outfit) would give the game exactly what it needs to load an NPC, and is a
-   small addition. Recommended next, if characters are wanted soon.
+1. ~~A character record.~~ **Ruled out by the owner:** the editor will never
+   save an assembled character. It saves only the parts (bodies, heads, eye
+   sets, hair, facial hair, clothes, outfits); putting a character together
+   and remembering it is the game's job. The Preview tab is for looking only.
 2. **The drawn shape is general.** Collars, pauldrons, horns, ears, crowns,
    belt pouches can all be drawn shapes at an anchor, which may mean few new
    generator types are ever needed.
@@ -321,5 +327,5 @@ Carried from `SPEC.md` section 13, plus what building raised:
    paper; it wants eyes on it.
 4. **Re-voxelised animation.** Not implemented; it is a rendering choice that
    does not change the data, exactly as the spec says.
-5. **Eye colour** now lives in eye-set colourways (4b). A character record
-   would still be where a character's chosen colourway is remembered.
+5. **Eye colour** now lives in eye-set colourways (4b). Which colourway a
+   given character uses is the game's to remember, not the editor's.
