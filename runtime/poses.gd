@@ -113,6 +113,8 @@ static func panel_rotation(driver: String, pose: Dictionary) -> Vector3:
 			return Vector3(0, 0, left.z * PANEL_FOLLOW)
 		SpecialItem.DRIVER_THIGH_R:
 			return Vector3(0, 0, right.z * PANEL_FOLLOW)
+		SpecialItem.DRIVER_TRAIL:
+			return Vector3(minf(0.0, minf(left.x, right.x)) * PANEL_FOLLOW, 0, 0)
 	return Vector3.ZERO
 
 

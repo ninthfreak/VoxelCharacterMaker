@@ -1,6 +1,6 @@
 @tool
 class_name BodyEdit
-extends RefCounted
+extends VoxelEditModel
 
 ## An editable base body (SPEC.md section 8, "Body editing").
 ##
@@ -26,7 +26,6 @@ extends RefCounted
 ## they come from the head library so any head fits any body (SPEC section 4) --
 ## so the head "part" here is always empty and cannot be painted.
 
-signal changed
 
 ## Pivot measurement windows, copied from tools/build_bodies.py:pivots().
 ## Each paired part's x is the mid-x of its own cells over these rows.
@@ -62,12 +61,6 @@ const PAINTABLE: Array[String] = [
 var sex: String = "male"
 var build: String = "average"
 var regions: RegionMap = null
-var source_path: String = ""
-
-## part name -> Dictionary of Vector3i -> true
-var parts: Dictionary = {}
-## Vector3i -> part name, kept in step with `parts` so a paint is O(1)
-var owner_of: Dictionary = {}
 
 var _pivots: Dictionary = {}
 var _pivots_stale := true
@@ -111,21 +104,12 @@ func display_name() -> String:
 	return "%s %s" % ["masculine" if sex == "male" else "feminine", build]
 
 
-# -------------------------------------------------------------- the mirror --
-
-## The part that holds the mirror image of a cell owned by `part_name`.
-## A paired part mirrors into its opposite number; a centred part into itself.
-static func mirror_part(part_name: String) -> String:
-	if part_name.ends_with("_L"):
-		return part_name.substr(0, part_name.length() - 2) + "_R"
-	if part_name.ends_with("_R"):
-		return part_name.substr(0, part_name.length() - 2) + "_L"
-	return part_name
+func kind() -> String:
+	return "body"
 
 
-## Note: no cell sits on the mirror plane. It lies BETWEEN x = 11 and x = 12,
-## so every cell has a distinct partner and there is no self-mirroring column
-## to special-case.
+func paintable_parts() -> Array[String]:
+	return PAINTABLE.duplicate()
 
 
 ## The half of a pair that belongs on the side of `cell`. A paired part never
@@ -147,104 +131,14 @@ static func part_for_side(part_name: String, cell: Vector3i) -> String:
 	return mirror_part(part_name)
 
 
-# ------------------------------------------------------------------ editing --
-
-func can_paint(part_name: String) -> bool:
-	return part_name in PAINTABLE
+func part_here(part_name: String, cell: Vector3i) -> String:
+	return part_for_side(part_name, cell)
 
 
-## Give a cell, and its mirror, to `part_name`. Returns true if anything moved.
-##
-## One owner per cell: whatever part held the cell loses it first.
-func paint(cell: Vector3i, part_name: String) -> bool:
-	if not can_paint(part_name):
-		return false
-	var here := part_for_side(part_name, cell)
-	var touched := _set_owner(cell, here)
-	touched = _set_owner(VoxelAxes.mirror_voxel(cell), mirror_part(here)) or touched
-	if touched:
-		_invalidate()
-	return touched
-
-
-## Remove a cell and its mirror from whatever parts hold them.
-func erase(cell: Vector3i) -> bool:
-	var touched := _clear_owner(cell)
-	touched = _clear_owner(VoxelAxes.mirror_voxel(cell)) or touched
-	if touched:
-		_invalidate()
-	return touched
-
-
-## Paint or erase a whole run of cells in one go, as a drag does, so the
-## listeners and the pivot measurement only fire once.
-func paint_many(cells: Array, part_name: String) -> int:
-	if not can_paint(part_name):
-		return 0
-	var n := 0
-	for cell in cells:
-		var c: Vector3i = cell
-		var here := part_for_side(part_name, c)
-		if _set_owner(c, here):
-			n += 1
-		if _set_owner(VoxelAxes.mirror_voxel(c), mirror_part(here)):
-			n += 1
-	if n > 0:
-		_invalidate()
-	return n
-
-
-func erase_many(cells: Array) -> int:
-	var n := 0
-	for cell in cells:
-		var c: Vector3i = cell
-		if _clear_owner(c):
-			n += 1
-		if _clear_owner(VoxelAxes.mirror_voxel(c)):
-			n += 1
-	if n > 0:
-		_invalidate()
-	return n
-
-
-func _set_owner(cell: Vector3i, part_name: String) -> bool:
-	if not VoxelAxes.in_grid(cell):
-		return false
-	var current: Variant = owner_of.get(cell)
-	if current != null and String(current) == part_name:
-		return false
-	if current != null:
-		(parts[current] as Dictionary).erase(cell)
-	(parts[part_name] as Dictionary)[cell] = true
-	owner_of[cell] = part_name
-	return true
-
-
-func _clear_owner(cell: Vector3i) -> bool:
-	var current: Variant = owner_of.get(cell)
-	if current == null:
-		return false
-	(parts[current] as Dictionary).erase(cell)
-	owner_of.erase(cell)
-	return true
-
-
+## Every edit can move a pivot, so they are re-measured lazily.
 func _invalidate() -> void:
 	_pivots_stale = true
-	changed.emit()
-
-
-func part_cells(part_name: String) -> Dictionary:
-	return parts.get(part_name, {})
-
-
-func owner_at(cell: Vector3i) -> String:
-	var current: Variant = owner_of.get(cell)
-	return "" if current == null else String(current)
-
-
-func total_voxels() -> int:
-	return owner_of.size()
+	super._invalidate()
 
 
 # ------------------------------------------------------------------ pivots --
@@ -273,14 +167,6 @@ func _measure_pivots() -> void:
 		_pivots[String(family) + "_R"] = Vector3(
 			VoxelAxes.MIRROR_SUM - x, VoxelAxes.DEPTH_CENTRE, z)
 	_pivots_stale = false
-
-
-## An even-width part pivots on a voxel boundary, so 90-degree turns stay on
-## the grid. Odd widths are accepted for 3-wide arms and 5-wide legs, where
-## only sideways rotation is affected (SPEC section 3.2, the parity rule).
-func pivot_on_boundary(part_name: String) -> bool:
-	var x := pivot_of(part_name).x
-	return is_equal_approx(x, roundf(x))
 
 
 # -------------------------------------------------------------- validation --

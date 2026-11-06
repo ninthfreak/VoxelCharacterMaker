@@ -2,13 +2,14 @@
 class_name SpecialItem
 extends RefCounted
 
-## Special wardrobe items: shapes the bulk system cannot express, and they are
-## common -- hoods, skirts, dresses, robes, togas, capes, standing collars,
-## pauldrons, hats, long hair (SPEC.md section 7.4).
+## Special shapes: pieces the region-and-bulk system cannot express -- hoods,
+## skirts, capes, beards, buns, bows (SPEC.md section 7.4).
 ##
-## Each special type is a generator with a few parameters, built from body
-## measurements so it still fits every body, using region names for lengths.
-## A limited number of types, by design.
+## A special shape is ANCHORED to the body at a specific point and otherwise
+## has its own form. Only the anchor is measured from the body, which is what
+## lets one definition fit all six bodies and all five heads. Each type is a
+## generator with a few parameters; lengths are named by body bands ("to the
+## knee"), not rows. An item can carry several, alongside its regions.
 ##
 ## Long garments that hang across the legs use CLOTH PANELS: garment-owned
 ## rigid parts hung from a pivot on a body part, rotated by a simple driver
@@ -26,8 +27,12 @@ class Result extends RefCounted:
 
 	var warnings: Array[String] = []
 
-	func claim(part: String, cell: Vector3i, role: String, reach: int = 1) -> void:
-		claims.append({"part": part, "cell": cell, "role": role, "reach": reach})
+	## `recolour` lets the claim land on a body voxel and repaint it, instead
+	## of being refused there as an ordinary special-shape claim is.
+	func claim(part: String, cell: Vector3i, role: String, reach: int = 1,
+			recolour: bool = false) -> void:
+		claims.append({"part": part, "cell": cell, "role": role, "reach": reach,
+			"recolour": recolour})
 
 	func panel(name: String, parent: String, pivot: Vector3, driver: String) -> void:
 		panels.append({"name": name, "parent": parent, "pivot": pivot, "driver": driver})
@@ -44,6 +49,9 @@ const DRIVER_BACKWARD_THIGH := "backward_thigh"
 const DRIVER_THIGH_L := "thigh_L"
 const DRIVER_THIGH_R := "thigh_R"
 const DRIVER_STATIC := "static"
+## Swing back with whichever thigh is furthest back, and never forward: a cape
+## following a leg forward would go through the body when sitting.
+const DRIVER_TRAIL := "trail"
 
 
 ## Context handed to every generator.
@@ -99,14 +107,29 @@ class Context extends RefCounted:
 ## Generator type -> script. Kept as a plain lookup so adding a type is one
 ## line here and one new file; the editor builds its controls from param_spec.
 static func types() -> Array[String]:
-	return ["hood", "skirt"]
+	return ["skirt", "cape", "hood", "shape"]
 
 
 static func display_name(type: String) -> String:
 	match type:
 		"hood": return "Hood"
 		"skirt": return "Skirt"
+		"cape": return "Cape"
+		"shape": return "Drawn shape"
 	return type
+
+
+## Where a type attaches, in words, for the editor. A drawn shape's anchor is
+## a parameter, so the caller passes the params to get its actual anchor.
+static func anchor_description(type: String, params: Dictionary = {}) -> String:
+	match type:
+		"hood": return "Anchored to the head; grows from its surface and leaves the face open."
+		"skirt": return "Anchored at the hips; hangs as cloth panels that swing with the legs."
+		"cape": return "Anchored behind the shoulders; hangs as a panel that trails the legs."
+		"shape":
+			var anchor := String(params.get("anchor", "chest"))
+			return "Anchored at: %s." % Anchors.label(anchor)
+	return ""
 
 
 ## Parameter description for the editor, so a new special type does not need
@@ -117,6 +140,8 @@ static func param_spec(type: String) -> Array:
 	match type:
 		"hood": return HoodGenerator.param_spec()
 		"skirt": return SkirtGenerator.param_spec()
+		"cape": return CapeGenerator.param_spec()
+		"shape": return ShapeGenerator.param_spec()
 	return []
 
 
@@ -124,7 +149,12 @@ static func default_params(type: String) -> Dictionary:
 	var out := {}
 	for entry in param_spec(type):
 		var e: Dictionary = entry
-		out[String(e["name"])] = e["default"]
+		var value: Variant = e["default"]
+		# A fresh copy: a shared default array would be one shape's cells drawn
+		# into every new shape.
+		if value is Array:
+			value = (value as Array).duplicate(true)
+		out[String(e["name"])] = value
 	return out
 
 
@@ -143,6 +173,8 @@ static func generate(type: String, ctx: Context, params: Dictionary) -> Result:
 	match type:
 		"hood": return HoodGenerator.generate(ctx, p)
 		"skirt": return SkirtGenerator.generate(ctx, p)
+		"cape": return CapeGenerator.generate(ctx, p)
+		"shape": return ShapeGenerator.generate(ctx, p)
 	var empty := Result.new()
 	empty.warnings.append("unknown special type '%s'" % type)
 	return empty

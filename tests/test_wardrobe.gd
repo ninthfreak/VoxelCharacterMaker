@@ -47,18 +47,14 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	var full := Wardrobe.create_default()
 	full.set_colour("sage", Color8(141, 160, 120))
 	var skirt := GarmentItem.create("skirt", "Skirt", "bottom")
-	skirt.kind = GarmentItem.Kind.SPECIAL
-	skirt.special_type = "skirt"
-	skirt.special_params = SpecialItem.default_params("skirt")
-	skirt.special_params["flare"] = 3
+	skirt.add_special("skirt")
+	skirt.set_special_param(0, "flare", 3)
 	skirt.roles = ["cloth", "hem"]
 	skirt.colourways = {"default": {"cloth": "moss", "hem": "ochre"},
 		"dusk": {"cloth": "plum", "hem": "bone"}}
 	full.add_item(skirt)
 	var hood := GarmentItem.create("hood", "Hood", "hat")
-	hood.kind = GarmentItem.Kind.SPECIAL
-	hood.special_type = "hood"
-	hood.special_params = SpecialItem.default_params("hood")
+	hood.add_special("hood")
 	hood.roles = ["cloth", "lining"]
 	hood.colourways = {"default": {"cloth": "ink", "lining": "rust"}}
 	full.add_item(hood)
@@ -92,7 +88,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 
 	# The special parameters come back as the type they went in as.
 	var reloaded_skirt := Wardrobe.from_json(JSON.parse_string(once)).item("skirt")
-	t.check_equal(typeof(reloaded_skirt.special_params["flare"]), TYPE_INT,
+	t.check_equal(typeof(reloaded_skirt.special_params(0)["flare"]), TYPE_INT,
 		"an int parameter reloads as an int, not a float")
 
 	t.group("wardrobe: colours survive exactly")

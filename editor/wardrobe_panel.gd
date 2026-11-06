@@ -195,9 +195,7 @@ func _on_new_special() -> void:
 	var type := SpecialItem.types()[0]
 	var id := w.unique_item_id(type)
 	var item := GarmentItem.create(id, SpecialItem.display_name(type), "bottom")
-	item.kind = GarmentItem.Kind.SPECIAL
-	item.special_type = type
-	item.special_params = SpecialItem.default_params(type)
+	item.add_special(type)
 	item.roles = ["cloth", "hem"]
 	item.colourways = {"default": {"cloth": "moss", "hem": "ochre"}}
 	w.add_item(item)

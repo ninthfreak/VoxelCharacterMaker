@@ -266,9 +266,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 
 	t.group("garments: special items")
 	var skirt := GarmentItem.create("skirt", "Skirt", "bottom")
-	skirt.kind = GarmentItem.Kind.SPECIAL
-	skirt.special_type = "skirt"
-	skirt.special_params = SpecialItem.default_params("skirt")
+	skirt.add_special("skirt")
 	skirt.roles = ["cloth", "hem"]
 	skirt.colourways = {"default": {"cloth": "moss", "hem": "ochre"}}
 	wardrobe.add_item(skirt)
@@ -293,7 +291,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	# A flared hem makes the front and side panels reach the same corner cell.
 	# Two rigid parts in one cell z-fight at rest and split when they swing.
 	for flare in range(0, 4):
-		skirt.special_params["flare"] = flare
+		skirt.set_special_param(0, "flare", flare)
 		var flared := _assemble(library, wardrobe, "male_heavy",
 			[{"item": "skirt", "colourway": "default"}])
 		var panel_owner := {}
@@ -308,12 +306,10 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 				panel_owner[cell17] = name5
 		t.check_equal(doubled_cells, 0,
 			"flare %d: no cell belongs to two skirt panels" % flare)
-	skirt.special_params["flare"] = 1
+	skirt.set_special_param(0, "flare", 1)
 
 	var hood := GarmentItem.create("hood", "Hood", "hat")
-	hood.kind = GarmentItem.Kind.SPECIAL
-	hood.special_type = "hood"
-	hood.special_params = SpecialItem.default_params("hood")
+	hood.add_special("hood")
 	hood.roles = ["cloth", "lining"]
 	hood.colourways = {"default": {"cloth": "ink", "lining": "rust"}}
 	wardrobe.add_item(hood)

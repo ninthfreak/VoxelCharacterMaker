@@ -50,7 +50,7 @@ func _initialize() -> void:
 			printerr(e)
 		quit(1)
 		return
-	_wardrobe = Wardrobe.create_default()
+	_wardrobe = Wardrobe.create_default(_library)
 	_add_specials()
 
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_out_dir)
@@ -61,6 +61,8 @@ func _initialize() -> void:
 		{"name": "six_dressed", "kind": "bodies", "worn": _outfit("everyday")},
 		{"name": "poses", "kind": "poses", "worn": _outfit("everyday")},
 		{"name": "specials", "kind": "specials", "worn": []},
+		# Capes and ponytails hang behind; a front view cannot show them.
+		{"name": "specials_back", "kind": "specials", "worn": [], "back": true},
 	]
 	print("rendering %d sheet(s) to %s" % [_sheets.size(), _out_dir])
 	# The first sheet is built on the first frame, not here: the window does
@@ -145,7 +147,10 @@ func _next_sheet() -> void:
 	camera.size = maxf(bounds.size.y, bounds.size.x / aspect) * 1.1
 	# look_at_from_position, not position + look_at: look_at refuses while the
 	# node is outside the tree, and this runs as the scene is being built.
-	var eye := centre + Vector3(-0.18, 0.1, -1.0).normalized() * 12.0
+	var toward := Vector3(-0.18, 0.1, -1.0)
+	if bool(sheet.get("back", false)):
+		toward = Vector3(0.18, 0.1, 1.0)
+	var eye := centre + toward.normalized() * 12.0
 	camera.look_at_from_position(eye, centre, Vector3.UP)
 
 
@@ -170,27 +175,25 @@ func _outfit(name: String) -> Array:
 
 func _add_specials() -> void:
 	var skirt := GarmentItem.create("render_skirt", "Skirt", "bottom")
-	skirt.kind = GarmentItem.Kind.SPECIAL
-	skirt.special_type = "skirt"
-	skirt.special_params = SpecialItem.default_params("skirt")
+	skirt.add_special("skirt")
 	skirt.roles = ["cloth", "hem"]
 	skirt.colourways = {"default": {"cloth": "moss", "hem": "ochre"}}
 	_wardrobe.add_item(skirt)
 
 	var hood := GarmentItem.create("render_hood", "Hood", "hat")
-	hood.kind = GarmentItem.Kind.SPECIAL
-	hood.special_type = "hood"
-	hood.special_params = SpecialItem.default_params("hood")
+	hood.add_special("hood")
 	hood.roles = ["cloth", "lining"]
 	hood.colourways = {"default": {"cloth": "ink", "lining": "rust"}}
 	_wardrobe.add_item(hood)
 
 
 func _rig(body_id: String, head: String, expression: String, worn: Array,
-		at: Vector3, pose: String = Poses.REST) -> AABB:
+		at: Vector3, pose: String = Poses.REST, features: Array = []) -> AABB:
 	var request := CharacterAssembler.Request.make(_library, body_id, head, expression)
 	request.wardrobe = _wardrobe
 	request.worn = worn
+	request.features = features
+	request.eye_set_id = _wardrobe.first_eye_set_id()
 	var assembled := CharacterAssembler.assemble(request)
 	for w in assembled.warnings:
 		printerr("%s: %s" % [body_id, w])
@@ -234,28 +237,40 @@ func _lay_out_poses(worn: Array) -> AABB:
 	return total
 
 
-## One figure per head shape: hood up on the first three, a skirt on the rest,
-## so both generator paths and all five heads are visible at once.
+## One figure per head shape, each showing a different special shape: a
+## dress (bodice regions + skirt), a hooded cloak (cape + hood), a raised hood,
+## a drawn beard with a crop, and a ponytail with a moustache.
 func _lay_out_specials() -> AABB:
 	var shapes := _library.head_shapes()
+	var looks := [
+		{"body": "female_average", "worn": [_w("dress"), _w("boots")], "features": [],
+			"label": "dress", "pose": Poses.MID_STRIDE},
+		{"body": "male_average", "worn": _outfit("travelling"),
+			"features": [_w("short_crop")], "label": "hooded cloak", "pose": Poses.REST},
+		{"body": "female_slim", "worn": [_w("render_hood"), _w("tunic")], "features": [],
+			"label": "hood up", "pose": Poses.REST},
+		{"body": "male_heavy", "worn": _outfit("everyday"),
+			"features": [_w("short_crop"), _w("short_beard")], "label": "crop, beard",
+			"pose": Poses.REST},
+		{"body": "male_slim", "worn": _outfit("everyday"),
+			"features": [_w("ponytail"), _w("moustache")], "label": "ponytail, moustache",
+			"pose": Poses.REST},
+	]
 	var total := AABB()
 	var first := true
-	var hood_worn := [{"item": "render_hood", "colourway": "default"}]
-	var skirt_worn := [
-		{"item": "tunic", "colourway": "default"},
-		{"item": "render_skirt", "colourway": "default"},
-	]
 	for i in shapes.size():
+		var look: Dictionary = looks[i % looks.size()]
 		var x := (float(shapes.size() - 1) * 0.5 - float(i)) * SPACING_FIGURES
-		var worn: Array = hood_worn if i < 3 else skirt_worn
-		var body := "female_average" if i >= 3 else "male_average"
-		var pose := Poses.MID_STRIDE if i == shapes.size() - 1 else Poses.REST
-		var b := _rig(body, shapes[i], "neutral", worn, Vector3(x, 0, 0), pose)
-		_caption("%s head\n%s" % [shapes[i], "hood" if i < 3 else "skirt"],
-			Vector3(x, 0, 0))
+		var b := _rig(String(look["body"]), shapes[i], "neutral", look["worn"],
+			Vector3(x, 0, 0), String(look["pose"]), look["features"])
+		_caption("%s head\n%s" % [shapes[i], look["label"]], Vector3(x, 0, 0))
 		total = b if first else total.merge(b)
 		first = false
 	return total
+
+
+func _w(item_id: String) -> Dictionary:
+	return {"item": item_id, "colourway": _wardrobe.item(item_id).first_colourway()}
 
 
 func _capture(name: String) -> void:

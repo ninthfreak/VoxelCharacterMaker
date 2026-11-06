@@ -34,6 +34,9 @@ func _initialize() -> void:
 	print("Voxel Character Maker - acceptance checks")
 	print("Godot %s" % Engine.get_version_info().get("string", "?"))
 
+	# The acceptance checks are about the GENERATED assets: an edit saved from
+	# the Bodies tab is free to change the voxel counts SPEC 12 lists.
+	_library.use_edited = false
 	if not _library.load_all():
 		for error in _library.errors:
 			print("   FAIL  asset library: %s" % error)
@@ -47,6 +50,7 @@ func _initialize() -> void:
 	TestWardrobe.run(_report, _library)
 	TestMesher.run(_report, _library)
 	TestBodyEdit.run(_report, _library)
+	TestFeatures.run(_report, _library)
 
 
 func _process(_delta: float) -> bool:

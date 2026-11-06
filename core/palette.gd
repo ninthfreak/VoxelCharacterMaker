@@ -121,4 +121,16 @@ static func default_wardrobe_colours() -> Dictionary:
 		"teal": Color8(58, 116, 124),
 		"slate": Color8(96, 104, 124),
 		"plum": Color8(104, 66, 94),
+		# Eyes: the stock colours SPEC section 6 gives, plus two iris colours.
+		"eye_white": EYE_WHITE,
+		"eye_dark": EYE_BLACK,
+		"lid": LID_LINE,
+		"eye_blue": Color8(58, 104, 170),
+		"eye_amber": Color8(176, 120, 40),
+		# Hair.
+		"hair_black": Color8(34, 30, 34),
+		"hair_brown": Color8(98, 66, 44),
+		"hair_auburn": Color8(140, 70, 40),
+		"hair_fair": Color8(214, 184, 120),
+		"hair_grey": Color8(160, 160, 164),
 	}

@@ -169,9 +169,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	t.group("rig: cloth panels follow their driver")
 	var wardrobe := Wardrobe.create_default()
 	var skirt := GarmentItem.create("panel_skirt", "Skirt", "bottom")
-	skirt.kind = GarmentItem.Kind.SPECIAL
-	skirt.special_type = "skirt"
-	skirt.special_params = SpecialItem.default_params("skirt")
+	skirt.add_special("skirt")
 	skirt.roles = ["cloth", "hem"]
 	skirt.colourways = {"default": {"cloth": "moss", "hem": "ochre"}}
 	wardrobe.add_item(skirt)
@@ -186,8 +184,8 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	skirt_rig.build(with_skirt)
 	skirt_rig.apply_pose(Poses.MID_STRIDE)
 	var stride := Poses.get_pose(Poses.MID_STRIDE)
-	var front: Node3D = skirt_rig.joints.get(SkirtGenerator.PANEL_FRONT)
-	var back: Node3D = skirt_rig.joints.get(SkirtGenerator.PANEL_BACK)
+	var front: Node3D = skirt_rig.joints.get(CharacterAssembler.panel_name("panel_skirt", 0, SkirtGenerator.PANEL_FRONT))
+	var back: Node3D = skirt_rig.joints.get(CharacterAssembler.panel_name("panel_skirt", 0, SkirtGenerator.PANEL_BACK))
 	t.check(front != null and back != null, "the front and back panels are in the rig")
 	if front != null and back != null:
 		var forward_thigh := maxf(

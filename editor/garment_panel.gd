@@ -116,9 +116,9 @@ func _build() -> void:
 		var item := editor.selected_item()
 		if item == null:
 			return
-		item.special_type = option_value(_special_type)
-		item.special_params = SpecialItem.default_params(item.special_type)
-		editor.commit("Set %s to a %s" % [item.name, item.special_type])
+		item.specials.clear()
+		item.add_special(option_value(_special_type))
+		editor.commit("Set %s to a %s" % [item.name, item.special_type(0)])
 		refresh())
 
 	_special_params = VBoxContainer.new()
@@ -148,7 +148,7 @@ func refresh() -> void:
 
 	var detail := ""
 	if item.is_special():
-		detail = "Generated shape: %s." % item.special_type
+		detail = "Generated shape: %s." % item.special_type(0)
 	else:
 		detail = "%d regions covered, deepest bulk %d." % [
 			item.effective_coverage().size(), item.max_bulk()]
@@ -159,7 +159,7 @@ func refresh() -> void:
 	_special_box.visible = item.is_special()
 
 	if item.is_special():
-		fill_options(_special_type, SpecialItem.types(), item.special_type)
+		fill_options(_special_type, SpecialItem.types(), item.special_type(0))
 		_rebuild_special_params(item)
 	else:
 		fill_options(_role, item.roles, item.roles[0] if not item.roles.is_empty() else "")
@@ -191,8 +191,8 @@ func _rebuild_special_params(item: GarmentItem) -> void:
 		_special_params.remove_child(child)
 		child.queue_free()
 
-	var params := SpecialItem.with_defaults(item.special_type, item.special_params)
-	for entry in SpecialItem.param_spec(item.special_type):
+	var params := SpecialItem.with_defaults(item.special_type(0), item.special_params(0))
+	for entry in SpecialItem.param_spec(item.special_type(0)):
 		var spec: Dictionary = entry
 		var key := String(spec["name"])
 		var label := String(spec["label"])
@@ -231,9 +231,9 @@ func _set_param(key: String, value: Variant, label: String) -> void:
 	var item := editor.selected_item()
 	if item == null:
 		return
-	if item.special_params.get(key) == value:
+	if item.special_params(0).get(key) == value:
 		return
-	item.special_params[key] = value
+	item.set_special_param(0, key, value)
 	editor.commit("Set %s on %s" % [label.to_lower(), item.name])
 
 

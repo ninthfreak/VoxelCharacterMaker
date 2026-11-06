@@ -43,8 +43,19 @@ class Request extends RefCounted:
 	## editor sets this so the preview shows what is being drawn rather than
 	## what is on disk; everything downstream is unchanged.
 	var body_override: BodyDef = null
-	## Array of {"item": id, "colourway": name}
+	## A head to use instead of looking head_shape up, for the head editor.
+	var head_override: HeadDef = null
+	## Clothing: Array of {"item": id, "colourway": name}
 	var worn: Array = []
+	## Features filling slots -- hair, facial hair: same shape as `worn`. Kept
+	## apart because they come from a different place (a character's chosen
+	## features, not an outfit), but assembled exactly like clothing.
+	var features: Array = []
+	## The eye set to draw, by id in the wardrobe, and its colourway. With
+	## none, the library's own face for `expression` is drawn in the stock
+	## colours: the "basic profile of the eyes" the body workspace shows.
+	var eye_set_id: String = ""
+	var eye_colourway: String = ""
 	## Only this item is applied, for the editor's "solo an item". "" = all.
 	var solo_item: String = ""
 	var eye_colour: Color = Palette.EYE_BLACK
@@ -122,7 +133,8 @@ static func assemble(req: Request) -> Assembled:
 
 	out.body = req.body_override if req.body_override != null \
 		else req.library.body(req.body_id)
-	out.head = req.library.head(req.head_shape)
+	out.head = req.head_override if req.head_override != null \
+		else req.library.head(req.head_shape)
 	out.face = req.library.face(req.expression)
 	if out.body == null:
 		out.warnings.append("unknown body '%s'" % req.body_id)
@@ -155,17 +167,26 @@ static func assemble(req: Request) -> Assembled:
 		for cell in (base[part_name] as Dictionary).keys():
 			occupancy[cell] = true
 
-	if out.face != null:
+	var eyes: EyeSet = null
+	if req.wardrobe != null and not req.eye_set_id.is_empty():
+		eyes = req.wardrobe.eye_set(req.eye_set_id)
+		if eyes == null:
+			out.warnings.append("unknown eye set '%s'" % req.eye_set_id)
+	if eyes != null:
+		_claim_eye_set(claims, eyes, req, base.get(BodyDef.HEAD_PART, {}))
+	elif out.face != null:
 		_claim_face(claims, out.face, base.get(BodyDef.HEAD_PART, {}))
 
+	# Every item has its regions AND its special shapes; neither excludes the
+	# other, so a dress is a bodice and a skirt.
 	for entry in _worn_in_draw_order(req):
 		var e: Dictionary = entry
 		var item: GarmentItem = e["item"]
 		var colourway := String(e["colourway"])
-		if item.is_special():
-			_claim_special(claims, panels, out, req, item, colourway, base, regions, occupancy)
-		else:
+		if item.has_coverage():
 			_claim_parametric(claims, item, colourway, base, regions, occupancy)
+		for index in item.specials.size():
+			_claim_special(claims, panels, out, item, index, colourway, base, regions, occupancy)
 
 	# -- 4 and 5. compose, then shade the whole figure -----------------------
 	var solid: Dictionary = {}
@@ -227,11 +248,16 @@ static func _worn_in_draw_order(req: Request) -> Array:
 	var out: Array = []
 	if req.wardrobe == null:
 		return out
+	var entries: Array = []
 	for entry in req.worn:
+		var w: Dictionary = entry
+		if not req.solo_item.is_empty() and String(w.get("item", "")) != req.solo_item:
+			continue
+		entries.append(w)
+	entries.append_array(req.features)
+	for entry in entries:
 		var e: Dictionary = entry
 		var item_id := String(e.get("item", ""))
-		if not req.solo_item.is_empty() and item_id != req.solo_item:
-			continue
 		var item := req.wardrobe.item(item_id)
 		if item == null:
 			continue
@@ -246,6 +272,31 @@ static func _worn_in_draw_order(req: Request) -> Array:
 			return ia.draw_order < ib.draw_order
 		return ia.id < ib.id)
 	return out
+
+
+## An eye set's expression, coloured from the wardrobe palette. Same rules as
+## the library face below: recolour only, below every garment.
+static func _claim_eye_set(claims: Dictionary, eyes: EyeSet, req: Request,
+		head_cells: Dictionary) -> void:
+	var expression := eyes.resolve(req.expression)
+	var absolute := eyes.to_absolute(expression)
+	var way := req.eye_colourway if eyes.colourways.has(req.eye_colourway) \
+		else eyes.first_colourway()
+	for cell in absolute.keys():
+		var c: Vector3i = cell
+		if not head_cells.has(c):
+			continue
+		var role := String(absolute[cell])
+		_offer(claims, BodyDef.HEAD_PART, c, {
+			"source": Source.FACE,
+			"role": role,
+			"item": "",
+			"colourway": way,
+			"reach": REACH_RECOLOUR,
+			"draw_order": FACE_DRAW_ORDER,
+			"region": "",
+			"colour": req.wardrobe.eye_colour(eyes.id, way, role),
+		})
 
 
 ## The face recolours head cells on the face plane and never adds volume, so it
@@ -310,9 +361,9 @@ static func _claim_parametric(claims: Dictionary, item: GarmentItem, colourway: 
 				})
 
 
-static func _claim_special(claims: Dictionary, panels: Array, out: Assembled, req: Request,
-		item: GarmentItem, colourway: String, base: Dictionary, regions: RegionMap,
-		occupancy: Dictionary) -> void:
+static func _claim_special(claims: Dictionary, panels: Array, out: Assembled,
+		item: GarmentItem, index: int, colourway: String, base: Dictionary,
+		regions: RegionMap, occupancy: Dictionary) -> void:
 	var ctx := SpecialItem.Context.new()
 	ctx.body = out.body
 	ctx.head = out.head
@@ -320,14 +371,21 @@ static func _claim_special(claims: Dictionary, panels: Array, out: Assembled, re
 	ctx.part_cells = base
 	ctx.occupancy = occupancy
 
-	var result := SpecialItem.generate(item.special_type, ctx, item.special_params)
+	var type := item.special_type(index)
+	var result := SpecialItem.generate(type, ctx, item.special_params(index))
 	for w in result.warnings:
 		out.warnings.append("%s: %s" % [item.name, w])
 
+	# Panels are named for the item and the shape that made them. A generator
+	# names its panels the same way every time, so a dress's skirt and a second
+	# skirt worn with it would otherwise merge into one rigid part.
+	var renamed := {}
 	for panel in result.panels:
 		var p: Dictionary = panel
+		var unique := panel_name(item.id, index, String(p["name"]))
+		renamed[String(p["name"])] = unique
 		panels.append({
-			"name": String(p["name"]),
+			"name": unique,
 			"parent": String(p["parent"]),
 			"pivot": p["pivot"],
 			"driver": String(p["driver"]),
@@ -336,20 +394,29 @@ static func _claim_special(claims: Dictionary, panels: Array, out: Assembled, re
 	for claim in result.claims:
 		var c: Dictionary = claim
 		var part_name := String(c["part"])
+		part_name = String(renamed.get(part_name, part_name))
 		var cell: Vector3i = c["cell"]
-		# A special never replaces a body voxel it grew from.
+		var recolour := bool(c.get("recolour", false))
 		var body_cells: Dictionary = base.get(part_name, {})
-		if body_cells.has(cell):
+		if body_cells.has(cell) != recolour:
+			# An ordinary claim never replaces a body voxel; a recolour claim
+			# only ever repaints one.
 			continue
 		_offer(claims, part_name, cell, {
 			"source": Source.GARMENT,
 			"role": String(c["role"]),
 			"item": item.id,
 			"colourway": colourway,
-			"reach": int(c.get("reach", 1)),
+			"reach": REACH_RECOLOUR if recolour else int(c.get("reach", 1)),
 			"draw_order": item.draw_order,
 			"region": regions.key_for_cell(part_name, cell),
 		})
+
+
+## The rig part a special's panel becomes: unique per item and per shape.
+## Underscores, because a node name cannot hold "/" or ":".
+static func panel_name(item_id: String, index: int, generator_name: String) -> String:
+	return "%s_%d_%s" % [item_id, index, generator_name]
 
 
 ## Layering (SPEC 7.3 rule 6): the claim that reaches farthest from the body
@@ -404,7 +471,10 @@ static func _fill_part(part: Part, cells: Dictionary, part_claims: Dictionary,
 
 		if source == Source.FACE:
 			# Flat, not toned: shading a 4x5 pixel eye would only muddy it.
-			part.colours[c] = FaceDef.colour_for_role(String(cl["role"]), req.eye_colour)
+			if cl.has("colour"):
+				part.colours[c] = cl["colour"]
+			else:
+				part.colours[c] = FaceDef.colour_for_role(String(cl["role"]), req.eye_colour)
 			continue
 
 		var tones: Array[Color] = Palette.garment_tones(Color.MAGENTA)

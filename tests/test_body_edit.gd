@@ -22,6 +22,8 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	_mirror(t, library)
 	_validation(t, library)
 	_round_trip(t, library)
+	_heads(t, library)
+	_overrides(t, library)
 
 
 # ------------------------------------------------------------- topology ----
@@ -363,3 +365,110 @@ static func _round_trip(t: TestReport, library: AssetLibrary) -> void:
 		"restore brings every cell back")
 	t.check(BodyEdit.all_ok(edit2.validate(library.head("round"))),
 		"and the restored body is valid again")
+
+
+# ------------------------------------------------------------------ heads ---
+
+## Every cell some shipped expression paints.
+static func _eye_cells(library: AssetLibrary) -> Dictionary:
+	var out := {}
+	for name in library.expression_names():
+		for cell in library.face(name).ink_cells().keys():
+			out[cell] = true
+	return out
+
+
+static func _heads(t: TestReport, library: AssetLibrary) -> void:
+	t.group("head edit: the shipped heads pass every head check")
+	var eyes := _eye_cells(library)
+	for shape in library.head_shapes():
+		var edit := HeadEdit.from_head(library.head(shape))
+		var failed := BodyEdit.failures(edit.validate(eyes))
+		var names: Array[String] = []
+		for f in failed:
+			names.append((f as BodyEdit.Finding).label)
+		t.check(failed.is_empty(), "%s passes as shipped" % shape, ", ".join(names))
+
+	t.group("head edit: what is locked and what is checked")
+	var head := HeadEdit.from_head(library.head("round"))
+	var before := head.total_voxels()
+	t.check(not head.paint(Vector3i(14, 12, HeadDef.NECK_ROW), HeadEdit.PART),
+		"the neck row cannot be painted: it is the shared socket")
+	t.check(not head.erase(Vector3i(11, 11, HeadDef.NECK_ROW)),
+		"nor erased")
+	t.check_equal(head.total_voxels(), before, "so the socket is untouched")
+
+	t.check(head.paint(Vector3i(20, 12, 36), HeadEdit.PART), "the head can be painted")
+	t.check_equal(head.owner_at(Vector3i(3, 12, 36)), HeadEdit.PART,
+		"and the edit mirrors across the face")
+
+	# Take away an eye cell: some expression no longer fits.
+	var eye_cell: Vector3i = eyes.keys()[0]
+	head.erase(eye_cell)
+	t.check(_fails(head.validate(eyes), "every eye fits"),
+		"removing a voxel an eye is drawn on is caught")
+	head.paint(eye_cell, HeadEdit.PART)
+
+	# Build out in front of an eye: it would be buried.
+	head.paint(Vector3i(eye_cell.x, eye_cell.y - 1, eye_cell.z), HeadEdit.PART)
+	t.check(_fails(head.validate(eyes), "nothing in front of the eyes"),
+		"covering an eye from the front is caught")
+
+	# Grow the crown above row 41: hair and hats would no longer sit right.
+	var tall := HeadEdit.from_head(library.head("boxy"))
+	tall.paint(Vector3i(12, 12, 42), HeadEdit.PART)
+	t.check(_fails(tall.validate(eyes), "top of the head is row 41"),
+		"a head taller than the shared height is caught")
+
+	t.group("head edit: round trip through the head file schema")
+	var path := "user://test_head_round_trip.json"
+	var original := HeadEdit.from_head(library.head("heart"))
+	t.check(original.save_to(path).is_empty(), "an edited head saves")
+	var reloaded := HeadDef.load_from(path)
+	t.check(reloaded != null, "and loads back through HeadDef, which validates it")
+	if reloaded != null:
+		t.check(VoxelTopology.same_cells(reloaded.cells, library.head("heart").cells),
+			"with the same voxels")
+		t.check_equal(reloaded.shape, "heart", "and the same name")
+	DirAccess.remove_absolute(path)
+	var def := original.to_head_def()
+	t.check(VoxelTopology.same_cells(def.cells, library.head("heart").cells),
+		"to_head_def gives the preview the same head")
+
+
+# ------------------------------------------------------- edited overrides --
+
+static func _overrides(t: TestReport, library: AssetLibrary) -> void:
+	t.group("assets: an edited file wins over the generated one")
+	var dir := "user://test_edited_assets"
+	DirAccess.make_dir_recursive_absolute(dir)
+
+	var edited_lib := AssetLibrary.new()
+	edited_lib.edited_dir = dir
+	edited_lib.load_all()
+	t.check(not edited_lib.is_head_edited("oval"), "nothing is edited to begin with")
+
+	var head := HeadEdit.from_head(edited_lib.head("oval"))
+	head.paint(Vector3i(13, 16, 40), HeadEdit.PART)
+	var count := head.total_voxels()
+	t.check(head.save_to(edited_lib.edited_head_path("oval")).is_empty(),
+		"an edited head saves into the edited folder")
+
+	var reread := AssetLibrary.new()
+	reread.edited_dir = dir
+	reread.load_all()
+	t.check(reread.is_head_edited("oval"), "a fresh library sees the edit")
+	t.check_equal(reread.head("oval").count(), count, "and loads it instead of the generated head")
+
+	var generated_only := AssetLibrary.new()
+	generated_only.edited_dir = dir
+	generated_only.use_edited = false
+	generated_only.load_all()
+	t.check_equal(generated_only.head("oval").count(), library.head("oval").count(),
+		"with edits switched off, the generated head loads")
+
+	t.check(reread.revert_head("oval").is_empty(), "reverting succeeds")
+	t.check(not reread.is_head_edited("oval"), "and removes the edit")
+	t.check_equal(reread.head("oval").count(), library.head("oval").count(),
+		"putting the generated head back")
+	DirAccess.remove_absolute(dir)
