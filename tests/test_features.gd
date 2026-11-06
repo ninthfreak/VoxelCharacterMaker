@@ -445,6 +445,36 @@ static func _lids(t: TestReport, library: AssetLibrary) -> void:
 	t.check(not _roles_in(wink_l, EyeSet.ROLE_WHITE).is_empty() and _roles_in(wink_r, EyeSet.ROLE_WHITE).is_empty(),
 		"wink: one eye open, the other closed")
 
+	t.group("eyes: lid tilt for angry and sad")
+	var brow_row_at := func(cells: Dictionary, col: int) -> int:
+		for cell in cells.keys():
+			if (cell as Vector2i).x == col and String(cells[cell]) == EyeLids.ROLE_BROW:
+				return (cell as Vector2i).y
+		return -1
+	var inner := EyeSet.BOX_W - 1   # c counts from the outer edge
+	var angry := EyeLids.apply(open, EyeLids.eye_state("angry", EyeSet.EYE_LEFT), EyeSet.EYE_LEFT)
+	t.check(brow_row_at.call(angry, inner) < brow_row_at.call(angry, 0),
+		"angry: the brow slants down toward the nose",
+		"outer row %d, inner row %d" % [brow_row_at.call(angry, 0), brow_row_at.call(angry, inner)])
+	t.check(angry.get(Vector2i(inner, h - 2)) == EyeLids.ROLE_LID, "with lid above its inner end")
+	var sad := EyeLids.apply(open, EyeLids.eye_state("sad", EyeSet.EYE_LEFT), EyeSet.EYE_LEFT)
+	t.check(brow_row_at.call(sad, inner) > brow_row_at.call(sad, 0),
+		"sad: the brow slants up toward the nose",
+		"outer row %d, inner row %d" % [brow_row_at.call(sad, 0), brow_row_at.call(sad, inner)])
+	t.check_equal(brow_row_at.call(sad, inner), h, "its inner end raised above the eye")
+	var steps: Array[int] = []
+	for col in EyeSet.BOX_W:
+		steps.append(EyeLids.tilt_offset(col, 2))
+	t.check_equal(steps, [0, 1, 1, 2, 2] as Array[int], "a tilt of 2 steps evenly across the eye")
+	var a2 := CharacterAssembler.assemble(_tilt_request(library, w, eyes.id, "angry"))
+	var mirrored := true
+	var face := _face_cells(a2)
+	for cell in face.keys():
+		var c3: Vector3i = cell
+		if not face.has(Vector3i(VoxelAxes.MIRROR_X_MAX - c3.x, c3.y, c3.z)):
+			mirrored = false
+	t.check(mirrored, "both eyes slant toward the nose (mirror images)")
+
 	t.group("eyes: lid, brow and skin colours")
 	var tail := {"item": "ponytail", "colourway": "default"}
 	var req := CharacterAssembler.Request.make(library, "male_average", "round", "neutral")
@@ -495,4 +525,13 @@ static func _lids(t: TestReport, library: AssetLibrary) -> void:
 			if _face_cells(CharacterAssembler.assemble(r2)).size() != expected:
 				bad.append(state)
 		t.check(bad.is_empty(), "%s head: every lid state lands on the face" % shape, ", ".join(bad))
+
+
+static func _tilt_request(library: AssetLibrary, w: Wardrobe, eye_set: String,
+		state: String) -> CharacterAssembler.Request:
+	var r := CharacterAssembler.Request.make(library, "male_average", "round", "neutral")
+	r.wardrobe = w
+	r.eye_set_id = eye_set
+	r.lids = state
+	return r
 

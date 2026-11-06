@@ -11,7 +11,7 @@ which parts are solid and which are guesses.
 
 ## 1. Verification status
 
-**Everything compiles and the acceptance suite is green: 1427 checks, 0 failures.**
+**Everything compiles and the acceptance suite is green: 1433 checks, 0 failures.**
 
 ```bash
 tests/run.sh                 # measures the assets, then runs the Godot suite
@@ -383,15 +383,16 @@ Worked out with the owner through mock-ups, neutral only:
 - **Where it shows:** Preview has Eyelids, Skin tone and Brows controls.
   Bodies and Clothes show neutral; Face & Hair shows wide open, so no lid hides
   the drawing being edited (the raised brow still shows against the hair).
-- **Review sheet:** `docs/renders/faces.png`, every lid state on a different
-  head, skin tone and hair.
+- **Review sheets:** `docs/renders/faces.png`, every lid state on a different
+  head, skin tone and hair; `faces_tilt.png`, angry and sad close up.
 
 Still open, from this:
 
 1. **Drawn expressions vs lids.** The 11 drawn starters were only roughly
-   adapted to 5 x 6; most are better made with lids now. Lids cannot do
-   happy's arcs or slanted angry/sad lids -- lid *tilt* is the likely next
-   step. What to keep is the owner's call.
+   adapted to 5 x 6; most are better made with lids now. Lid *tilt* is built
+   (angry, sad), so lids now cover everything but happy's arcs. What to keep
+   is the owner's call. Sad as built reads somewhat worried; a droopier
+   variant (more upper lid, a little lower lid) is easy if wanted.
 2. **Brow colour on light hair** is the weakest case (fair hair gives a light
    line). Revisit if it reads badly in use.
 3. **Runtime cost of blinking (unmeasured).** A lid change rebuilds the

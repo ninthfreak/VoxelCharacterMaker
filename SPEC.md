@@ -174,17 +174,20 @@ the lids drive; see below.)
   it covers the eye's top row and no lid shows. Rows the lower lid covers are lid, **with no line**. When the lids
   meet the eye is closed: lid, with the brow line at the upper lid's edge. The brow is always the full eye width.
   The one line serves as both brow and lash line (owner accepted the compromise; it reads as the brow when wide open).
+  **Tilt** slants the upper lid, and so the brow: +n puts its inner end (nearest the nose) n rows lower than its outer
+  end, −n puts it n rows higher, in even steps across the eye (a tilt of 2 steps 0, 1, 1, 2, 2). Both eyes mirror.
 - **Lid colour:** the skin tone half a shade darker (halfway from its mid to its dark). **Brow colour:** the hair
   colour one shade darker (its garment dark tone); bald characters get the brow of dark-brown hair unless a brow colour
   is set.
 - **Named lid states:** neutral (upper 1), wide open (0), unimpressed (upper 2), downcast (upper 3, pupil down 1),
-  tired (upper 3, lower 1, pupil down 1), suspicious (upper 2, lower 2), blink (closed), wink (one eye closed). They
+  tired (upper 3, lower 1, pupil down 1), suspicious (upper 2, lower 2), angry (upper 1, tilt +2), sad (upper 2,
+  tilt −2, pupil down 1), blink (closed), wink (one eye closed). They
   live in code; they are chosen on the editor's Preview tab only. Blinking is a lid state swap.
 - **Roles:** white, pupil (= eye colour; a colourway), line (in drawn expressions), lid and brow (from the lid state).
 - **Drawn expressions** remain: each is defined **once per eye in box cells** (c from the eye's outer edge, r from its
   bottom row), drawn in the Face & Hair tab, and lids apply on top. The 11 starters (neutral, blink, happy, angry, sad,
   surprised, bored, wink, look_left, look_right, look_down) were only roughly adapted to the 5×6 box; most are now
-  better made with lids, and what to keep is still open.
+  better made with lids (angry and sad now are), and what to keep is still open.
 - Draw order: the face draws **under** hair and hats.
 
 ## 6. Shading and colour

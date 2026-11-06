@@ -68,6 +68,9 @@ func _initialize() -> void:
 		# Capes and ponytails hang behind; a front view cannot show them.
 		{"name": "specials_back", "kind": "specials", "worn": [], "back": true},
 		{"name": "faces", "kind": "faces", "worn": []},
+		# Close up on the tilted lids, beside neutral for comparison.
+		{"name": "faces_tilt", "kind": "faces", "worn": [],
+			"states": ["neutral", "angry", "sad", "angry", "sad"]},
 	]
 	print("rendering %d sheet(s) to %s" % [_sheets.size(), _out_dir])
 	# The first sheet is built on the first frame, not here: the window does
@@ -125,7 +128,7 @@ func _next_sheet() -> void:
 		"specials":
 			bounds = _lay_out_specials()
 		"faces":
-			bounds = _lay_out_faces()
+			bounds = _lay_out_faces(sheet.get("states", EyeLids.names()))
 
 	# Orthographic, so every figure in a row is seen from exactly the same
 	# direction. Under perspective the ones at the ends turn away from the
@@ -285,8 +288,7 @@ func _lay_out_specials() -> AABB:
 
 ## Every lid state, each on a different head, skin tone and hair, framed on the
 ## heads: the review sheet for the lid and brow system.
-func _lay_out_faces() -> AABB:
-	var states := EyeLids.names()
+func _lay_out_faces(states: Array) -> AABB:
 	var shapes := _library.head_shapes()
 	var hair := [
 		{"item": "short_crop", "colourway": "default"}, {"item": "short_crop", "colourway": "black"},
