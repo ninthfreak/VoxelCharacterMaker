@@ -16,6 +16,8 @@ const ZOOM_STEP := 1.12
 const MIN_DISTANCE := 0.35
 const MAX_DISTANCE := 12.0
 const PITCH_LIMIT := 89.0
+## Room left around the figure when the view fits itself to it.
+const FRAME_MARGIN := 1.16
 
 ## Views, as (yaw, pitch) in degrees. Yaw 0 looks at the figure's front.
 const VIEWS := {
@@ -44,14 +46,27 @@ func _ready() -> void:
 	_apply()
 
 
+## True once the user has orbited, panned or zoomed. The view keeps fitting
+## itself to the figure until then, and stops the moment they take over.
+var moved_by_user := false
+
+
 ## Frame the figure: centre on its bounds and back off enough to see all of it.
-func frame(bounds: AABB) -> void:
+##
+## `aspect` is the viewport's width over its height. The field of view is
+## vertical, so a pane that is narrow relative to the figure needs extra
+## distance or the figure is cropped at the sides.
+func frame(bounds: AABB, aspect: float = 1.0) -> void:
 	if bounds.size == Vector3.ZERO:
 		return
 	target = bounds.get_center()
-	var radius := bounds.size.length() * 0.5
 	var half_fov := deg_to_rad(fov) * 0.5
-	distance = clampf(radius / maxf(0.01, sin(half_fov)) * 1.05, MIN_DISTANCE, MAX_DISTANCE)
+	var tan_half := maxf(0.01, tan(half_fov))
+	var for_height := (bounds.size.y * 0.5) / tan_half
+	var widest := maxf(bounds.size.x, bounds.size.z) * 0.5
+	var for_width := widest / (tan_half * maxf(0.2, aspect))
+	distance = clampf(maxf(for_height, for_width) * FRAME_MARGIN,
+		MIN_DISTANCE, MAX_DISTANCE)
 	_apply()
 
 
@@ -109,11 +124,13 @@ func handle_input(event: InputEvent) -> bool:
 				return mb.pressed
 			MOUSE_BUTTON_WHEEL_UP:
 				if mb.pressed:
+					moved_by_user = true
 					distance /= ZOOM_STEP
 					_apply()
 					return true
 			MOUSE_BUTTON_WHEEL_DOWN:
 				if mb.pressed:
+					moved_by_user = true
 					distance *= ZOOM_STEP
 					_apply()
 					return true
@@ -122,11 +139,13 @@ func handle_input(event: InputEvent) -> bool:
 	if event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
 		if _dragging_orbit:
+			moved_by_user = true
 			yaw += mm.relative.x * ORBIT_SPEED
 			pitch -= mm.relative.y * ORBIT_SPEED
 			_apply()
 			return true
 		if _dragging_pan:
+			moved_by_user = true
 			# Pan in the camera's own plane so dragging feels direct.
 			var right := global_transform.basis.x
 			var up := global_transform.basis.y

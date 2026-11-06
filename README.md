@@ -23,9 +23,9 @@ figures. Godot 4, GDScript.
 | Rigid-part rig and test poses | done |
 | Editor: preview, wardrobe, garment regions, colours, outfits | done |
 | Face editor | not started |
-| Review renders (`docs/renders/`) | done |
+| Review renders (`docs/renders/`) | done, including editor screenshots |
 | Export (.vox / STL / OBJ) | deferred to game work (owner's call) |
-| Body editor | not started |
+| Body editor | slice editing, mirror pairs, live checks |
 
 See `docs/NOTES.md` for decisions taken while building, and for the things
 still open.
@@ -44,7 +44,7 @@ same character assembled the way the game will do it, with no editor involved.
 ## Tests
 
 Every acceptance check in `SPEC.md` section 12 is an automated test.
-**851 checks, all passing** on Godot 4.7.2.
+**1062 checks, all passing** on Godot 4.7.2.
 
 ```bash
 godot --headless --path . --script res://tests/run_tests.gd
@@ -72,6 +72,15 @@ xvfb-run -a godot --path . --rendering-driver opengl3 \
 Drop `xvfb-run -a` on a machine with a display. Writes the six bodies bare,
 the six dressed in one parametric outfit, every test pose, and the special
 items, all labelled and orthographic so they can be compared.
+
+The editor builds its whole UI in code and the tests run headless, so nothing
+else here ever renders a control. To look at one:
+
+```bash
+xvfb-run -a godot --path . --rendering-driver opengl3 \
+    --script res://tools/screenshot_editor.gd -- --out docs/renders \
+    --tab Body --edit-body --row 22
+```
 
 ## Regenerating assets
 

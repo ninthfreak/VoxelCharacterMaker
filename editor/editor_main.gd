@@ -65,6 +65,11 @@ var figure_panel: FigurePanel = null
 var wardrobe_panel: WardrobePanel = null
 var garment_panel: GarmentPanel = null
 var colour_panel: ColourPanel = null
+var body_panel: BodyPanel = null
+
+## Set by the body editor while it has a body open, so the preview shows what
+## is being drawn instead of the library's copy.
+var body_override: BodyDef = null
 
 var _open_dialog: FileDialog = null
 var _save_dialog: FileDialog = null
@@ -91,7 +96,7 @@ func _ready() -> void:
 		wardrobe = Wardrobe.load_from(last_path)
 	if wardrobe == null:
 		wardrobe = Wardrobe.create_default()
-	history.reset(wardrobe)
+	history.reset(wardrobe.to_json())
 
 	body_id = String(state.get("body_id", body_id))
 	head_shape = String(state.get("head_shape", head_shape))
@@ -108,7 +113,7 @@ func _ready() -> void:
 
 	_refresh_all_panels()
 	rebuild()
-	camera.frame(rig.figure_aabb())
+	_fit_view_if_untouched()
 
 
 # ----------------------------------------------------------------------- UI --
@@ -153,13 +158,13 @@ func _build_ui() -> void:
 	# Main split: figure on the left, panels on the right.
 	var split := HSplitContainer.new()
 	split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	split.split_offset = 940
+	split.split_offset = 1000
 	root.add_child(split)
 
 	split.add_child(_build_viewport())
 
 	var right := VBoxContainer.new()
-	right.custom_minimum_size = Vector2(380, 0)
+	right.custom_minimum_size = Vector2(470, 0)
 	split.add_child(right)
 
 	_tabs = TabContainer.new()
@@ -167,20 +172,18 @@ func _build_ui() -> void:
 	right.add_child(_tabs)
 
 	figure_panel = FigurePanel.new()
-	figure_panel.name = "Figure"
-	_tabs.add_child(figure_panel)
-
 	wardrobe_panel = WardrobePanel.new()
-	wardrobe_panel.name = "Wardrobe"
-	_tabs.add_child(wardrobe_panel)
-
 	garment_panel = GarmentPanel.new()
-	garment_panel.name = "Garment"
-	_tabs.add_child(garment_panel)
-
 	colour_panel = ColourPanel.new()
-	colour_panel.name = "Colours"
-	_tabs.add_child(colour_panel)
+	body_panel = BodyPanel.new()
+
+	# Each panel goes in its own scroller. Several of them are taller than the
+	# window on a laptop, and a control you cannot reach may as well not exist.
+	_add_tab("Figure", figure_panel)
+	_add_tab("Wardrobe", wardrobe_panel)
+	_add_tab("Garment", garment_panel)
+	_add_tab("Colours", colour_panel)
+	_add_tab("Body", body_panel)
 
 	# Status row: counts, then warnings spelled out as words. Built before the
 	# panels are set up, because setting a panel up refreshes it and a refresh
@@ -189,15 +192,33 @@ func _build_ui() -> void:
 	root.add_child(status_row)
 	_status = Label.new()
 	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_status.size_flags_stretch_ratio = 1.4
+	_status.clip_text = true
 	status_row.add_child(_status)
 	_warning = Label.new()
 	_warning.add_theme_color_override("font_color", Palette.UI_ORANGE)
+	# Shares the row rather than being squeezed off the end of it: the hint
+	# line is where every "that did not work, and here is why" message lands.
+	_warning.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_warning.clip_text = true
 	status_row.add_child(_warning)
 
 	_build_dialogs()
 
-	for panel in [figure_panel, wardrobe_panel, garment_panel, colour_panel]:
+	for panel in [figure_panel, wardrobe_panel, garment_panel, colour_panel, body_panel]:
 		panel.setup(self)
+
+
+## Put one panel in the tab strip, inside a scroller that carries the title.
+func _add_tab(title: String, panel: EditorPanel) -> void:
+	var scroll := ScrollContainer.new()
+	scroll.name = title
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(panel)
+	_tabs.add_child(scroll)
 
 
 func _build_viewport() -> Control:
@@ -217,7 +238,9 @@ func _build_viewport() -> Control:
 
 	var frame_button := Button.new()
 	frame_button.text = "Fit"
-	frame_button.pressed.connect(func() -> void: camera.frame(rig.figure_aabb()))
+	frame_button.pressed.connect(func() -> void:
+		camera.moved_by_user = false
+		_fit_view())
 	views.add_child(frame_button)
 
 	var pick_toggle := CheckBox.new()
@@ -236,6 +259,10 @@ func _build_viewport() -> Control:
 	_subviewport.handle_input_locally = false
 	_subviewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_viewport_container.add_child(_subviewport)
+	# The view fits itself whenever the pane changes size. This matters at
+	# startup: _ready runs before the layout has settled, so a fit done there
+	# is computed against a pane size that is about to change.
+	_viewport_container.resized.connect(_fit_view_if_untouched)
 
 	var environment := WorldEnvironment.new()
 	var env := Environment.new()
@@ -303,6 +330,21 @@ func _build_dialogs() -> void:
 	add_child(_message_dialog)
 
 
+## Fit the figure in the pane, using the pane's real aspect.
+func _fit_view() -> void:
+	if camera == null or rig == null or _viewport_container == null:
+		return
+	var pane := _viewport_container.size
+	var aspect := 1.0 if pane.y <= 0.0 else pane.x / pane.y
+	camera.frame(rig.figure_aabb(), aspect)
+
+
+func _fit_view_if_untouched() -> void:
+	if camera != null and camera.moved_by_user:
+		return
+	_fit_view()
+
+
 # ------------------------------------------------------------------ rebuild --
 
 ## Re-assemble and re-mesh the figure. Everything that changes the figure ends
@@ -311,6 +353,7 @@ func rebuild() -> void:
 	if library == null:
 		return
 	var request := CharacterAssembler.Request.make(library, body_id, head_shape, expression)
+	request.body_override = body_override
 	request.wardrobe = wardrobe
 	request.worn = worn
 	request.solo_item = solo_item
@@ -325,10 +368,11 @@ func rebuild() -> void:
 	if picking_enabled:
 		_build_pick_bodies()
 
-	var body := library.body(body_id)
+	var body := assembled.body
 	var pieces := assembled.order.size()
 	_status.text = "%s - %s head - %s   |   %d voxels, %d faces, %d parts   |   %s" % [
-		body.display_name() if body != null else body_id,
+		"%s%s" % [body.display_name() if body != null else body_id,
+			" (editing)" if body_override != null else ""],
 		head_shape, expression,
 		assembled.total_voxels(), rig.total_faces(), pieces,
 		"solo: %s" % solo_item if not solo_item.is_empty() else "whole outfit",
@@ -351,12 +395,12 @@ func commit(label: String) -> void:
 	if wardrobe == null:
 		return
 	wardrobe.mark_dirty()
-	history.commit(label, wardrobe)
+	history.commit(label, wardrobe.to_json())
 	rebuild()
 
 
 func _refresh_all_panels() -> void:
-	for panel in [figure_panel, wardrobe_panel, garment_panel, colour_panel]:
+	for panel in [figure_panel, wardrobe_panel, garment_panel, colour_panel, body_panel]:
 		if panel != null:
 			panel.refresh()
 
@@ -416,6 +460,17 @@ func set_worn_colourway(item_id: String, colourway: String) -> void:
 func set_solo(item_id: String) -> void:
 	solo_item = item_id
 	rebuild()
+
+
+## Bring a tab to the front by its name. Used by region picking, which jumps
+## to the Garment tab, and by tools/screenshot_editor.gd.
+func show_tab(title: String) -> void:
+	if _tabs == null:
+		return
+	for i in _tabs.get_tab_count():
+		if _tabs.get_tab_title(i) == title:
+			_tabs.current_tab = i
+			return
 
 
 func select_item(item_id: String) -> void:
@@ -485,7 +540,7 @@ func _pick_region_at(screen_position: Vector2) -> void:
 	if region.is_empty():
 		set_status_hint("That cell is not in any region.")
 		return
-	_tabs.current_tab = _tabs.get_tab_idx_from_control(garment_panel)
+	show_tab("Garment")
 	garment_panel.select_region(region)
 	set_status_hint("Picked %s" % wardrobe_region_label(region))
 
@@ -582,16 +637,24 @@ func _refresh_edit_menu() -> void:
 
 
 func _on_edit_menu(id: int) -> void:
-	var restored: Wardrobe = null
+	# The body editor keeps its own stack, because undoing a brush stroke and
+	# undoing a colourway change are not one sequence anyone wants interleaved.
+	if body_panel != null and body_panel.owns_undo():
+		body_panel.handle_undo(id == EditMenu.REDO)
+		return
+
+	var snapshot: Dictionary = {}
 	match id:
 		EditMenu.UNDO:
-			restored = history.undo()
+			snapshot = history.undo()
 		EditMenu.REDO:
-			restored = history.redo()
+			snapshot = history.redo()
+	if snapshot.is_empty():
+		return
+	var restored := Wardrobe.from_json(snapshot)
 	if restored == null:
 		return
-	var keep_path := wardrobe.path
-	restored.path = keep_path
+	restored.path = wardrobe.path
 	restored.dirty = true
 	wardrobe = restored
 	_prune_worn()
@@ -622,7 +685,7 @@ func _on_file_menu(id: int) -> void:
 		FileMenu.NEW:
 			_guard_unsaved(func() -> void:
 				wardrobe = Wardrobe.create_default()
-				history.reset(wardrobe, "New wardrobe")
+				history.reset(wardrobe.to_json(), "New wardrobe")
 				_wear_default_outfit()
 				wardrobe_replaced.emit()
 				_refresh_all_panels()
@@ -681,7 +744,7 @@ func _do_open(path: String) -> void:
 		_message("Could not open %s.\n%s" % [path.get_file(), JsonIO.last_error()])
 		return
 	wardrobe = loaded
-	history.reset(wardrobe, "Opened %s" % path.get_file())
+	history.reset(wardrobe.to_json(), "Opened %s" % path.get_file())
 	_wear_default_outfit()
 	_save_state()
 	wardrobe_replaced.emit()

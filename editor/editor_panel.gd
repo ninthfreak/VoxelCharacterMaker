@@ -59,7 +59,8 @@ func labelled(parent: Container, text: String, control: Control) -> Control:
 	var row := HBoxContainer.new()
 	var label := Label.new()
 	label.text = text
-	label.custom_minimum_size = Vector2(110, 0)
+	label.custom_minimum_size = Vector2(104, 0)
+	label.clip_text = true
 	row.add_child(label)
 	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(control)
@@ -76,8 +77,11 @@ func hint(parent: Container, text: String) -> Label:
 	return label
 
 
-func button_row(parent: Container, buttons: Array) -> HBoxContainer:
-	var row := HBoxContainer.new()
+## A row of buttons that WRAPS. An HBoxContainer would instead report the sum
+## of its buttons as a minimum width, which drags the whole panel wider than
+## the pane and pushes every wrapped label off the right-hand edge.
+func button_row(parent: Container, buttons: Array) -> HFlowContainer:
+	var row := HFlowContainer.new()
 	for entry in buttons:
 		var e: Dictionary = entry
 		var button := Button.new()

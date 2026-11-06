@@ -35,6 +35,7 @@ func _initialize() -> void:
 	TestGarments.run(report, library)
 	TestWardrobe.run(report, library)
 	TestMesher.run(report, library)
+	TestBodyEdit.run(report, library)
 
 	var elapsed := Time.get_ticks_msec() - started
 	print("\n%s" % "".lpad(60, "-"))

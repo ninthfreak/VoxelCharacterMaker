@@ -74,13 +74,13 @@ func _build() -> void:
 		+ "many voxels outward. A trim band is one row thick, so a cuff, belt, "
 		+ "collar or hem is just a trim band in another colour.")
 
-	var apply_row := HBoxContainer.new()
+	var apply_row := HFlowContainer.new()
 	_parametric_box.add_child(apply_row)
 	var role_label := Label.new()
 	role_label.text = "Role"
 	apply_row.add_child(role_label)
 	_role = OptionButton.new()
-	_role.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_role.custom_minimum_size = Vector2(150, 0)
 	apply_row.add_child(_role)
 	var bulk_label := Label.new()
 	bulk_label.text = "Bulk"

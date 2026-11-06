@@ -11,7 +11,7 @@ which parts are solid and which are guesses.
 
 ## 1. Verification status
 
-**Everything compiles and the acceptance suite is green: 851 checks, 0 failures.**
+**Everything compiles and the acceptance suite is green: 1062 checks, 0 failures.**
 
 ```bash
 tests/run.sh                 # measures the assets, then runs the Godot suite
@@ -189,13 +189,39 @@ left, step 7 is deferred by the owner; 6 and 8 are simply not started yet:
   remove, so the test for it exists before the feature does. The shipped bodies
   have no such contacts, so the fix only matters once garments and hand-placed
   edits can introduce them.
-- **Body editor** (step 8).
+- **Body editor** (step 8) is now built: parts as layers, one owner per cell,
+  mandatory mirror pairs, row-band guides, pivot markers and the pose preview.
+  What it does NOT yet have is a front or side elevation view. Editing happens
+  on horizontal z-slices, which is the unit the bodies were designed in --
+  build_bodies.py builds each one as boxes over row ranges, and a row belongs
+  to exactly one band -- but shaping a silhouette would be easier with an x-z
+  view as well. Worth adding if the slice view turns out to be awkward in use.
 - **Special types beyond hood and skirt.** The generator registry describes its
   own parameters, so adding capes, togas, standing collars or pauldrons needs
   one file and one line in `SpecialItem.types()` — no editor changes.
 - **Decals** — deferred in the spec, and still deferred.
 
 ---
+
+## 4a. Two notes from building the body editor
+
+**The editor writes body files; build_bodies.py overwrites them.** The spec
+says asset JSON is generated and should be regenerated rather than hand-edited
+(CLAUDE.md), but it also says the owner expects to tweak the bodies in the
+editor (section 3.3). Those pull against each other, and running
+`build_bodies.py` after an editing session would silently discard the work.
+The panel says so in orange, and "Save as" defaults to the standard filename
+so it is a deliberate act to overwrite. The real decision -- does the saved
+file become the source of truth and the script retire, or do edits get ported
+back into the script -- is the owner's, and nothing here forces it either way.
+
+**Pivots are measured, never stored.** `BodyEdit` recomputes every joint from
+the geometry the way build_bodies.py measures it, so an edited body gets the
+pivots it would have had if it had been generated. The test asserts this
+against all six shipped bodies, and it independently reproduces the parity
+exceptions SPEC 3.2 lists by name: 3-wide arms on both slims and feminine
+average, and feminine heavy's 5-wide legs, pivot on a voxel centre. Nothing
+else does.
 
 ## 5. Still open, for the owner
 

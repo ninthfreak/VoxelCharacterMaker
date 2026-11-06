@@ -39,6 +39,10 @@ class Request extends RefCounted:
 	var head_shape: String = "round"
 	var expression: String = "neutral"
 	var wardrobe: Wardrobe = null
+	## A body to use INSTEAD of looking body_id up in the library. The body
+	## editor sets this so the preview shows what is being drawn rather than
+	## what is on disk; everything downstream is unchanged.
+	var body_override: BodyDef = null
 	## Array of {"item": id, "colourway": name}
 	var worn: Array = []
 	## Only this item is applied, for the editor's "solo an item". "" = all.
@@ -116,7 +120,8 @@ static func assemble(req: Request) -> Assembled:
 		out.warnings.append("no asset library")
 		return out
 
-	out.body = req.library.body(req.body_id)
+	out.body = req.body_override if req.body_override != null \
+		else req.library.body(req.body_id)
 	out.head = req.library.head(req.head_shape)
 	out.face = req.library.face(req.expression)
 	if out.body == null:
