@@ -100,8 +100,10 @@ func id() -> String:
 	return "%s_%s" % [sex, build]
 
 
+## "masculine average body" -- with the noun, so "editing the ..." reads as a
+## sentence, and matching HeadEdit's "round head".
 func display_name() -> String:
-	return "%s %s" % ["masculine" if sex == "male" else "feminine", build]
+	return "%s %s body" % ["masculine" if sex == "male" else "feminine", build]
 
 
 func kind() -> String:

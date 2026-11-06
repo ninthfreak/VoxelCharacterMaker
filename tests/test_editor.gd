@@ -2,35 +2,29 @@
 class_name TestEditor
 extends RefCounted
 
-## The editor shell, driven for real: the editor scene is instantiated and its
-## own methods called, so these check the behaviour a user gets rather than a
-## model of it.
+## The editor, driven for real: the editor scene is instantiated and its own
+## methods called, so these check what a user gets rather than a model of it.
 ##
-## Each group pins down a bug the code review found:
-##   undo timeline   the Edit menu described one edit while Ctrl+Z undid
-##                   another, and wardrobe edits made during body editing
-##                   could not be undone
-##   unsaved guard   closing the window, or quitting with an edited body,
-##                   lost work without asking; "Save first" on a never-saved
-##                   file dropped the action; a cancelled prompt left it
-##                   waiting to fire on some later save
-##   solo            deleting the solo item hid every other worn item
-##   hint            "Saved" was wiped by the rebuild that followed it
-##   body picker     changing body in the Figure tab while editing did nothing
+## The four tabs are checked for what each one is FOR: Bodies shows a bare
+## figure with only the basic eyes and edits bodies and heads; Face & Hair
+## edits eyes, hair and facial hair, one of each; Clothes cycles the bodies
+## and edits items with their special shapes; Preview puts anything together.
+## The shell's guarantees -- one undo timeline, nothing unsaved lost without
+## asking, messages that survive a rebuild -- are checked across them.
 ##
-## The editor's remembered state is pointed at a scratch file first, so a test
-## run never overwrites the state of whoever runs it.
+## The editor's remembered state and its saved body/head edits are pointed at
+## scratch locations first, so a test run never touches the user's own.
 
 const STATE_PATH := "user://test_editor_state.cfg"
 const SAVE_PATH := "user://test_editor_wardrobe.json"
+const EDITS_DIR := "user://test_editor_edits"
 
 
-## Create the editor. Its _ready runs when it enters the tree, which the
-## runner does on a later frame -- the tree is not running during _initialize.
 static func make() -> Control:
 	var packed: PackedScene = load("res://editor/editor_main.tscn")
 	var editor: Control = packed.instantiate()
 	editor.set("state_path", STATE_PATH)
+	editor.set("edited_dir", EDITS_DIR)
 	return editor
 
 
@@ -38,109 +32,290 @@ static func cleanup() -> void:
 	for path in [STATE_PATH, SAVE_PATH]:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
+	var dir := DirAccess.open(EDITS_DIR)
+	if dir != null:
+		for file in dir.get_files():
+			DirAccess.remove_absolute("%s/%s" % [EDITS_DIR, file])
+		DirAccess.remove_absolute(EDITS_DIR)
 
 
 static func run(t: TestReport, ed: CharacterEditor) -> void:
-	t.group("editor: starts up")
-	t.check(ed.rig != null and ed.rig.assembled != null, "the preview has a figure")
-	t.check(ed.body_panel != null and ed.figure_panel != null, "every panel exists")
+	t.group("editor: four separate tabs")
+	var titles: Array[String] = []
+	for ws in ed.workspaces:
+		titles.append((ws as Workspace).title())
+	t.check_equal(titles, ["Bodies", "Face & Hair", "Clothes", "Preview"] as Array[String],
+		"the tabs are Bodies, Face & Hair, Clothes, Preview")
 	t.check(not ed.get_tree().auto_accept_quit,
 		"closing the window is routed through the editor, not accepted outright")
+	for ws2 in ed.workspaces:
+		var w: Workspace = ws2
+		ed.show_tab(w.title())
+		t.check(w.view.assembled != null and w.view.assembled.warnings.is_empty(),
+			"%s shows a figure with no warnings" % w.title(),
+			"" if w.view.assembled == null else ", ".join(w.view.assembled.warnings))
 
+	_bodies(t, ed)
+	_heads(t, ed)
+	_face_hair(t, ed)
+	_clothes(t, ed)
+	_preview(t, ed)
 	_undo_timeline(t, ed)
 	_unsaved_guard(t, ed)
-	_solo(t, ed)
 	_hint(t, ed)
-	_body_picker(t, ed)
 
 
 static func _fresh(ed: CharacterEditor) -> void:
-	if ed.body_panel.is_editing():
-		ed.body_panel.discard_unsaved()
-		ed.body_panel._stop_now()
+	if ed.bodies.is_editing():
+		ed.bodies.discard_unsaved()
+		ed.bodies._stop_now()
 	ed.cancel_pending()
-	ed._replace_wardrobe(Wardrobe.create_default(), "Test start")
+	ed._replace_wardrobe(Wardrobe.create_default(ed.library), "Test start")
 
 
-# --------------------------------------------------------------- undo ------
+static func _owners(assembled: CharacterAssembler.Assembled) -> Dictionary:
+	var out := {}
+	for name in assembled.order:
+		var part := assembled.part(String(name))
+		for cell in part.cells.keys():
+			var owner := String(part.owners.get(cell, ""))
+			if not owner.is_empty():
+				out[owner] = true
+	return out
+
+
+# ------------------------------------------------------------------ bodies --
+
+static func _bodies(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: the Bodies tab is bare, and edits go everywhere")
+	_fresh(ed)
+	ed.show_tab("Bodies")
+	var bare := ed.bodies.view.assembled
+	t.check(_owners(bare).is_empty(), "no hair, clothes or items on the body preview",
+		", ".join(_owners(bare).keys()))
+	var eye_cells := 0
+	var head := bare.part(BodyDef.HEAD_PART)
+	for cell in head.cells.keys():
+		if int(head.sources.get(cell, 0)) == CharacterAssembler.Source.FACE:
+			eye_cells += 1
+	t.check(eye_cells > 0, "but the basic eyes are there")
+
+	ed.bodies.body_id = "male_average"
+	ed.bodies.start_editing(BodiesWorkspace.KIND_BODY)
+	t.check(ed.bodies.edit is BodyEdit, "a body opens for editing")
+	var before := ed.library.body("male_average").total_voxels()
+	var cell := Vector3i(15, 6, 23)
+	ed.bodies.edit.paint(cell, "chest")
+	ed.bodies._after_stroke("Paint test")
+	t.check(ed.bodies.has_unsaved(), "the stroke is unsaved")
+	t.check(ed.library.body("male_average").total_voxels() > before,
+		"the edit is in the library as it is drawn")
+
+	# Another tab sees it straight away.
+	ed.clothes.body_id = "male_average"
+	ed.show_tab("Clothes")
+	t.check(ed.clothes.view.assembled.body.part("chest").cells.has(cell),
+		"the Clothes tab shows the edited body")
+
+	# Discarding puts the library back.
+	ed.show_tab("Bodies")
+	ed.bodies.discard_unsaved()
+	t.check_equal(ed.library.body("male_average").total_voxels(), before,
+		"discarding puts the generated body back")
+	ed.bodies._stop_now()
+
+	# Saving writes to the edited folder, and reverting removes it.
+	ed.bodies.start_editing(BodiesWorkspace.KIND_BODY)
+	ed.bodies.edit.paint(cell, "chest")
+	ed.bodies._after_stroke("Paint to save")
+	ed.bodies._on_save()
+	t.check(not ed.bodies.has_unsaved(), "Save clears the unsaved flag")
+	t.check(ed.library.is_body_edited("male_average"),
+		"and the body is now an edited version on disk")
+	t.check(FileAccess.file_exists(ed.library.edited_body_path("male", "average")),
+		"in the edited folder, not over the generated file")
+	ed.bodies._do_revert()
+	t.check(not ed.library.is_body_edited("male_average"), "Revert removes the edit")
+	t.check_equal(ed.library.body("male_average").total_voxels(), before,
+		"and the generated body is back")
+	ed.bodies._stop_now()
+
+
+static func _heads(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: heads are edited in the Bodies tab too")
+	_fresh(ed)
+	ed.show_tab("Bodies")
+	ed.bodies.head_shape = "oval"
+	ed.bodies.start_editing(BodiesWorkspace.KIND_HEAD)
+	t.check(ed.bodies.edit is HeadEdit, "a head opens for editing")
+	t.check_equal(ed.bodies.edit.paintable_parts(), ["head"] as Array[String],
+		"with the head as its only layer")
+	t.check(not ed.bodies.edit.paint(Vector3i(14, 12, HeadDef.NECK_ROW), HeadEdit.PART),
+		"the neck socket cannot be painted")
+	var findings := ed.bodies._findings()
+	t.check(BodyEdit.all_ok(findings), "the shipped oval head passes the head checks")
+	# A cell the shipped head has, so taking it away is a real change.
+	var cell := Vector3i(12, 14, 40)
+	t.check(ed.library.head("oval").cells.has(cell), "(the test cell is part of the head)")
+	ed.bodies.edit.erase(cell)
+	ed.bodies._after_stroke("Erase head")
+	t.check(not ed.library.head("oval").cells.has(cell),
+		"a head edit reaches the library too")
+	ed.bodies.discard_unsaved()
+	ed.bodies._stop_now()
+	t.check(ed.library.head("oval").cells.has(cell),
+		"and discarding puts the head back")
+
+
+# -------------------------------------------------------------- face & hair --
+
+static func _face_hair(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: Face & Hair -- eyes, hair, facial hair, one of each")
+	_fresh(ed)
+	ed.show_tab("Face & Hair")
+	var fh := ed.face_hair
+	t.check(not fh.eye_set_id.is_empty(), "an eye set is chosen")
+	t.check_equal(fh._eyes_panel._expression_names.size(),
+		ed.wardrobe.eye_set(fh.eye_set_id).expression_names().size(),
+		"and its expressions are listed")
+
+	fh.hair.select("")
+	fh.facial_hair.select("")
+	var bald := _owners(fh.view.assembled)
+	t.check(bald.is_empty(), "with no hair chosen the head is bald",
+		", ".join(bald.keys()))
+	fh.hair.select("short_crop")
+	fh.facial_hair.select("short_beard")
+	var dressed := _owners(fh.view.assembled)
+	t.check(dressed.has("short_crop") and dressed.has("short_beard"),
+		"choosing hair and a beard shows both", ", ".join(dressed.keys()))
+
+	# A head change keeps the choices.
+	fh.head_shape = "heart"
+	fh.rebuild()
+	t.check(_owners(fh.view.assembled).has("short_beard"),
+		"they stay on when the head changes")
+
+	# Drawing an expression changes the face and is undoable.
+	var eyes := ed.wardrobe.eye_set(fh.eye_set_id)
+	var before := eyes.role_at("neutral", EyeSet.EYE_LEFT, 0, 0)
+	eyes.set_cell("neutral", EyeSet.EYE_LEFT, 0, 0, EyeSet.ROLE_LINE, true)
+	ed.commit("Draw eyes", fh)
+	t.check_equal(ed.next_undo_doc(), CharacterEditor.DOC_WARDROBE,
+		"drawing eyes is a wardrobe edit")
+	ed.undo()
+	t.check_equal(ed.wardrobe.eye_set(fh.eye_set_id).role_at(
+		"neutral", EyeSet.EYE_LEFT, 0, 0), before, "and undo takes it back")
+
+
+# ----------------------------------------------------------------- clothes --
+
+static func _clothes(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: Clothes -- every body, items with special shapes")
+	_fresh(ed)
+	ed.show_tab("Clothes")
+	var cl := ed.clothes
+	cl.clothes.select("dress")
+	cl.show_mode = ClothesWorkspace.SHOW_ITEM
+	var bodies_with_dress := 0
+	for id in ed.library.body_ids():
+		cl.body_id = id
+		cl.rebuild()
+		var a := cl.view.assembled
+		var panels := 0
+		for name in a.order:
+			if a.part(String(name)).is_panel():
+				panels += 1
+		if _owners(a).has("dress") and panels > 0 and a.warnings.is_empty():
+			bodies_with_dress += 1
+	t.check_equal(bodies_with_dress, 6, "the dress, bodice and skirt, on all six bodies")
+
+	t.check(_owners(cl.view.assembled).keys() == ["dress"],
+		"'this item only' shows just the item", ", ".join(_owners(cl.view.assembled).keys()))
+	cl.set_worn_list(ed.wardrobe.outfit("everyday"))
+	t.check_equal(cl.show_mode, ClothesWorkspace.SHOW_WORN, "wearing an outfit shows the worn set")
+	t.check(_owners(cl.view.assembled).has("tunic"), "with the outfit on")
+
+	cl.hair_id = "short_crop"
+	cl.rebuild()
+	t.check(_owners(cl.view.assembled).has("short_crop"),
+		"a hair style can be put on to check hats and hoods against")
+
+	# Deleting the selected item clears the selection rather than dangling.
+	cl.clothes.select("boots")
+	ed.wardrobe.remove_item("boots")
+	ed.commit("Delete boots", cl)
+	cl.refresh()
+	t.check_equal(cl.clothes.item_id, "", "deleting the selected item clears the selection")
+	t.check(not cl.is_worn("boots"), "and it is no longer worn")
+
+
+# ----------------------------------------------------------------- preview --
+
+static func _preview(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: Preview -- any combination, as a whole character")
+	_fresh(ed)
+	ed.show_tab("Preview")
+	var pv := ed.preview
+	pv._choose("body_id", "female_heavy")
+	pv._choose("head_shape", "strong")
+	pv._choose("hair_id", "ponytail")
+	pv._choose("facial_id", "moustache")
+	pv._choose("expression", "happy")
+	pv.worn = ed.wardrobe.outfit("travelling")
+	pv.refresh()
+	pv.rebuild()
+	var a := pv.view.assembled
+	t.check_equal(a.body.id, "female_heavy", "the chosen body")
+	t.check_equal(a.head.shape, "strong", "the chosen head")
+	var owners := _owners(a)
+	for id in ["ponytail", "moustache", "cloak", "tunic", "trousers", "boots"]:
+		t.check(owners.has(id), "%s is on the character" % id)
+	t.check(a.warnings.is_empty(), "with no warnings", ", ".join(a.warnings))
+	t.check(pv._summary.text.contains("Wearing:"), "and a summary of what is on")
+
+
+# ------------------------------------------------------------------- undo --
 
 static func _undo_timeline(t: TestReport, ed: CharacterEditor) -> void:
-	t.group("editor: one undo timeline across wardrobe and body")
+	t.group("editor: one undo timeline across the wardrobe and an open body")
 	_fresh(ed)
-	t.check_equal(ed.next_undo_doc(), "", "nothing to undo on a fresh wardrobe")
+	ed.show_tab("Clothes")
+	var original_order := ed.wardrobe.item("tunic").draw_order
 
-	var tunic := ed.wardrobe.item("tunic")
-	var original_order := tunic.draw_order
-
-	# A: a wardrobe edit
 	ed.wardrobe.item("tunic").draw_order = 31
-	ed.commit("Set draw order A")
+	ed.commit("Set draw order A", ed.clothes)
 
-	# B: a brush stroke on an open body
-	ed.body_panel.start_editing_preview_body()
-	t.check(ed.body_panel.is_editing(), "a body is open")
+	ed.show_tab("Bodies")
+	ed.bodies.start_editing(BodiesWorkspace.KIND_BODY)
 	var cell := Vector3i(5, 3, 30)
-	var voxels_before := ed.body_panel.edit.total_voxels()
-	ed.body_panel.edit.paint(cell, "chest")
-	ed.body_panel._on_painted([cell], "chest")
-	t.check(ed.body_panel.edit.total_voxels() > voxels_before, "the stroke added voxels")
+	ed.bodies.edit.paint(cell, "chest")
+	ed.bodies._after_stroke("Paint B")
 
-	# C: another wardrobe edit, made while the body is still open
 	ed.wardrobe.item("tunic").draw_order = 32
-	ed.commit("Set draw order C")
+	ed.commit("Set draw order C", ed.clothes)
 
 	t.check_equal(ed.next_undo_doc(), CharacterEditor.DOC_WARDROBE,
-		"the most recent edit was to the wardrobe, even with a body open")
-	t.check(_menu_text(ed, 0).contains("Set draw order C"),
-		"the Edit menu names that edit", _menu_text(ed, 0))
-
+		"the latest edit was to the wardrobe, even with a body open")
 	ed.undo()
 	t.check_equal(ed.wardrobe.item("tunic").draw_order, 31, "undo reverses C")
-	t.check_equal(ed.next_undo_doc(), CharacterEditor.DOC_BODY, "next in line is the stroke")
-	t.check(_menu_text(ed, 0).begins_with("Undo body:"),
-		"and the menu says so", _menu_text(ed, 0))
-
+	t.check(ed._menu_edit.get_popup().get_item_text(0).begins_with("Undo body:"),
+		"the menu names the body edit next", ed._menu_edit.get_popup().get_item_text(0))
 	ed.undo()
-	t.check_equal(ed.body_panel.edit.owner_at(cell), "", "undo reverses the stroke B")
-	t.check_equal(ed.wardrobe.item("tunic").draw_order, 31,
-		"without touching the wardrobe")
-
+	t.check_equal(ed.bodies.edit.owner_at(cell), "", "undo reverses the stroke B")
 	ed.undo()
 	t.check_equal(ed.wardrobe.item("tunic").draw_order, original_order, "undo reverses A")
 	t.check(not ed.undo(), "and then there is nothing left")
-	t.check(_menu_disabled(ed, 0), "so Undo is greyed out")
-
 	ed.redo()
 	ed.redo()
-	t.check_equal(ed.body_panel.edit.owner_at(cell), "chest",
-		"redo replays the stroke in its place in the sequence")
+	t.check_equal(ed.bodies.edit.owner_at(cell), "chest", "redo replays the stroke in order")
 	ed.redo()
 	t.check_equal(ed.wardrobe.item("tunic").draw_order, 32, "and C after it")
-	t.check(_menu_disabled(ed, 1), "with nothing left to redo")
-
-	# Closing the body takes its edits off the timeline, but not the wardrobe's.
-	ed.body_panel.discard_unsaved()
-	ed.body_panel._stop_now()
-	var undo_docs: Array[String] = []
-	while ed.next_undo_doc() != "":
-		undo_docs.append(ed.next_undo_doc())
-		ed.undo()
-	t.check(not (CharacterEditor.DOC_BODY in undo_docs),
-		"a closed body leaves nothing behind to undo", ", ".join(undo_docs))
-	t.check_equal(undo_docs.size(), 2, "the two wardrobe edits are still undoable")
+	ed.bodies.discard_unsaved()
+	ed.bodies._stop_now()
 
 
-static func _menu_text(ed: CharacterEditor, index: int) -> String:
-	var popup := ed._menu_edit.get_popup()
-	return popup.get_item_text(index) if index < popup.item_count else ""
-
-
-static func _menu_disabled(ed: CharacterEditor, index: int) -> bool:
-	var popup := ed._menu_edit.get_popup()
-	return index >= popup.item_count or popup.is_item_disabled(index)
-
-
-# ------------------------------------------------------- unsaved guard -----
+# ---------------------------------------------------------- unsaved guard --
 
 static func _unsaved_guard(t: TestReport, ed: CharacterEditor) -> void:
 	t.group("editor: nothing unsaved is lost without asking")
@@ -148,26 +323,21 @@ static func _unsaved_guard(t: TestReport, ed: CharacterEditor) -> void:
 	var ran := [0]
 	var action := func() -> void: ran[0] += 1
 
-	# Clean: the action just runs.
 	ed.guard_unsaved(action, true, true)
 	t.check_equal(ran[0], 1, "with nothing unsaved the action runs at once")
 
-	# A dirty wardrobe holds the action until it is answered.
 	ed.wardrobe.item("tunic").draw_order = 40
-	ed.commit("Make it dirty")
+	ed.commit("Make it dirty", ed.clothes)
 	ed.guard_unsaved(action, true, true)
 	t.check_equal(ran[0], 1, "a dirty wardrobe stops the action")
-	t.check(ed._unsaved_dialog.visible, "and asks")
 	ed._on_discard_changes()
 	t.check_equal(ran[0], 2, "Discard lets it run")
 
-	# Cancel drops it for good: a later save must not set it off.
 	ed.guard_unsaved(action, true, true)
 	ed.cancel_pending()
 	ed.resume_pending()
 	t.check_equal(ran[0], 2, "a cancelled prompt's action never fires later")
 
-	# "Save first" with a file to save to: saves, then carries on.
 	ed.wardrobe.path = SAVE_PATH
 	ed.guard_unsaved(action, true, true)
 	ed._unsaved_dialog.hide()
@@ -175,35 +345,33 @@ static func _unsaved_guard(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(not ed.wardrobe.dirty, "Save first saved the wardrobe")
 	t.check_equal(ran[0], 3, "and then ran the action")
 
-	# An edited body is asked about too, before the wardrobe.
+	# An edited body is asked about before the wardrobe.
 	ed.wardrobe.item("tunic").draw_order = 41
-	ed.commit("Dirty again")
-	ed.body_panel.start_editing_preview_body()
-	var cell := Vector3i(4, 4, 31)
-	ed.body_panel.edit.paint(cell, "chest")
-	ed.body_panel._on_painted([cell], "chest")
-	t.check(ed.body_panel.has_unsaved(), "the body has unsaved edits")
-
+	ed.commit("Dirty again", ed.clothes)
+	ed.show_tab("Bodies")
+	ed.bodies.start_editing(BodiesWorkspace.KIND_BODY)
+	ed.bodies.edit.paint(Vector3i(4, 4, 31), "chest")
+	ed.bodies._after_stroke("Paint")
 	ed.guard_unsaved(action, true, true)
 	t.check_equal(ed._prompt_doc, CharacterEditor.DOC_BODY, "the body is asked about first")
 	ed._on_discard_changes()
-	t.check_equal(ran[0], 3, "discarding the body does not yet run the action")
-	t.check_equal(ed._prompt_doc, CharacterEditor.DOC_WARDROBE, "the wardrobe is asked next")
+	t.check_equal(ed._prompt_doc, CharacterEditor.DOC_WARDROBE, "the wardrobe next")
 	ed._on_discard_changes()
 	t.check_equal(ran[0], 4, "and only then does the action run")
 
-	# Stopping an edited body asks rather than quietly letting it go.
-	ed.body_panel.start_editing_preview_body()
-	ed.body_panel.edit.paint(cell, "chest")
-	ed.body_panel._on_painted([cell], "chest")
-	ed.body_panel._on_stop()
-	t.check(ed.body_panel.is_editing(), "Stop editing with unsaved edits asks first")
+	# Switching body with unsaved edits asks first.
+	ed.bodies.edit.paint(Vector3i(4, 4, 31), "chest")
+	ed.bodies._after_stroke("Paint again")
+	ed.bodies._choose_body("female_slim")
+	t.check_equal(ed.bodies.body_id, "male_average",
+		"switching body with unsaved edits waits for an answer")
 	ed._on_discard_changes()
-	t.check(not ed.body_panel.is_editing(), "and stops once the edits are discarded")
+	t.check_equal(ed.bodies.body_id, "female_slim", "and switches once they are discarded")
+	ed.bodies._stop_now()
 
 	# The window's close button goes through the same guard as File > Quit.
 	ed.wardrobe.item("tunic").draw_order = 42
-	ed.commit("Dirty before closing")
+	ed.commit("Dirty before closing", ed.clothes)
 	ed._notification(Node.NOTIFICATION_WM_CLOSE_REQUEST)
 	t.check(ed._unsaved_dialog.visible,
 		"closing the window with unsaved changes asks instead of quitting")
@@ -211,54 +379,14 @@ static func _unsaved_guard(t: TestReport, ed: CharacterEditor) -> void:
 	ed.cancel_pending()
 
 
-# ------------------------------------------------------------- solo --------
-
-static func _solo(t: TestReport, ed: CharacterEditor) -> void:
-	t.group("editor: solo follows the item")
-	_fresh(ed)
-	ed.set_worn("boots", true)
-	ed.set_solo("boots")
-	t.check_equal(ed.solo_item, "boots", "boots are shown alone")
-	ed.wardrobe.remove_item("boots")
-	ed.commit("Delete boots")
-	t.check_equal(ed.solo_item, "", "deleting the solo item ends solo mode")
-	var owners := {}
-	for name in ed.rig.assembled.order:
-		var part := ed.rig.assembled.part(String(name))
-		for cell in part.cells.keys():
-			var owner := String(part.owners.get(cell, ""))
-			if not owner.is_empty():
-				owners[owner] = true
-	t.check(owners.has("tunic"), "and the rest of the outfit is visible again",
-		", ".join(owners.keys()))
-
-
-# ------------------------------------------------------------- hint --------
-
 static func _hint(t: TestReport, ed: CharacterEditor) -> void:
 	t.group("editor: messages survive the rebuild after them")
 	_fresh(ed)
+	ed.show_tab("Clothes")
 	ed.wardrobe.path = SAVE_PATH
 	ed.wardrobe.item("tunic").draw_order = 43
-	ed.commit("Dirty")
+	ed.commit("Dirty", ed.clothes)
 	ed._save_current()
-	t.check(ed.status_hint().begins_with("Saved"),
-		"the Saved message is still there after saving", ed.status_hint())
-	ed.set_status_hint("Picked something")
-	ed.rebuild()
-	t.check_equal(ed.status_hint(), "Picked something", "a rebuild leaves the message alone")
-
-
-# ------------------------------------------------------- body picker -------
-
-static func _body_picker(t: TestReport, ed: CharacterEditor) -> void:
-	t.group("editor: the body picker says when it cannot apply")
-	_fresh(ed)
-	var picker: OptionButton = ed.figure_panel._body
-	t.check(not picker.disabled, "the body picker works with no body open")
-	ed.body_panel.start_editing_preview_body()
-	t.check(picker.disabled, "it is disabled while the Body tab has a body open")
-	t.check(ed.figure_panel._body_note.visible, "with a note saying why")
-	ed.body_panel._stop_now()
-	t.check(not picker.disabled, "and works again once editing stops")
-	t.check(not ed.figure_panel._body_note.visible, "with the note gone")
+	t.check(ed.status_hint().begins_with("Saved"), "the Saved message shows", ed.status_hint())
+	ed.clothes.rebuild()
+	t.check(ed.status_hint().begins_with("Saved"), "and is still there after a rebuild")

@@ -11,7 +11,7 @@ which parts are solid and which are guesses.
 
 ## 1. Verification status
 
-**Everything compiles and the acceptance suite is green: 1127 checks, 0 failures.**
+**Everything compiles and the acceptance suite is green: 1343 checks, 0 failures.**
 
 ```bash
 tests/run.sh                 # measures the assets, then runs the Godot suite
@@ -179,9 +179,8 @@ translucent, so alpha is not stored at all.
 In the spec's own build order (section 11), steps 1–5 are done. Of what is
 left, step 7 is deferred by the owner; 6 and 8 are simply not started yet:
 
-- **Face editor** (step 6). `FaceDef` already reads and regenerates box cells
-  and validates stored voxels against them, so the data side is ready; what is
-  missing is the grid UI.
+- **Face editor** (step 6) is built, as the Eyes part of the Face & Hair tab:
+  a grid of both eye boxes, "both eyes" mirroring, expressions, eye colours.
 - **Export: .vox, STL, OBJ** (step 7). **Deferred by the owner** until work
   starts on the actual game. Nothing else depends on it. When it comes round:
   the STL "edge-contact fix" needed for a watertight export is not written, but
@@ -196,24 +195,26 @@ left, step 7 is deferred by the owner; 6 and 8 are simply not started yet:
   build_bodies.py builds each one as boxes over row ranges, and a row belongs
   to exactly one band -- but shaping a silhouette would be easier with an x-z
   view as well. Worth adding if the slice view turns out to be awkward in use.
-- **Special types beyond hood and skirt.** The generator registry describes its
-  own parameters, so adding capes, togas, standing collars or pauldrons needs
-  one file and one line in `SpecialItem.types()` — no editor changes.
+- **More special types.** Skirt, cape, hood and a drawn "shape" exist. The
+  generator registry describes its own parameters, so a toga, a standing
+  collar or a pauldron needs one file and one line in `SpecialItem.types()`
+  and no editor changes -- though the drawn shape may cover many of these.
 - **Decals** — deferred in the spec, and still deferred.
 
 ---
 
 ## 4a. Two notes from building the body editor
 
-**The editor writes body files; build_bodies.py overwrites them.** The spec
-says asset JSON is generated and should be regenerated rather than hand-edited
-(CLAUDE.md), but it also says the owner expects to tweak the bodies in the
-editor (section 3.3). Those pull against each other, and running
-`build_bodies.py` after an editing session would silently discard the work.
-The panel says so in orange, and "Save as" defaults to the standard filename
-so it is a deliberate act to overwrite. The real decision -- does the saved
-file become the source of truth and the script retire, or do edits get ported
-back into the script -- is the owner's, and nothing here forces it either way.
+**Edited bodies and heads live in `assets/edited/`.** The spec says asset
+JSON is generated and regenerated rather than hand-edited (CLAUDE.md), but it
+also says the owner expects to tweak bodies in the editor (section 3.3). To
+stop those colliding, the editor saves to `assets/edited/` and the library uses
+an edited file in place of the generated one when there is one. Running
+`build_bodies.py` can no longer wipe an edit. The cost: an edit no longer
+follows changes to the script, so a body regenerated with a fix will not show
+the fix while an edit of it exists. Whether edits should eventually become the
+source of truth (and the script retire) is still the owner's call; this is a
+recommendation that keeps both doors open.
 
 **Pivots are measured, never stored.** `BodyEdit` recomputes every joint from
 the geometry the way build_bodies.py measures it, so an edited body gets the
@@ -223,12 +224,95 @@ exceptions SPEC 3.2 lists by name: 3-wide arms on both slims and feminine
 average, and feminine heavy's 5-wide legs, pivot on a voxel centre. Nothing
 else does.
 
+## 4b. The four-tab editor, and special shapes
+
+The editor is now four tabs, each with its own preview: **Bodies** (bare
+figures, edit bodies and heads), **Face & Hair** (eyes, hair, facial hair),
+**Clothes** (items with all their settings, cycled across all six bodies) and
+**Preview** (any combination, nothing edited). One undo timeline runs across
+the wardrobe and an open body or head, and nothing unsaved is lost without a
+prompt -- body or head first, then the wardrobe -- including on window close.
+
+**How eyes, hair and facial hair work.** They are items, like clothes, with a
+`slot` ("hair", "facial_hair"); clothes have no slot. A character has exactly
+one per slot, and "none" (bald, clean-shaven) is a valid choice, not a gap.
+Eyes are an *eye set*: styles that share one list of expressions, each a 4 x 5
+box per eye with white / pupil / line roles and named colourways. Eye colour
+therefore now lives in the eye set's colourway rather than on the figure.
+
+**How special shapes are modelled.** Any item -- clothing or feature -- has
+its body regions (the parametric part) *and* a list of special shapes. A
+special is an **anchor** measured on each body (12 so far: face, brow, crown,
+nape, chest, back, waist front/back, hip, shoulder, wrist, ankle) plus a
+**form of its own** that does not follow the body:
+
+- *skirt* -- anchored at the hips, hangs as cloth panels that swing with the
+  legs. A dress is bodice regions + a skirt.
+- *cape* -- anchored behind the shoulders, a panel that trails behind and swings
+  back (never forward through the legs) in a stride.
+- *hood* -- anchored to the head; grows from its surface and leaves the face
+  open, up or down.
+- *shape* -- a small voxel drawing (17 x 7 x 21 box) placed at an anchor. It
+  either **wraps** (each column is pushed onto the body surface, so a beard
+  follows every jaw) or stays **rigid** (a feather, a buckle, a horn). It can
+  mirror, and can recolour body cells instead of adding to them.
+
+A hooded cloak is a cape plus a hood on one item.
+
+### Problems found (difficulty / confidence)
+
+1. **The head's regions are too coarse for a face.** The mid-head front band
+   (z 32-36) overlaps the eye rows (z 30-34), and the lower band (z 28-31)
+   holds the bottom eye rows. So hair can only use crown and back regions
+   without covering the eyes, and facial hair *has* to be a drawn shape. It
+   works, but it means two ways to author the same thing. Fix: finer face
+   bands in the region map -- moderate work, and it changes the 32-a-side
+   count the owner settled, so it is the owner's call. Confidence the problem
+   is real: high.
+2. **A moustache has two rows to live in.** Between the eyes and the chin
+   there are only z 28-29, and there is no mouth or nose. The test moustache
+   reads as a smudge. This is a property of the head design (SPEC 4), not the
+   editor; a taller lower face or a mouth row would fix it. High confidence,
+   look decision.
+3. **Hats and hoods versus hair.** A hood or hat should hide most hair; right
+   now both simply claim cells, and the layering rule decides. The Clothes tab
+   has a hair picker so this can at least be checked. A real fix is a "hides
+   hair regions" flag on an item -- small, but how much hair a hood should
+   leave showing is a look decision.
+4. **Anchors are measured, so they can move when a body is edited.** That is
+   the point, but a big edit to the shoulders will move every cape. Expected
+   behaviour; noted so it is not a surprise.
+5. **Drawn shapes are flat-ish.** The wrap mode pushes columns onto the
+   surface, which is right for beards and badges but cannot make something
+   that curves *around* a corner of the body (a scarf, a belt buckle on a
+   side). Those still want regions, or a future "wrap around" mode. Moderate
+   difficulty, medium confidence it matters.
+6. **Skirt panels and trousers.** The deferred thigh-gap problem touches skirts
+   too: a long skirt over trousers is two layers of cloth panel. Still
+   deferred, as agreed.
+
+### Opportunities
+
+1. **A character record.** Preview selections are not saved. Saving them as a
+   "character" (body, head, eye set + colour, hair + colour, facial hair,
+   outfit) would give the game exactly what it needs to load an NPC, and is a
+   small addition. Recommended next, if characters are wanted soon.
+2. **The drawn shape is general.** Collars, pauldrons, horns, ears, crowns,
+   belt pouches can all be drawn shapes at an anchor, which may mean few new
+   generator types are ever needed.
+3. **More anchors are cheap.** Each is a few lines (a body part, a band and a
+   direction). Knees, elbows and the small of the back would open up knee
+   pads, elbow patches and quivers.
+4. **Specials on features.** Because features are items, hair can already use
+   specials: the ponytail is a rigid shape at the nape. Long braids or a bun
+   come for free the same way.
+
 ## 5. Still open, for the owner
 
 Carried from `SPEC.md` section 13, plus what building raised:
 
-1. **The 30-versus-32 region count** above. This one actually blocks nothing but
-   is worth settling before much wardrobe authoring happens.
+1. **Region count**: settled at 32 a side (owner's call). See 4b problem 1
+   for why faces might want finer bands.
 2. **Authoring canvas size.** The spec recommends 32 × 32 × 48; nothing here
    assumes a canvas yet, because the reference box is not used as a clip.
 3. **Cloth panels: rules or physics?** Currently rule-driven, with the front
@@ -237,7 +321,5 @@ Carried from `SPEC.md` section 13, plus what building raised:
    paper; it wants eyes on it.
 4. **Re-voxelised animation.** Not implemented; it is a rendering choice that
    does not change the data, exactly as the spec says.
-5. **Eye colour is per-figure, not per-character-record.** It is currently a
-   field on the assembler request with a sensible default. If characters will
-   each have their own, it belongs in whatever a "character" record turns out
-   to be — which does not exist yet.
+5. **Eye colour** now lives in eye-set colourways (4b). A character record
+   would still be where a character's chosen colourway is remembered.

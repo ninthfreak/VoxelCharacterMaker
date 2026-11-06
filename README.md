@@ -14,18 +14,18 @@ figures. Godot 4, GDScript.
 | Asset loading (6 bodies, 5 heads, 11 expressions) | done, validated against the files |
 | Coordinate system and the mapping into Godot | done, locked by a test |
 | Baked light/mid/dark shading | done, matches `build_bodies.py` |
-| Region map (part family + band + side + front/back) | done |
+| Region map (part family + band + side + front/back, 32 a side) | done |
 | Parametric garments (regions, roles, bulk, mirror, edge style) | done |
 | Layering by reach, then draw order | done |
-| One-file wardrobe with exact round-trip | done |
-| Special items | hood and skirt; skirt hangs cloth panels |
+| One-file wardrobe (v2) with exact round-trip | done; v1 files still open |
+| Special shapes on any item | skirt, cape, hood, and a drawn shape anchored to the body |
+| Eyes, hair, facial hair as their own kind of item | done |
 | Mesher (exposed-face culling, vertex colours) | done |
 | Rigid-part rig and test poses | done |
-| Editor: preview, wardrobe, garment regions, colours, outfits | done |
-| Face editor | not started |
+| Editor: four tabs (Bodies, Face & Hair, Clothes, Preview) | done |
+| Body and head editing, saved beside the generated files | done |
 | Review renders (`docs/renders/`) | done, including editor screenshots |
 | Export (.vox / STL / OBJ) | deferred to game work (owner's call) |
-| Body editor | slice editing, mirror pairs, live checks |
 
 See `docs/NOTES.md` for decisions taken while building, and for the things
 still open.
@@ -38,13 +38,29 @@ Godot 4.7 or newer.
 godot --path .
 ```
 
-The editor is the project's main scene. `runtime/character_demo.tscn` shows the
+The editor is the project's main scene. It has four tabs:
+
+- **Bodies** -- the six bodies and five heads, bare: no hair, clothes or
+  items, and only the basic eyes. Open a body or a head to edit it slice by
+  slice.
+- **Face & Hair** -- eye sets (expressions and eye colours), hair styles and
+  facial hair. These work like clothes, but every character has exactly one of
+  each ("none" counts as a choice). The head type can be changed here.
+- **Clothes** -- every clothing item with all its settings, including any
+  special shapes (skirts, capes, hoods, drawn shapes). Cycle through the six
+  bodies to check an item on each. Colours and outfits are here too.
+- **Preview** -- pick a body, head, eyes, hair, facial hair and clothes made in
+  the other tabs and see the whole character. Nothing is edited there.
+
+Edited bodies and heads are saved to `assets/edited/`, never over the
+generated files, and are used in place of them when present. "Revert" deletes
+the edit. `runtime/character_demo.tscn` shows the
 same character assembled the way the game will do it, with no editor involved.
 
 ## Tests
 
 Every acceptance check in `SPEC.md` section 12 is an automated test.
-**1127 checks, all passing** on Godot 4.7.2.
+**1343 checks, all passing** on Godot 4.7.2.
 
 ```bash
 godot --headless --path . --script res://tests/run_tests.gd
@@ -79,8 +95,11 @@ else here ever renders a control. To look at one:
 ```bash
 xvfb-run -a godot --path . --rendering-driver opengl3 \
     --script res://tools/screenshot_editor.gd -- --out docs/renders \
-    --tab Body --edit-body --row 22
+    --tab Bodies --edit-body --row 22
 ```
+
+Other options: `--tab "Face & Hair" --section Eyes`, `--tab Clothes --select
+dress`, `--edit-head`, `--scroll PX`, `--name FILE`.
 
 ## Regenerating assets
 
@@ -98,12 +117,15 @@ Asset JSON is generated, never hand-edited.
 ```
 core/        the shared character pipeline: assembler, bulk generation,
              shading, region map, wardrobe model, mesher
-core/specials/   generators for shapes bulk cannot express (hood, skirt)
+core/specials/   special shapes bulk cannot express (skirt, cape, hood,
+             drawn shapes) and the body anchors they hang from
 runtime/     the rig the game uses, and the test poses
 editor/      the in-engine editor, which calls the same core
+editor/workspaces/   its four tabs
 tests/       headless acceptance checks
 tools/       asset generation and the asset-fact oracle
 assets/      generated bodies, heads and faces
+assets/edited/   bodies and heads saved from the editor (created on first save)
 docs/        review renders, and build notes
 reference/   earlier prototypes, for feature ideas only
 ```

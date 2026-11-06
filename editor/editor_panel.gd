@@ -2,8 +2,9 @@
 class_name EditorPanel
 extends VBoxContainer
 
-## Base for the editor's tab panels. Each one gets a reference to the editor and
-## rebuilds its own controls on refresh().
+## Base for the panels inside a workspace. Each one gets the editor (for the
+## wardrobe document, undo and messages), the workspace it sits in (for the
+## preview), and an item selection when it edits an item.
 ##
 ## The small helpers below exist so every panel looks and reads the same way:
 ## one short label per control, a single hint line where a control needs one,
@@ -11,6 +12,9 @@ extends VBoxContainer
 ## blind).
 
 var editor: CharacterEditor = null
+var workspace: Workspace = null
+## The item this panel edits, when it edits one. Null for panels that do not.
+var selection: ItemSelection = null
 ## Nesting depth of "I am repopulating, ignore signals". A counter, not a flag:
 ## fill_options() guards internally, so a flag would be cleared by the inner
 ## call and leave the rest of an outer refresh() unguarded -- which is exactly
@@ -18,14 +22,29 @@ var editor: CharacterEditor = null
 var _guard_depth := 0
 
 
-func setup(p_editor: CharacterEditor) -> void:
+func setup(p_editor: CharacterEditor, p_workspace: Workspace,
+		p_selection: ItemSelection = null) -> void:
 	editor = p_editor
+	workspace = p_workspace
+	selection = p_selection
 	add_theme_constant_override("separation", 6)
+	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_build()
 	if editor != null:
 		editor.wardrobe_replaced.connect(refresh)
-		editor.selection_changed.connect(refresh)
+	if selection != null:
+		selection.changed.connect(refresh)
 	refresh()
+
+
+## The item being edited, or null.
+func item() -> GarmentItem:
+	return selection.item() if selection != null else null
+
+
+## Record a wardrobe edit and show it: undo entry, dirty flag, preview.
+func commit(label: String) -> void:
+	editor.commit(label, workspace)
 
 
 ## Override: create the controls once.

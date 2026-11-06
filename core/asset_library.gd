@@ -101,6 +101,28 @@ func replace_head(def: HeadDef) -> void:
 		heads[def.shape] = def
 
 
+## Load a body or head again from disk -- the edited file if there is one --
+## throwing away whatever was put in place for the session. Returns "" or an
+## error message.
+func reload_body(id: String) -> String:
+	var body := body(id)
+	if body == null:
+		return "unknown body %s" % id
+	var fresh := BodyDef.load_from(_body_source(body.sex, body.build))
+	if fresh == null:
+		return "could not reload %s" % id
+	bodies[id] = fresh
+	return ""
+
+
+func reload_head(shape: String) -> String:
+	var fresh := HeadDef.load_from(_head_source(shape))
+	if fresh == null:
+		return "could not reload the %s head" % shape
+	heads[shape] = fresh
+	return ""
+
+
 ## Drop an edit: delete its file and load the generated one back. Returns ""
 ## or an error message.
 func revert_body(id: String) -> String:

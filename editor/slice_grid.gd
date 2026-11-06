@@ -32,7 +32,7 @@ const MIN_CELL := 8.0
 const MARGIN_TOP := 18.0
 const MARGIN_BOTTOM := 34.0
 
-var body: BodyEdit = null
+var body: VoxelEditModel = null
 var z: int = 22
 var active_part: String = "chest"
 ## Cells to call out: whatever the validation is complaining about.

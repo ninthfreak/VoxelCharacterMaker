@@ -43,7 +43,7 @@ func _build() -> void:
 		if key.is_empty() or not wardrobe().palette.has(key):
 			return
 		wardrobe().set_colour(key, c)
-		editor.commit("Set colour %s" % key)
+		commit("Set colour %s" % key)
 		refresh())
 
 	button_row(palette_box, [
@@ -103,12 +103,12 @@ func refresh() -> void:
 	for key in _palette_keys:
 		_palette.add_item("%s   %s" % [key, JsonIO.colour_to_hex(w.colour(key))])
 
-	var item := editor.selected_item()
+	var it := item()
 	_role_names.clear()
 	_colourway_names.clear()
-	if item != null:
-		_role_names.append_array(item.roles)
-		_colourway_names.append_array(item.colourway_names())
+	if it != null:
+		_role_names.append_array(it.roles)
+		_colourway_names.append_array(it.colourway_names())
 
 	_roles.clear()
 	for role in _role_names:
@@ -130,13 +130,13 @@ func _rebuild_assignments() -> void:
 		_assignments.remove_child(child)
 		child.queue_free()
 
-	var item := editor.selected_item()
+	var it := item()
 	var w := wardrobe()
-	if item == null or w == null:
+	if it == null or w == null:
 		return
 	var colourway := _colourway_name.text.strip_edges()
-	if not item.has_colourway(colourway):
-		colourway = item.first_colourway()
+	if not it.has_colourway(colourway):
+		colourway = it.first_colourway()
 	if colourway.is_empty():
 		return
 
@@ -146,9 +146,9 @@ func _rebuild_assignments() -> void:
 	_assignments.add_child(heading)
 	_assignments.add_child(HSeparator.new())
 
-	for role in item.roles:
+	for role in it.roles:
 		var option := OptionButton.new()
-		var current := item.palette_key_for(colourway, role)
+		var current := it.palette_key_for(colourway, role)
 		var names := w.palette_names()
 		var labels: Array = []
 		for key in names:
@@ -158,8 +158,8 @@ func _rebuild_assignments() -> void:
 		option.item_selected.connect(func(_i: int) -> void:
 			if is_guarded():
 				return
-			item.set_palette_key(colourway, role, option_value(option))
-			editor.commit("Set %s colour in %s" % [role, colourway]))
+			it.set_palette_key(colourway, role, option_value(option))
+			commit("Set %s colour in %s" % [role, colourway]))
 
 
 # ------------------------------------------------------------------ actions --
@@ -170,7 +170,7 @@ func _on_add_colour() -> void:
 		editor.set_status_hint("Type a palette name first.")
 		return
 	wardrobe().set_colour(key, _palette_colour.color)
-	editor.commit("Add colour %s" % key)
+	commit("Add colour %s" % key)
 	refresh()
 
 
@@ -180,82 +180,82 @@ func _on_remove_colour() -> void:
 		return
 	var key := _palette_keys[selected[0]]
 	wardrobe().remove_colour(key)
-	editor.commit("Remove colour %s" % key)
+	commit("Remove colour %s" % key)
 	refresh()
 
 
 func _on_add_role() -> void:
-	var item := editor.selected_item()
+	var it := item()
 	var role := _role_name.text.strip_edges()
-	if item == null or role.is_empty():
+	if it == null or role.is_empty():
 		return
-	item.add_role(role)
-	editor.commit("Add role %s to %s" % [role, item.name])
+	it.add_role(role)
+	commit("Add role %s to %s" % [role, it.name])
 	refresh()
 
 
 func _on_rename_role() -> void:
-	var item := editor.selected_item()
+	var it := item()
 	var selected := _roles.get_selected_items()
 	var new_name := _role_name.text.strip_edges()
-	if item == null or selected.is_empty() or new_name.is_empty():
+	if it == null or selected.is_empty() or new_name.is_empty():
 		return
 	var old_name := _role_names[selected[0]]
 	if old_name == new_name:
 		return
-	item.rename_role(old_name, new_name)
-	editor.commit("Rename role %s to %s" % [old_name, new_name])
+	it.rename_role(old_name, new_name)
+	commit("Rename role %s to %s" % [old_name, new_name])
 	refresh()
 
 
 func _on_remove_role() -> void:
-	var item := editor.selected_item()
+	var it := item()
 	var selected := _roles.get_selected_items()
-	if item == null or selected.is_empty():
+	if it == null or selected.is_empty():
 		return
-	if item.roles.size() <= 1:
+	if it.roles.size() <= 1:
 		editor.set_status_hint("An item needs at least one role.")
 		return
 	var role := _role_names[selected[0]]
-	item.remove_role(role)
-	editor.commit("Remove role %s from %s" % [role, item.name])
+	it.remove_role(role)
+	commit("Remove role %s from %s" % [role, it.name])
 	refresh()
 
 
 func _on_add_colourway() -> void:
-	var item := editor.selected_item()
+	var it := item()
 	var name := _colourway_name.text.strip_edges()
-	if item == null or name.is_empty():
+	if it == null or name.is_empty():
 		return
-	item.add_colourway(name)
-	editor.commit("Add colourway %s to %s" % [name, item.name])
+	it.add_colourway(name)
+	commit("Add colourway %s to %s" % [name, it.name])
 	refresh()
 
 
 func _on_duplicate_colourway() -> void:
-	var item := editor.selected_item()
+	var it := item()
 	var selected := _colourways.get_selected_items()
 	var name := _colourway_name.text.strip_edges()
-	if item == null or selected.is_empty() or name.is_empty():
+	if it == null or selected.is_empty() or name.is_empty():
 		return
 	var source := _colourway_names[selected[0]]
 	if name == source:
 		name = source + " copy"
-	item.add_colourway(name, source)
+	it.add_colourway(name, source)
 	_colourway_name.text = name
-	editor.commit("Duplicate colourway %s" % source)
+	commit("Duplicate colourway %s" % source)
 	refresh()
 
 
 func _on_remove_colourway() -> void:
-	var item := editor.selected_item()
+	var it := item()
 	var selected := _colourways.get_selected_items()
-	if item == null or selected.is_empty():
+	if it == null or selected.is_empty():
 		return
-	if item.colourways.size() <= 1:
+	if it.colourways.size() <= 1:
 		editor.set_status_hint("An item needs at least one colourway.")
 		return
 	var name := _colourway_names[selected[0]]
-	item.colourways.erase(name)
-	editor.commit("Remove colourway %s" % name)
+	it.colourways.erase(name)
+	commit("Remove colourway %s" % name)
 	refresh()
