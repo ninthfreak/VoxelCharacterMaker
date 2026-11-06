@@ -21,6 +21,15 @@ if command -v python3 >/dev/null 2>&1; then
   python3 tools/verify_assets.py
 fi
 
+# Global class names (class_name) live in .godot/global_script_class_cache.cfg,
+# which only an import pass writes. Without it every class in the suite fails to
+# resolve with "Identifier not declared", which looks like broken code rather
+# than a missing cache. A fresh clone has no .godot at all.
+if [ ! -f .godot/global_script_class_cache.cfg ]; then
+  echo "== first run: importing the project =="
+  "$GODOT_BIN" --headless --path . --import >/dev/null 2>&1 || true
+fi
+
 echo
 echo "== acceptance checks =="
 "$GODOT_BIN" --headless --path . --script res://tests/run_tests.gd
