@@ -28,6 +28,10 @@ const SHEET_MAX_HEIGHT := 1000
 ## fact the coordinate lock in tests/test_axes.gd pins down.
 const SPACING_FIGURES := 1.12
 const SPACING_POSES := 2.25
+const SPACING_HEADS := 0.95
+
+## Set while laying out a heads-only sheet: every other part's mesh is hidden.
+var _heads_only := false
 
 var _library := AssetLibrary.new()
 var _wardrobe: Wardrobe = null
@@ -63,6 +67,7 @@ func _initialize() -> void:
 		{"name": "specials", "kind": "specials", "worn": []},
 		# Capes and ponytails hang behind; a front view cannot show them.
 		{"name": "specials_back", "kind": "specials", "worn": [], "back": true},
+		{"name": "faces", "kind": "faces", "worn": []},
 	]
 	print("rendering %d sheet(s) to %s" % [_sheets.size(), _out_dir])
 	# The first sheet is built on the first frame, not here: the window does
@@ -119,6 +124,8 @@ func _next_sheet() -> void:
 			bounds = _lay_out_poses(sheet["worn"])
 		"specials":
 			bounds = _lay_out_specials()
+		"faces":
+			bounds = _lay_out_faces()
 
 	# Orthographic, so every figure in a row is seen from exactly the same
 	# direction. Under perspective the ones at the ends turn away from the
@@ -188,12 +195,15 @@ func _add_specials() -> void:
 
 
 func _rig(body_id: String, head: String, expression: String, worn: Array,
-		at: Vector3, pose: String = Poses.REST, features: Array = []) -> AABB:
+		at: Vector3, pose: String = Poses.REST, features: Array = [],
+		lids: String = EyeLids.DEFAULT, skin_tone: String = Palette.DEFAULT_SKIN) -> AABB:
 	var request := CharacterAssembler.Request.make(_library, body_id, head, expression)
 	request.wardrobe = _wardrobe
 	request.worn = worn
 	request.features = features
 	request.eye_set_id = _wardrobe.first_eye_set_id()
+	request.lids = lids
+	request.skin_tone = skin_tone
 	var assembled := CharacterAssembler.assemble(request)
 	for w in assembled.warnings:
 		printerr("%s: %s" % [body_id, w])
@@ -202,6 +212,10 @@ func _rig(body_id: String, head: String, expression: String, worn: Array,
 	_scene.add_child(rig)
 	rig.build(assembled)
 	rig.apply_pose(pose)
+	if _heads_only:
+		for part_name in rig.mesh_instances.keys():
+			if String(part_name) != BodyDef.HEAD_PART:
+				(rig.mesh_instances[part_name] as MeshInstance3D).visible = false
 	rig.position = at
 
 	var bounds := rig.figure_aabb()
@@ -266,6 +280,37 @@ func _lay_out_specials() -> AABB:
 		_caption("%s head\n%s" % [shapes[i], look["label"]], Vector3(x, 0, 0))
 		total = b if first else total.merge(b)
 		first = false
+	return total
+
+
+## Every lid state, each on a different head, skin tone and hair, framed on the
+## heads: the review sheet for the lid and brow system.
+func _lay_out_faces() -> AABB:
+	var states := EyeLids.names()
+	var shapes := _library.head_shapes()
+	var hair := [
+		{"item": "short_crop", "colourway": "default"}, {"item": "short_crop", "colourway": "black"},
+		{"item": "ponytail", "colourway": "default"}, {"item": "short_crop", "colourway": "auburn"},
+		{},
+	]
+	var neck_y := float(BodyLayout.NECK_ROW) / VoxelAxes.VOXELS_PER_METRE
+	_heads_only = true
+	var total := AABB()
+	var first := true
+	for i in states.size():
+		var x := (float(states.size() - 1) * 0.5 - float(i)) * SPACING_HEADS
+		var skin := Palette.SKIN_TONE_NAMES[i % Palette.SKIN_TONE_NAMES.size()]
+		var h: Dictionary = hair[i % hair.size()]
+		var b := _rig("male_average", shapes[i % shapes.size()], "neutral", [],
+			Vector3(x, 0, 0), Poses.REST, [] if h.is_empty() else [h], states[i], skin)
+		_caption("%s\n%s skin" % [EyeLids.display_name(states[i]), skin],
+			Vector3(x, neck_y - 0.02, 0))
+		# The heads, plus room under them for the two-line caption.
+		var head := AABB(Vector3(b.position.x, neck_y - 0.32, b.position.z),
+			Vector3(b.size.x, b.end.y - neck_y + 0.32, b.size.z))
+		total = head if first else total.merge(head)
+		first = false
+	_heads_only = false
 	return total
 
 

@@ -274,6 +274,24 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(a.warnings.is_empty(), "with no warnings", ", ".join(a.warnings))
 	t.check(pv._summary.text.contains("Wearing:"), "and a summary of what is on")
 
+	# Lids, skin tone and brows are chosen here and nowhere else.
+	pv._choose("lids", "blink")
+	pv._choose("skin_tone", "deep")
+	pv.rebuild()
+	var head := pv.view.assembled.part(BodyDef.HEAD_PART)
+	var whites := 0
+	var lid_cells := 0
+	for cell in head.cells.keys():
+		if int(head.sources.get(cell, 0)) == CharacterAssembler.Source.FACE:
+			if head.colours[cell].is_equal_approx(Palette.EYE_WHITE):
+				whites += 1
+			if head.colours[cell].is_equal_approx(Palette.lid_colour("deep")):
+				lid_cells += 1
+	t.check(whites == 0 and lid_cells > 0, "choosing blink and a deep skin tone closes the eyes in that skin's lid colour",
+		"%d white, %d lid" % [whites, lid_cells])
+	t.check(pv._summary.text.contains("blink") and pv._summary.text.contains("deep"),
+		"and the summary says so")
+
 
 # ------------------------------------------------------------------- undo --
 

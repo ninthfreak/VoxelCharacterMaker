@@ -12,6 +12,10 @@ var body_id: String = "male_average"
 var head_shape: String = "round"
 var pose: String = Poses.REST
 var expression: String = EyeSet.NEUTRAL
+var lids: String = EyeLids.DEFAULT
+var skin_tone: String = Palette.DEFAULT_SKIN
+## A hair palette colour whose brow to use; "" = follow the hair worn.
+var brow_hair: String = ""
 var eye_set_id: String = ""
 var eye_colourway: String = ""
 var hair_id: String = ""
@@ -25,6 +29,9 @@ var _body_pick: OptionButton = null
 var _head_pick: OptionButton = null
 var _pose_pick: OptionButton = null
 var _expression_pick: OptionButton = null
+var _lid_pick: OptionButton = null
+var _skin_pick: OptionButton = null
+var _brow_pick: OptionButton = null
 var _eye_pick: OptionButton = null
 var _eye_way_pick: OptionButton = null
 var _hair_pick: OptionButton = null
@@ -54,11 +61,22 @@ func _build() -> void:
 		func(value: String) -> void:
 			pose = value
 			view.set_pose(value))
+	_skin_pick = picker(side, "Skin tone", Palette.SKIN_TONE_NAMES, [],
+		func(value: String) -> void: _choose("skin_tone", value))
 
 	heading(side, "Eyes")
+	var lid_labels: Array = []
+	for state in EyeLids.names():
+		lid_labels.append(EyeLids.display_name(state))
+	_lid_pick = picker(side, "Eyelids", EyeLids.names(), lid_labels,
+		func(value: String) -> void: _choose("lids", value))
+	note(side, "Eyelids and the brow are drawn over the open eye. The brow leads "
+		+ "the upper lid down; it is the hair colour one shade darker.")
+	_brow_pick = picker(side, "Brows", [], [], func(value: String) -> void:
+		_choose("brow_hair", value))
 	_eye_pick = picker(side, "Eye set", [], [], func(value: String) -> void:
 		_choose("eye_set_id", value))
-	_expression_pick = picker(side, "Expression", [], [], func(value: String) -> void:
+	_expression_pick = picker(side, "Drawn expression", [], [], func(value: String) -> void:
 		_choose("expression", value))
 	_eye_way_pick = picker(side, "Colour", [], [], func(value: String) -> void:
 		_choose("eye_colourway", value))
@@ -112,6 +130,10 @@ func make_request() -> CharacterAssembler.Request:
 	request.wardrobe = editor.wardrobe
 	request.eye_set_id = eye_set_id
 	request.eye_colourway = eye_colourway
+	request.lids = lids
+	request.skin_tone = skin_tone
+	if not brow_hair.is_empty() and editor.wardrobe.palette.has(brow_hair):
+		request.brow_colour = Palette.brow_from_hair(editor.wardrobe.colour(brow_hair))
 	request.worn = _live_worn()
 	var features: Array = []
 	for pair in [[hair_id, hair_colourway], [facial_id, facial_colourway]]:
@@ -133,6 +155,17 @@ func refresh() -> void:
 	select_value(_body_pick, body_id)
 	select_value(_head_pick, head_shape)
 	select_value(_pose_pick, pose)
+	select_value(_skin_pick, skin_tone)
+	select_value(_lid_pick, lids)
+	var brow_values: Array = [""]
+	var brow_labels: Array = ["follow the hair (dark brown if bald)"]
+	for key in w.palette.keys():
+		if String(key).begins_with("hair_"):
+			brow_values.append(String(key))
+			brow_labels.append("like %s hair" % String(key).trim_prefix("hair_"))
+	if not (brow_hair in brow_values):
+		brow_hair = ""
+	refill(_brow_pick, brow_values, brow_labels, brow_hair)
 
 	# Eyes: a set always, and its expressions and colours.
 	if w.eye_set(eye_set_id) == null:
@@ -270,8 +303,10 @@ func _refresh_summary() -> void:
 	var body := editor.library.body(body_id)
 	var eyes := w.eye_set(eye_set_id)
 	var lines: Array[String] = []
-	lines.append("Body: %s, %s head" % [body.display_name() if body != null else body_id,
-		head_shape])
+	lines.append("Body: %s, %s head, %s skin" % [
+		body.display_name() if body != null else body_id, head_shape, skin_tone])
+	lines.append("Eyelids: %s; brows %s" % [EyeLids.display_name(lids),
+		"follow the hair" if brow_hair.is_empty() else "like %s hair" % brow_hair.trim_prefix("hair_")])
 	lines.append("Eyes: %s, %s, %s" % [eyes.name if eyes != null else "basic",
 		expression.replace("_", " "), eye_colourway if not eye_colourway.is_empty() else "-"])
 	var hair := w.item(hair_id) if not hair_id.is_empty() else null

@@ -14,7 +14,7 @@ const SKIN_MID := Color8(236, 178, 134)
 const SKIN_DARK := Color8(190, 128, 92)
 
 ## Face roles (SPEC section 5). These are flat: no tone is applied, because the
-## eye is a skin-tight recolour and shading it would muddy a 4x5 pixel feature.
+## eye is a skin-tight recolour and shading it would muddy a small pixel feature.
 const EYE_BLACK := Color8(20, 20, 26)
 const LID_LINE := Color8(70, 38, 24)
 const EYE_WHITE := Color8(250, 250, 248)
@@ -34,8 +34,49 @@ const FACE_MUL_BACK := 0.84
 const FACE_MUL_BOTTOM := 0.74
 
 
-static func skin_tones() -> Array[Color]:
-	return [SKIN_LIGHT, SKIN_MID, SKIN_DARK]
+## Skin is a choice of tone (owner): a short named list, each a mid colour.
+## "light" is the original skin exactly; every other tone takes its light and
+## dark shades in the same proportions to its mid, so all tones shade alike.
+const DEFAULT_SKIN := "light"
+const SKIN_TONE_NAMES: Array[String] = ["pale", "light", "tan", "medium", "brown", "deep"]
+const SKIN_TONE_MIDS := {
+	"pale": Color8(244, 200, 164),
+	"light": SKIN_MID,
+	"tan": Color8(214, 156, 108),
+	"medium": Color8(190, 132, 92),
+	"brown": Color8(150, 98, 66),
+	"deep": Color8(112, 72, 50),
+}
+
+## Brows are the hair colour one shade darker; a bald head with no brow colour
+## set gets the brow of this hair colour (dark brown).
+const DEFAULT_BROW_HAIR := "hair_brown"
+
+
+## Light, mid and dark for a skin tone; an unknown name is the default.
+static func skin_tones(tone: String = DEFAULT_SKIN) -> Array[Color]:
+	if tone == DEFAULT_SKIN or not SKIN_TONE_MIDS.has(tone):
+		return [SKIN_LIGHT, SKIN_MID, SKIN_DARK]
+	var mid: Color = SKIN_TONE_MIDS[tone]
+	return [_scaled(mid, SKIN_LIGHT, SKIN_MID), mid, _scaled(mid, SKIN_DARK, SKIN_MID)]
+
+
+static func _scaled(mid: Color, shade: Color, reference: Color) -> Color:
+	return Color(
+		clampf(mid.r * shade.r / reference.r, 0.0, 1.0),
+		clampf(mid.g * shade.g / reference.g, 0.0, 1.0),
+		clampf(mid.b * shade.b / reference.b, 0.0, 1.0))
+
+
+## The eyelid: the skin tone half a shade darker (halfway from mid to dark).
+static func lid_colour(tone: String = DEFAULT_SKIN) -> Color:
+	var t := skin_tones(tone)
+	return t[1].lerp(t[2], 0.5)
+
+
+## A brow from a hair colour: one shade darker (its garment "dark" tone).
+static func brow_from_hair(hair: Color) -> Color:
+	return garment_tones(hair)[2]
 
 
 ## The light/mid/dark triple for a garment colour.

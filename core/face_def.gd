@@ -28,7 +28,7 @@ const ROLES: Array[String] = [ROLE_WHITE, ROLE_PUPIL, ROLE_LINE, ROLE_SKIN]
 var name: String = ""
 var plane_y: int = VoxelAxes.FACE_PLANE_Y
 var bulk: int = 0
-var eye_box: Dictionary = {}       ## w, h, z0, x0, drop, pupil_cols, pupil_rows
+var eye_box: Dictionary = {}       ## w, h, z0, x0, drop, pupil_cols (list), pupil_rows (range)
 var screen_left: Dictionary = {}   ## Vector2i(c, r) -> role
 var screen_right: Dictionary = {}  ## Vector2i(c, r) -> role
 var source_path: String = ""
@@ -54,7 +54,9 @@ static func load_from(path: String) -> FaceDef:
 		"z0": int(box.get("z0", BodyLayout.EYE_Z0)),
 		"x0": int(box.get("x0", BodyLayout.EYE_X0)),
 		"drop": drop,
-		"pupil_cols": Vector2i(int(box["pupil_cols"][0]), int(box["pupil_cols"][1])),
+		# A LIST of columns (build_bodies.py's convention), not a range: the
+		# neutral pupil is one column wide.
+		"pupil_cols": (box.get("pupil_cols", []) as Array).map(func(v: Variant) -> int: return int(v)),
 		"pupil_rows": Vector2i(int(box["pupil_rows"][0]), int(box["pupil_rows"][1])),
 	}
 

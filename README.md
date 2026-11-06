@@ -20,6 +20,7 @@ figures. Godot 4, GDScript.
 | One-file wardrobe (v2) with exact round-trip | done; v1 files still open |
 | Special shapes on any item | skirt, cape, hood, and a drawn shape anchored to the body |
 | Eyes, hair, facial hair as their own kind of item | done |
+| Eyelids and brows over the open eye; skin tones | done (Preview picks them) |
 | Mesher (exposed-face culling, vertex colours) | done |
 | Rigid-part rig and test poses | done |
 | Editor: four tabs (Bodies, Face & Hair, Clothes, Preview) | done |
@@ -49,8 +50,9 @@ The editor is the project's main scene. It has four tabs:
 - **Clothes** -- every clothing item with all its settings, including any
   special shapes (skirts, capes, hoods, drawn shapes). Cycle through the six
   bodies to check an item on each. Colours and outfits are here too.
-- **Preview** -- pick a body, head, eyes, hair, facial hair and clothes made in
-  the other tabs and see the whole character. Nothing is edited there.
+- **Preview** -- pick a body, head, skin tone, eyes, eyelids, brows, hair,
+  facial hair and clothes made in the other tabs and see the whole character.
+  Nothing is edited there.
 
 Edited bodies and heads are saved to `assets/edited/`, never over the
 generated files, and are used in place of them when present. "Revert" deletes
@@ -60,7 +62,7 @@ same character assembled the way the game will do it, with no editor involved.
 ## Tests
 
 Every acceptance check in `SPEC.md` section 12 is an automated test.
-**1383 checks, all passing** on Godot 4.7.2.
+**1427 checks, all passing** on Godot 4.7.2.
 
 ```bash
 godot --headless --path . --script res://tests/run_tests.gd

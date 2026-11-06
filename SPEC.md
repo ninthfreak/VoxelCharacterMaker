@@ -16,7 +16,7 @@ pixel-art-shaded voxel figures. Parts of it:
 
 1. **Base bodies** — six bare, featureless bodies (masculine/feminine × slim/average/heavy), 11 rigid parts each.
 2. **Heads** — a library of five unisex head shapes that fit any body.
-3. **Faces** — eyes only, as skin-tight overlays with swappable expressions.
+3. **Faces** — eyes with a lid-and-brow system, as skin-tight overlays.
 4. **Wardrobe** — hair and clothing as overlays, mostly *parametric* (body regions + colour + bulk), plus a limited
    set of *special* generated shapes (hoods, skirts/dresses/robes/togas, capes...). All unisex.
 5. **Editor** — an in-engine tool for creating wardrobe items and faces (and later editing bodies).
@@ -151,22 +151,40 @@ differ, so pre-drawn hair/hats need slack or a per-head fit; parametric ones fit
 
 Each head row is a rectangle, inset and then rounded at its corners by a stepped profile (per shape: top and bottom
 insets, corner steps, and jaw/crown narrowing). The larger heads use the extra voxels for rounder corners and crowns
-where it suits the shape: round, oval and heart get a three-cell corner step; strong keeps its square jaw under a
+where it suits the shape: round and heart get a three-cell corner step (the oval a one-cell step, eased so the eyes
+fit — §5); strong keeps its square jaw under a
 rounded crown; boxy stays boxy.
 
-## 5. Faces (eyes only)
+## 5. Faces: eyes, lids and brows
 
-The owner wants **eyes only — no brows, no mouths.**
+Eyes with a lid-and-brow system; **no mouths**. (Owner, 2026-11: the original "no brows" became one brow line that
+the lids drive; see below.)
 
 - A face is a **skin-tight overlay** (bulk 0) on the face plane **y = 5**: it recolours head voxels, never adds volume.
-- **Eye box:** 4 wide × 5 tall, top two corners rounded. Screen-left eye x7–10, screen-right eye x13–16, rows z29–33
-  (three skin rows under the eyes). Fits all five heads (verified). *The eyes are due to be revisited now the head
-  is larger (owner, 2026-11).*
-- **Roles:** white, pupil (= eye colour; a colourway), line (lids), skin (overlay hides the eye there).
-- **Storage:** each expression is defined **once per eye in box cells** (c from the eye's outer edge, r from its bottom
-  row) and mirrored onto the other eye; asymmetric expressions (wink, look left/right) store both eyes.
-- **Starter expressions:** neutral, blink, happy, angry, sad, surprised, bored, wink, look_left, look_right, look_down.
-  Blinking and expression changes are overlay swaps. The owner expects to adjust these in the editor.
+- **The eyes are the same size on every head, always** (owner). Every head must give both eye boxes *and the brow
+  row above them* a flat face with nothing in front; a test fails any head that cannot. (The oval's corner rounding
+  was eased one step for this.)
+- **Eye box:** 5 wide × 6 tall, all four corners rounded. Screen-left eye x6–10, screen-right eye x13–17, rows
+  z29–34 (three skin rows under the eyes); the brow row is z35.
+- **The open eye ("G7", locked in by the owner):** all white, with a black pupil 1 wide × 2 tall in the middle
+  (column 2, rows 2–3) — two white rows above it and two below. This is the eye wide open; lids make every other look.
+- **Lids and brow** (`core/eye_lids.gd`). Per eye: how many rows the upper lid covers, how many the lower lid covers,
+  and a pupil shift. Rows the upper lid covers are **lid**; its lowest covered row is the **brow** line — the brow
+  leads the lid down. With no upper lid the brow sits on the row above the eye (wide open, brows raised); in neutral
+  it covers the eye's top row and no lid shows. Rows the lower lid covers are lid, **with no line**. When the lids
+  meet the eye is closed: lid, with the brow line at the upper lid's edge. The brow is always the full eye width.
+  The one line serves as both brow and lash line (owner accepted the compromise; it reads as the brow when wide open).
+- **Lid colour:** the skin tone half a shade darker (halfway from its mid to its dark). **Brow colour:** the hair
+  colour one shade darker (its garment dark tone); bald characters get the brow of dark-brown hair unless a brow colour
+  is set.
+- **Named lid states:** neutral (upper 1), wide open (0), unimpressed (upper 2), downcast (upper 3, pupil down 1),
+  tired (upper 3, lower 1, pupil down 1), suspicious (upper 2, lower 2), blink (closed), wink (one eye closed). They
+  live in code; they are chosen on the editor's Preview tab only. Blinking is a lid state swap.
+- **Roles:** white, pupil (= eye colour; a colourway), line (in drawn expressions), lid and brow (from the lid state).
+- **Drawn expressions** remain: each is defined **once per eye in box cells** (c from the eye's outer edge, r from its
+  bottom row), drawn in the Face & Hair tab, and lids apply on top. The 11 starters (neutral, blink, happy, angry, sad,
+  surprised, bored, wink, look_left, look_right, look_down) were only roughly adapted to the 5×6 box; most are now
+  better made with lids, and what to keep is still open.
 - Draw order: the face draws **under** hair and hats.
 
 ## 6. Shading and colour
@@ -174,8 +192,10 @@ The owner wants **eyes only — no brows, no mouths.**
 - **Baked tones** (Voxel Doom style), lit from the viewer's upper-left-front. Per voxel, from its six neighbours:
   **light** if the top is exposed, or both left (−x, viewer's left) and front (−y) are exposed; else **mid** if the
   front is exposed; else **dark** if bottom, right or back is exposed; else mid. Same rule on all six bodies.
-- Skin tones: light (255,214,172), mid (236,178,134), dark (190,128,92). Eye black (20,20,26), lid line (70,38,24),
-  eye white (250,250,248).
+- **Skin is a choice of tone** (owner): pale, light, tan, medium, brown, deep. "Light" is the original skin —
+  light (255,214,172), mid (236,178,134), dark (190,128,92) — and every other tone derives its light and dark in the
+  same proportions to its mid, so all tones shade alike. Eye black (20,20,26), line (70,38,24), eye white
+  (250,250,248); lid and brow colours as in §5.
 - Garment colours: from a palette colour c, light = c + (255 − c) × 0.28, mid = c, dark = c × 0.68.
 - *Recommended* in Godot: unshaded material with vertex colours, so the baked look is exact. Optional extra legibility:
   multiply per face orientation (top 1.0, front 0.97, sides 0.9, back 0.84, bottom 0.74) — the prototypes used this.
@@ -307,7 +327,8 @@ reference/   earlier editor prototypes (HTML, PySide) and a CLI exporter
   3894, 4494, 5926; 3590, 3976, 4714.
 - Every body: mirror-symmetric, one connected piece, every part one piece, no edge-only contacts, parts touch only
   their parents.
-- Every expression fits every head (no eye cell falls off the face plane).
+- Every expression fits every head (no eye cell falls off the face plane); every head gives the whole eye box and
+  brow row a flat face; every lid state lands on every head.
 - A parametric garment generates without gaps on all six bodies; bulk-0 adds no voxels.
 - Wardrobe file round-trips unchanged (save → load → save is identical).
 - STL export of a dressed figure is watertight.

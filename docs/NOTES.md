@@ -11,7 +11,7 @@ which parts are solid and which are guesses.
 
 ## 1. Verification status
 
-**Everything compiles and the acceptance suite is green: 1383 checks, 0 failures.**
+**Everything compiles and the acceptance suite is green: 1427 checks, 0 failures.**
 
 ```bash
 tests/run.sh                 # measures the assets, then runs the Godot suite
@@ -363,6 +363,42 @@ garments in one cell). That is the trouser problem the owner deferred.
 **Edited bodies and heads** saved before this change (in `assets/edited/`)
 would be on the old layout and would need redoing; none existed here.
 
+## 4d. Eyes, lids and brows (owner's design)
+
+Worked out with the owner through mock-ups, neutral only:
+
+- **The open eye is "G7"**: 5 x 6, white, all corners rounded, a black 1 x 2
+  pupil dead centre. Locked in as *wide open*.
+- **The eyes are the same size on every head, always.** The oval had only 10
+  flat columns; its corner rounding was eased one step to give 12. A test and
+  the asset oracle fail any head without a flat face for both eye boxes and
+  the brow row.
+- **Lids and brow** are numbers per eye -- upper lid rows, lower lid rows,
+  pupil shift -- applied over the eye (`core/eye_lids.gd`). The brow leads the
+  upper lid; the lower lid has no line; the brow is always full width. The one
+  line is brow and lash line both: accepted, since it reads as the brow when
+  the eyes are wide open (owner).
+- **Colours:** lid = skin half a shade darker; brow = hair one shade darker;
+  bald = dark-brown brow unless set. Skin is now a choice of six tones.
+- **Where it shows:** Preview has Eyelids, Skin tone and Brows controls.
+  Bodies and Clothes show neutral; Face & Hair shows wide open, so no lid hides
+  the drawing being edited (the raised brow still shows against the hair).
+- **Review sheet:** `docs/renders/faces.png`, every lid state on a different
+  head, skin tone and hair.
+
+Still open, from this:
+
+1. **Drawn expressions vs lids.** The 11 drawn starters were only roughly
+   adapted to 5 x 6; most are better made with lids now. Lids cannot do
+   happy's arcs or slanted angry/sad lids -- lid *tilt* is the likely next
+   step. What to keep is the owner's call.
+2. **Brow colour on light hair** is the weakest case (fair hair gives a light
+   line). Revisit if it reads badly in use.
+3. **Runtime cost of blinking (unmeasured).** A lid change rebuilds the
+   head's mesh. Fine in the editor; for many blinking characters in the game,
+   pre-building each character's few lid states or a separate eye overlay mesh
+   may be needed. A game-side decision.
+
 ## 5. Still open, for the owner
 
 Carried from `SPEC.md` section 13, plus what building raised:
@@ -378,4 +414,5 @@ Carried from `SPEC.md` section 13, plus what building raised:
 4. **Re-voxelised animation.** Not implemented; it is a rendering choice that
    does not change the data, exactly as the spec says.
 5. **Eye colour** now lives in eye-set colourways (4b). Which colourway a
-   given character uses is the game's to remember, not the editor's.
+   given character uses -- and its skin tone, lid state and brow colour -- is
+   the game's to remember, not the editor's.

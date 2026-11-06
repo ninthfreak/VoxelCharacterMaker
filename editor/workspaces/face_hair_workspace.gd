@@ -119,6 +119,9 @@ func make_request() -> CharacterAssembler.Request:
 	request.eye_set_id = eye_set_id
 	request.eye_colourway = eye_colourway
 	request.features = hair.as_worn() + facial_hair.as_worn()
+	# Wide open: no lid covers any of the drawing being edited, and the brow
+	# still shows (raised, above the eye) against the hair.
+	request.lids = "wide_open"
 	return request
 
 

@@ -52,12 +52,16 @@ const FACE_PLANE_Y: int = 12 - HEAD_DEPTH / 2
 
 ## The eye box (SPEC section 5): two boxes of EYE_W x EYE_H, the screen-left
 ## one starting at EYE_X0, EYE_UNDER skin rows above the bottom of the head.
-const EYE_W := 4
-const EYE_H := 5
-const EYE_X0 := 7
+## The eyes are the same size on every head, always (owner's rule): every head
+## gives both boxes and the brow row above them a flat face.
+const EYE_W := 5
+const EYE_H := 6
+const EYE_X0 := 6
 const EYE_UNDER := 3
 const EYE_Z0: int = HEAD_BOTTOM + EYE_UNDER
 const EYE_Z1: int = EYE_Z0 + EYE_H - 1
+## Where the brow sits when no lid is down (eyes wide open): the row above.
+const BROW_ROW: int = EYE_Z1 + 1
 
 ## Joints (corner space). The upper arm's pivot is measured over the rows of
 ## the arm below the deltoid; see tools/build_bodies.py:pivots().
@@ -92,4 +96,5 @@ static func eye_box_json() -> Dictionary:
 		"right_x": [VoxelAxes.MIRROR_X_MAX - EYE_X0 - EYE_W + 1, VoxelAxes.MIRROR_X_MAX - EYE_X0],
 		"z": [EYE_Z0, EYE_Z1],
 		"plane_y": FACE_PLANE_Y,
+		"brow_z": BROW_ROW,
 	}

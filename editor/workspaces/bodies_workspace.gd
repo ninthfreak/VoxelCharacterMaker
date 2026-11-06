@@ -488,7 +488,13 @@ static func _num(f: float) -> String:
 ## Every cell some expression paints, from the shipped faces and every eye set
 ## in the wardrobe: a head has to carry all of them.
 func eye_cells() -> Dictionary:
+	# The whole eye box and the brow row: lids and brows can land on any of
+	# them, and the eyes are the same size on every head, always.
 	var out := {}
+	for eye in [EyeSet.EYE_LEFT, EyeSet.EYE_RIGHT]:
+		for c in EyeSet.BOX_W:
+			for r in EyeSet.BOX_H + 1:
+				out[EyeSet.cell_to_voxel(c, r, eye)] = true
 	for name in editor.library.expression_names():
 		for cell in editor.library.face(name).ink_cells().keys():
 			out[cell] = true

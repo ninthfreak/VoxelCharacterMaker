@@ -56,6 +56,14 @@ class Request extends RefCounted:
 	## colours: the "basic profile of the eyes" the body workspace shows.
 	var eye_set_id: String = ""
 	var eye_colourway: String = ""
+	## The lid state over the eyes, by name (EyeLids.STATES). EyeLids.OFF
+	## draws the eye exactly as drawn: no lids, no brow.
+	var lids: String = EyeLids.DEFAULT
+	## The character's skin tone (Palette.SKIN_TONE_NAMES).
+	var skin_tone: String = Palette.DEFAULT_SKIN
+	## The brow colour. Transparent (the default) means "follow the hair": the
+	## hair's colour one shade darker, or dark brown with no hair.
+	var brow_colour: Color = Color(0, 0, 0, 0)
 	## Only this item is applied, for the editor's "solo an item". "" = all.
 	var solo_item: String = ""
 	var eye_colour: Color = Palette.EYE_BLACK
@@ -172,10 +180,8 @@ static func assemble(req: Request) -> Assembled:
 		eyes = req.wardrobe.eye_set(req.eye_set_id)
 		if eyes == null:
 			out.warnings.append("unknown eye set '%s'" % req.eye_set_id)
-	if eyes != null:
-		_claim_eye_set(claims, eyes, req, base.get(BodyDef.HEAD_PART, {}))
-	elif out.face != null:
-		_claim_face(claims, out.face, base.get(BodyDef.HEAD_PART, {}))
+	if eyes != null or out.face != null:
+		_claim_eyes(claims, eyes, out.face, req, base.get(BodyDef.HEAD_PART, {}))
 
 	# Every item has its regions AND its special shapes; neither excludes the
 	# other, so a dress is a bodice and a skirt.
@@ -217,7 +223,7 @@ static func assemble(req: Request) -> Assembled:
 	var tone_map := Shading.tone_map(solid)
 
 	# -- 6. build the parts --------------------------------------------------
-	var skin := Palette.skin_tones()
+	var skin := Palette.skin_tones(req.skin_tone)
 	for name in out.body.part_names():
 		var part := Part.new()
 		part.name = name
@@ -277,51 +283,80 @@ static func _worn_in_draw_order(req: Request) -> Array:
 	return out
 
 
-## An eye set's expression, coloured from the wardrobe palette. Same rules as
-## the library face below: recolour only, below every garment.
-static func _claim_eye_set(claims: Dictionary, eyes: EyeSet, req: Request,
+## The eyes: an eye set's expression (or, with no eye set, the library face),
+## each eye with its lid state applied (EyeLids), coloured, and claimed as a
+## recolour below every garment. The face never adds volume: a cell that is not
+## on this head's face plane is skipped (the fit tests catch that).
+static func _claim_eyes(claims: Dictionary, eyes: EyeSet, face: FaceDef, req: Request,
 		head_cells: Dictionary) -> void:
-	var expression := eyes.resolve(req.expression)
-	var absolute := eyes.to_absolute(expression)
-	var way := req.eye_colourway if eyes.colourways.has(req.eye_colourway) \
-		else eyes.first_colourway()
-	for cell in absolute.keys():
-		var c: Vector3i = cell
-		if not head_cells.has(c):
-			continue
-		var role := String(absolute[cell])
-		_offer(claims, BodyDef.HEAD_PART, c, {
-			"source": Source.FACE,
-			"role": role,
-			"item": "",
-			"colourway": way,
-			"reach": REACH_RECOLOUR,
-			"draw_order": FACE_DRAW_ORDER,
-			"region": "",
-			"colour": req.wardrobe.eye_colour(eyes.id, way, role),
-		})
+	var way := ""
+	var expression := req.expression
+	if eyes != null:
+		expression = eyes.resolve(req.expression)
+		way = req.eye_colourway if eyes.colourways.has(req.eye_colourway) \
+			else eyes.first_colourway()
+	var lid := Palette.lid_colour(req.skin_tone)
+	var brow := brow_colour(req)
+	for eye in [EyeSet.EYE_LEFT, EyeSet.EYE_RIGHT]:
+		var cells: Dictionary = {}
+		if eyes != null:
+			cells = eyes.eye_cells(expression, eye)
+		else:
+			var source: Dictionary = face.screen_right if eye == EyeSet.EYE_RIGHT \
+				else face.screen_left
+			for cell in source.keys():
+				if String(source[cell]) != FaceDef.ROLE_SKIN:
+					cells[cell] = source[cell]
+		if req.lids != EyeLids.OFF:
+			cells = EyeLids.apply(cells, EyeLids.eye_state(req.lids, eye), eye)
+		for cell in cells.keys():
+			var bc: Vector2i = cell
+			var c := EyeSet.cell_to_voxel(bc.x, bc.y, eye)
+			if not head_cells.has(c):
+				continue
+			var role := String(cells[cell])
+			var colour: Color
+			if role == EyeLids.ROLE_LID:
+				colour = lid
+			elif role == EyeLids.ROLE_BROW:
+				colour = brow
+			elif eyes != null:
+				colour = req.wardrobe.eye_colour(eyes.id, way, role)
+			else:
+				colour = FaceDef.colour_for_role(role, req.eye_colour)
+			_offer(claims, BodyDef.HEAD_PART, c, {
+				"source": Source.FACE,
+				"role": role,
+				"item": "",
+				"colourway": way,
+				"reach": REACH_RECOLOUR,
+				"draw_order": FACE_DRAW_ORDER,
+				"region": "",
+				"colour": colour,
+			})
 
 
-## The face recolours head cells on the face plane and never adds volume, so it
-## claims with reach 0 at a draw order below every garment.
-static func _claim_face(claims: Dictionary, face: FaceDef, head_cells: Dictionary) -> void:
-	var absolute := face.to_absolute()
-	for cell in absolute.keys():
-		var c: Vector3i = cell
-		var role := String(absolute[cell])
-		if role == FaceDef.ROLE_SKIN:
-			continue  # the overlay hides the eye here: leave plain skin
-		if not head_cells.has(c):
-			continue  # off the face plane on this head; the fit test catches it
-		_offer(claims, BodyDef.HEAD_PART, c, {
-			"source": Source.FACE,
-			"role": role,
-			"item": "",
-			"colourway": "",
-			"reach": REACH_RECOLOUR,
-			"draw_order": FACE_DRAW_ORDER,
-			"region": "",
-		})
+## The brow colour a request resolves to: set explicitly, or the hair's colour
+## one shade darker, or -- bald -- the brow of dark brown hair.
+static func brow_colour(req: Request) -> Color:
+	if req.brow_colour.a > 0.0:
+		return req.brow_colour
+	if req.wardrobe != null:
+		for entry in req.features:
+			var e: Dictionary = entry
+			var it := req.wardrobe.item(String(e.get("item", "")))
+			if it == null or it.slot != "hair":
+				continue
+			var role := "hair" if it.roles.has("hair") else (it.roles[0] if not it.roles.is_empty() else "")
+			if role.is_empty():
+				continue
+			var way := String(e.get("colourway", ""))
+			if not it.has_colourway(way):
+				way = it.first_colourway()
+			return req.wardrobe.tones_for(it.id, way, role)[2]
+		if req.wardrobe.palette.has(Palette.DEFAULT_BROW_HAIR):
+			return Palette.brow_from_hair(req.wardrobe.colour(Palette.DEFAULT_BROW_HAIR))
+	return Palette.brow_from_hair(Color8(98, 66, 44))
 
 
 static func _claim_parametric(claims: Dictionary, item: GarmentItem, colourway: String,

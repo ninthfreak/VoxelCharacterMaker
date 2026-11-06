@@ -164,6 +164,18 @@ for shape in HEADS:
     check(components(cells) == 1, f"head {shape} is one piece", str(components(cells)))
     mirrored = {(MIRROR - x, y, z) for (x, y, z) in cells}
     check(mirrored == cells, f"head {shape} mirror symmetric")
+    # The eyes are the same size on every head, always (owner): both full eye boxes AND the brow row above them
+    # must lie on this head's flat face, with nothing in front of them.
+    box = h["eye_box"]
+    face_cells = set()
+    for xr in (box["left_x"], box["right_x"]):
+        for x in range(xr[0], xr[1] + 1):
+            for z in range(box["z"][0], box["brow_z"] + 1):
+                face_cells.add((x, box["plane_y"], z))
+    off = sorted(c for c in face_cells if c not in cells)
+    blocked = sorted(c for c in face_cells if (c[0], c[1] - 1, c[2]) in cells)
+    check(not off, f"head {shape} has a flat face for the whole eye box and brow row", f"missing {off[:4]}")
+    check(not blocked, f"head {shape} has nothing in front of the eyes", f"{blocked[:4]}")
     expected["heads"][shape] = {
         "voxels": len(cells),
         "z_min": zs[0], "z_max": zs[-1],

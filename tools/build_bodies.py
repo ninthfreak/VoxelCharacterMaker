@@ -158,7 +158,7 @@ HEADS = {
     #                 for those sides, not added to the inset: [2] on a row inset 1 leaves it 2 in from each side.
     "round":  dict(w=16, top=[2, 1], bottom=[1], corner=[2, 1], jaw=[],        crown=[]),
     "boxy":   dict(w=16, top=[1],    bottom=[1], corner=[],     jaw=[],        crown=[]),         # square plan, top/bottom softened
-    "oval":   dict(w=14, top=[1],    bottom=[1], corner=[2, 1], jaw=[3, 2, 1], crown=[3, 2, 1]),
+    "oval":   dict(w=14, top=[1],    bottom=[1], corner=[1],    jaw=[3, 2, 1], crown=[3, 2, 1]),   # corner eased so the eyes fit
     "strong": dict(w=16, top=[2, 1], bottom=[],  corner=[1],    jaw=[],        crown=[]),         # square jaw, rounded crown
     "heart":  dict(w=16, top=[2, 1], bottom=[1], corner=[2, 1], jaw=[4, 3, 2], crown=[]),
 }
@@ -210,8 +210,10 @@ def build_head(part, mat, shape="round"):
 #      skin (the overlay hides the eye there). ----
 FACE_Y = 12 - HEAD_D // 2   # the heads' shared front plane
 EYE_UNDER = 3               # skin rows between the bottom of the head and the bottom of the eyes
-# 4 wide x 5 tall, top corners rounded; screen-left eye x7-10, screen-right eye x13-16
-EYE_BOX = dict(w=4, h=5, z0=0, x0=7, drop=((0, 4), (3, 4)), pupil_cols=(1, 2), pupil_rows=(1, 4))
+# 5 wide x 6 tall, all four corners rounded; screen-left eye x6-10, screen-right eye x13-17. The eyes are the same
+# size on every head, always (owner): every head must give the box -- and the brow row above it -- a flat face.
+# Neutral is "G7": all white, a pupil 1 wide x 2 tall in the middle.
+EYE_BOX = dict(w=5, h=6, z0=0, x0=6, drop=((0, 0), (4, 0), (0, 5), (4, 5)), pupil_cols=(2,), pupil_rows=(2, 3))
 
 
 def _expressions(bx=EYE_BOX):
@@ -233,12 +235,12 @@ def _expressions(bx=EYE_BOX):
         for c in range(2, w): e[(c, top - 1)] = "line"
         return e
     def sad():                                                 # upper lid slants down toward the outside, pupils low
-        e = pupil(base(), pc, (0, 2))
+        e = pupil(base(), pc, (1, 2))
         for c in range(w): e[(c, top)] = "skin"
         e[(w - 2, top)] = "line"
         for c in range(0, w - 2): e[(c, top - 1)] = "line"
         return e
-    def surprised(): return pupil(base(), (1, 2), (2, 3))
+    def surprised(): return pupil(base(), pc, (pr[1], pr[1]))         # a small pupil, high
     def bored():
         e = pupil(base(), pc, (1, 2))
         for c in range(w): e[(c, top)] = "skin"; e[(c, top - 1)] = "line"
@@ -249,7 +251,8 @@ def _expressions(bx=EYE_BOX):
     same = lambda f: (lambda: (f(), f()))
     return {"neutral": same(neutral), "blink": same(blink), "happy": same(happy), "angry": same(angry), "sad": same(sad),
             "surprised": same(surprised), "bored": same(bored), "wink": lambda: (neutral(), blink()),
-            "look_left": lambda: look((0, 1)), "look_right": lambda: look((w - 2, w - 1)), "look_down": same(look_down)}
+            "look_left": lambda: look(tuple(c - 1 for c in pc)), "look_right": lambda: look(tuple(c + 1 for c in pc)),
+            "look_down": same(look_down)}
 
 
 EXPRESSIONS = _expressions()
@@ -352,7 +355,8 @@ if __name__ == "__main__":
         json.dump({"shape": shape, "part": "head", "parent": "chest", "pivot": [12, 12, z0("neck")],
                    "neck_socket": [[10, 13], [10, 13], z0("neck")],
                    "eye_box": {"left_x": [bx["x0"], bx["x0"] + bx["w"] - 1], "right_x": [W - bx["x0"] - bx["w"], W - 1 - bx["x0"]],
-                               "z": [bx["z0"], bx["z0"] + bx["h"] - 1], "plane_y": FACE_Y},
+                               "z": [bx["z0"], bx["z0"] + bx["h"] - 1], "plane_y": FACE_Y,
+                               "brow_z": bx["z0"] + bx["h"]},
                    "voxels": [[int(x), int(y), int(z)] for x, y, z in zip(*np.nonzero(part))]}, open(f"head42_{shape}.json", "w"))
         print("head", shape, n, "voxels")
     for old in __import__("glob").glob("face42_*.json"): os.remove(old)

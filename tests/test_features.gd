@@ -18,6 +18,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	_shapes(t, library)
 	_items_with_specials(t, library)
 	_panels_clear(t, library)
+	_lids(t, library)
 
 
 # ------------------------------------------------------------- eye sets ----
@@ -372,4 +373,126 @@ static func _panels_clear(t: TestReport, library: AssetLibrary) -> void:
 					panel_of[cell] = String(name)
 		t.check(shared == 0, "%s: no panel shares a voxel with another part, on any body" % look[0],
 			"%d shared, e.g. %s" % [shared, example])
+
+
+# ------------------------------------------------------------ lids, brows ----
+
+static func _roles_in(cells: Dictionary, role: String) -> Array:
+	var out: Array = []
+	for cell in cells.keys():
+		if String(cells[cell]) == role:
+			out.append(cell)
+	return out
+
+
+static func _lids(t: TestReport, library: AssetLibrary) -> void:
+	t.group("eyes: the G7 open eye, the same size on every head")
+	var w := Wardrobe.create_default(library)
+	var eyes := w.eye_set(w.first_eye_set_id())
+	var open := eyes.eye_cells(EyeSet.NEUTRAL, EyeSet.EYE_LEFT)
+	t.check_equal(EyeSet.BOX_W * 100 + EyeSet.BOX_H, 506, "the eye box is 5 wide x 6 tall")
+	t.check_equal(_roles_in(open, EyeSet.ROLE_PUPIL).size(), 2, "neutral has a 1 x 2 pupil")
+	t.check_equal(_roles_in(open, EyeSet.ROLE_WHITE).size(), 5 * 6 - 4 - 2,
+		"and is white everywhere else but its four rounded corners")
+	t.check(_roles_in(open, EyeSet.ROLE_PUPIL).has(Vector2i(2, 2))
+		and _roles_in(open, EyeSet.ROLE_PUPIL).has(Vector2i(2, 3)),
+		"the pupil is centred: column 2, rows 2-3")
+	for shape in library.head_shapes():
+		var head := library.head(shape)
+		var missing := 0
+		var blocked := 0
+		for eye in [EyeSet.EYE_LEFT, EyeSet.EYE_RIGHT]:
+			for c in EyeSet.BOX_W:
+				for r in EyeSet.BOX_H + 1:   # the box and the brow row above it
+					var v := EyeSet.cell_to_voxel(c, r, eye)
+					if not head.cells.has(v):
+						missing += 1
+					if head.cells.has(v + Vector3i(0, -1, 0)):
+						blocked += 1
+		t.check(missing == 0 and blocked == 0,
+			"%s head has a flat face for the whole eye box and brow row" % shape,
+			"%d missing, %d covered" % [missing, blocked])
+
+	t.group("eyes: lids and brows")
+	var h := EyeSet.BOX_H
+	var neutral := EyeLids.apply(open, EyeLids.eye_state("neutral", EyeSet.EYE_LEFT), EyeSet.EYE_LEFT)
+	var brow_rows := {}
+	for cell in _roles_in(neutral, EyeLids.ROLE_BROW):
+		brow_rows[(cell as Vector2i).y] = true
+	t.check_equal(brow_rows.keys(), [h - 1], "neutral: the brow covers the eye's top row")
+	t.check_equal(_roles_in(neutral, EyeLids.ROLE_BROW).size(), EyeSet.BOX_W,
+		"and is the full eye width")
+	t.check(_roles_in(neutral, EyeLids.ROLE_LID).is_empty(), "with no lid showing")
+	var wide := EyeLids.apply(open, EyeLids.eye_state("wide_open", EyeSet.EYE_LEFT), EyeSet.EYE_LEFT)
+	t.check(wide.get(Vector2i(0, h)) == EyeLids.ROLE_BROW and wide.get(Vector2i(4, h)) == EyeLids.ROLE_BROW,
+		"wide open: the brow is raised to the row above the eye, full width")
+	var tired := EyeLids.apply(open, EyeLids.eye_state("tired", EyeSet.EYE_LEFT), EyeSet.EYE_LEFT)
+	t.check(tired.get(Vector2i(2, h - 3)) == EyeLids.ROLE_BROW, "tired: the brow leads the lid down")
+	t.check(tired.get(Vector2i(2, h - 1)) == EyeLids.ROLE_LID, "with lid above it")
+	t.check(tired.get(Vector2i(2, 0)) == EyeLids.ROLE_LID, "the lower lid is lid colour")
+	t.check(tired.get(Vector2i(2, 1)) == EyeSet.ROLE_PUPIL, "and the pupil has moved down")
+	var sus := EyeLids.apply(open, EyeLids.eye_state("suspicious", EyeSet.EYE_LEFT), EyeSet.EYE_LEFT)
+	var low_brow := false
+	for cell in _roles_in(sus, EyeLids.ROLE_BROW):
+		low_brow = low_brow or (cell as Vector2i).y < 2
+	t.check(not low_brow, "the lower lid has no dark line")
+	var blink := EyeLids.apply(open, EyeLids.eye_state("blink", EyeSet.EYE_LEFT), EyeSet.EYE_LEFT)
+	t.check(_roles_in(blink, EyeSet.ROLE_WHITE).is_empty() and _roles_in(blink, EyeSet.ROLE_PUPIL).is_empty(),
+		"blink: no white or pupil shows")
+	t.check_equal(_roles_in(blink, EyeLids.ROLE_BROW).size(), EyeSet.BOX_W, "just one brow line")
+	var wink_l := EyeLids.apply(open, EyeLids.eye_state("wink", EyeSet.EYE_LEFT), EyeSet.EYE_LEFT)
+	var wink_r := EyeLids.apply(open, EyeLids.eye_state("wink", EyeSet.EYE_RIGHT), EyeSet.EYE_RIGHT)
+	t.check(not _roles_in(wink_l, EyeSet.ROLE_WHITE).is_empty() and _roles_in(wink_r, EyeSet.ROLE_WHITE).is_empty(),
+		"wink: one eye open, the other closed")
+
+	t.group("eyes: lid, brow and skin colours")
+	var tail := {"item": "ponytail", "colourway": "default"}
+	var req := CharacterAssembler.Request.make(library, "male_average", "round", "neutral")
+	req.wardrobe = w
+	req.eye_set_id = eyes.id
+	req.features = [tail]
+	var brow := CharacterAssembler.brow_colour(req)
+	var hair_tones := w.tones_for("ponytail", "default", "hair")
+	t.check(brow.is_equal_approx(hair_tones[2]), "the brow is the hair colour one shade darker")
+	req.features = []
+	t.check(CharacterAssembler.brow_colour(req).is_equal_approx(
+		Palette.brow_from_hair(w.colour(Palette.DEFAULT_BROW_HAIR))), "bald: the brow of dark brown hair")
+	req.brow_colour = Color8(10, 20, 30)
+	t.check(CharacterAssembler.brow_colour(req).is_equal_approx(Color8(10, 20, 30)), "a brow colour set wins")
+	req.brow_colour = Color(0, 0, 0, 0)
+	for tone in Palette.SKIN_TONE_NAMES:
+		req.skin_tone = tone
+		req.lids = "tired"
+		var a := CharacterAssembler.assemble(req)
+		var head_part := a.part(BodyDef.HEAD_PART)
+		var mids := Palette.skin_tones(tone)
+		var lid_ok := false
+		var skin_ok := false
+		for cell in head_part.cells.keys():
+			var src := int(head_part.sources.get(cell, 0))
+			if src == CharacterAssembler.Source.FACE and head_part.colours[cell].is_equal_approx(Palette.lid_colour(tone)):
+				lid_ok = true
+			if src == CharacterAssembler.Source.SKIN and int(head_part.tones[cell]) == Shading.Tone.MID:
+				skin_ok = skin_ok or head_part.colours[cell].is_equal_approx(mids[1]) \
+					or head_part.colours[cell].is_equal_approx(mids[1] * Palette.FACE_MUL_FRONT)
+		t.check(skin_ok, "%s skin tone colours the skin" % tone)
+		t.check(lid_ok, "%s: the lid is the skin half a shade darker" % tone)
+	t.check(Palette.lid_colour("light").is_equal_approx(Palette.SKIN_MID.lerp(Palette.SKIN_DARK, 0.5)),
+		"half a shade: halfway from the skin's mid to its dark")
+
+	t.group("eyes: every lid state fits every head")
+	for shape in library.head_shapes():
+		var bad: Array[String] = []
+		for state in EyeLids.names():
+			var r2 := CharacterAssembler.Request.make(library, "female_slim", shape, "neutral")
+			r2.wardrobe = w
+			r2.eye_set_id = eyes.id
+			r2.lids = state
+			var expected := 0
+			for eye in [EyeSet.EYE_LEFT, EyeSet.EYE_RIGHT]:
+				expected += EyeLids.apply(eyes.eye_cells(EyeSet.NEUTRAL, eye),
+					EyeLids.eye_state(state, eye), eye).size()
+			if _face_cells(CharacterAssembler.assemble(r2)).size() != expected:
+				bad.append(state)
+		t.check(bad.is_empty(), "%s head: every lid state lands on the face" % shape, ", ".join(bad))
 
