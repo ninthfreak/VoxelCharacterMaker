@@ -5,7 +5,7 @@ extends RefCounted
 ## A hand-drawn shape hung at an anchor: the most literal form of "anchored to
 ## the body at specific points, with a shape not otherwise based on the body".
 ##
-## Beards, moustaches, buns, ponytails, bows, buckles, pauldrons, brooches.
+## Long beards, buns, ponytails, bows, buckles, pauldrons, brooches.
 ##
 ## Two ways to place it, because they answer different needs:
 ##

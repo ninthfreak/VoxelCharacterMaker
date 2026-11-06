@@ -190,6 +190,24 @@ the lids drive; see below.)
   `face42_open.json`. No ^ ^ (happy arcs) for now (owner).
 - Draw order: the face draws **under** hair and hats.
 
+### 5.1 Facial hair (owner, 2026-11)
+
+At this resolution facial hair is coverage and depth, not detail. Kept: **stubble**, **chinstrap**, **full beard**;
+rejected: goatee, moustache, moustache + goatee, a volumetric full beard, flat sideburns.
+
+- One generator (`core/specials/facial_hair_generator.gd`, special type `facial_hair`, param `style`) that reads each
+  head's own surface, so it fits all five heads and edited ones:
+  - **stubble** recolours the skin over the jaw rows (z26–28), the jaw's sides, the underside of the chin, and a
+    sideburn strip on the side of the head in front of each ear (z29–33). No volume.
+  - **chinstrap** adds one voxel of hair along the bottom row of the face and jaw sides and up each side as a raised
+    sideburn.
+  - **full beard** = chinstrap + stubble.
+- **Colours follow the character** through colour references: `@stubble` is always darker than the skin (the skin
+  half a shade darker, leaning a third toward the hair, darkened further if the hair is lighter than the skin);
+  `@hair` is the worn hair's colour (dark brown when bald). Any item role can use them.
+- **Face accessory** slot (optional, one at a time): the **long beard**, a hand-drawn shape hung from the new **chin**
+  anchor (under the chin, hanging down), so it can be tweaked in the shape grid. Its colour is `@hair`.
+
 ## 6. Shading and colour
 
 - **Baked tones** (Voxel Doom style), lit from the viewer's upper-left-front. Per voxel, from its six neighbours:

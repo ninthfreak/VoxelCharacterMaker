@@ -149,9 +149,15 @@ func _rebuild_assignments() -> void:
 	for role in it.roles:
 		var option := OptionButton.new()
 		var current := it.palette_key_for(colourway, role)
-		var names := w.palette_names()
+		var names: Array = []
 		var labels: Array = []
-		for key in names:
+		# Colour references first: resolved per character (a beard that follows
+		# the hair). Then the palette, each with its hex value.
+		for ref in Palette.COLOUR_REFERENCES.keys():
+			names.append(String(ref))
+			labels.append(String(Palette.COLOUR_REFERENCES[ref]))
+		for key in w.palette_names():
+			names.append(key)
 			labels.append("%s   %s" % [key, JsonIO.colour_to_hex(w.colour(key))])
 		labelled(_assignments, role, option)
 		fill_options(option, names, current, labels)

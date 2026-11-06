@@ -68,6 +68,7 @@ func _initialize() -> void:
 		# Capes and ponytails hang behind; a front view cannot show them.
 		{"name": "specials_back", "kind": "specials", "worn": [], "back": true},
 		{"name": "faces", "kind": "faces", "worn": []},
+		{"name": "facial_hair", "kind": "facial_hair", "worn": []},
 		# Close up on the tilted lids, beside neutral for comparison.
 		{"name": "faces_tilt", "kind": "faces", "worn": [],
 			"states": ["neutral", "angry", "sad", "angry", "sad"]},
@@ -129,6 +130,8 @@ func _next_sheet() -> void:
 			bounds = _lay_out_specials()
 		"faces":
 			bounds = _lay_out_faces(sheet.get("states", EyeLids.names()))
+		"facial_hair":
+			bounds = _lay_out_facial_hair()
 
 	# Orthographic, so every figure in a row is seen from exactly the same
 	# direction. Under perspective the ones at the ends turn away from the
@@ -196,6 +199,12 @@ func _add_specials() -> void:
 	hood.colourways = {"default": {"cloth": "ink", "lining": "rust"}}
 	_wardrobe.add_item(hood)
 
+	# More hair colours, so the facial hair sheet shows how colours follow.
+	var crop := _wardrobe.item("short_crop")
+	if crop != null:
+		crop.colourways["fair"] = {"hair": "hair_fair"}
+		crop.colourways["grey"] = {"hair": "hair_grey"}
+
 
 func _rig(body_id: String, head: String, worn: Array,
 		at: Vector3, pose: String = Poses.REST, features: Array = [],
@@ -256,7 +265,7 @@ func _lay_out_poses(worn: Array) -> AABB:
 
 ## One figure per head shape, each showing a different special shape: a
 ## dress (bodice regions + skirt), a hooded cloak (cape + hood), a raised hood,
-## a drawn beard with a crop, and a ponytail with a moustache.
+## a full beard with a crop, and a ponytail with a long beard.
 func _lay_out_specials() -> AABB:
 	var shapes := _library.head_shapes()
 	var looks := [
@@ -267,10 +276,10 @@ func _lay_out_specials() -> AABB:
 		{"body": "female_slim", "worn": [_w("render_hood"), _w("tunic")], "features": [],
 			"label": "hood up", "pose": Poses.REST},
 		{"body": "male_heavy", "worn": _outfit("everyday"),
-			"features": [_w("short_crop"), _w("short_beard")], "label": "crop, beard",
+			"features": [_w("short_crop"), _w("full_beard")], "label": "crop, full beard",
 			"pose": Poses.REST},
 		{"body": "male_slim", "worn": _outfit("everyday"),
-			"features": [_w("ponytail"), _w("moustache")], "label": "ponytail, moustache",
+			"features": [_w("ponytail"), _w("long_beard")], "label": "ponytail, long beard",
 			"pose": Poses.REST},
 	]
 	var total := AABB()
@@ -311,6 +320,44 @@ func _lay_out_faces(states: Array) -> AABB:
 		var head := AABB(Vector3(b.position.x, neck_y - 0.32, b.position.z),
 			Vector3(b.size.x, b.end.y - neck_y + 0.32, b.size.z))
 		total = head if first else total.merge(head)
+		first = false
+	_heads_only = false
+	return total
+
+
+## The facial hair styles and the long beard, each on a different head, skin
+## tone and hair colour, framed from the chest up: colours follow the character.
+func _lay_out_facial_hair() -> AABB:
+	var looks := [
+		["stubble", "", "light", "default"], ["stubble", "", "deep", "fair"],
+		["chinstrap", "", "tan", "black"], ["chinstrap", "", "medium", "auburn"],
+		["full_beard", "", "light", "default"], ["full_beard", "", "brown", "black"],
+		["", "long_beard", "pale", "grey"], ["full_beard", "long_beard", "deep", "default"],
+	]
+	var shapes := _library.head_shapes()
+	var chest_y := float(BodyLayout.z0("upper_chest")) / VoxelAxes.VOXELS_PER_METRE
+	_heads_only = true   # the long beard is part of the head, so it still shows
+	var total := AABB()
+	var first := true
+	for i in looks.size():
+		var look: Array = looks[i]
+		var x := (float(looks.size() - 1) * 0.5 - float(i)) * SPACING_HEADS * 1.15
+		var features: Array = [{"item": "short_crop", "colourway": String(look[3])}]
+		if not String(look[0]).is_empty():
+			features.append({"item": String(look[0]), "colourway": "default"})
+		if not String(look[1]).is_empty():
+			features.append({"item": String(look[1]), "colourway": "default"})
+		var b := _rig("male_average", shapes[i % shapes.size()], [], Vector3(x, 0, 0),
+			Poses.REST, features, EyeLids.DEFAULT, String(look[2]))
+		var name := String(look[0]).replace("_", " ")
+		if not String(look[1]).is_empty():
+			name = ("%s + " % name if not name.is_empty() else "") + "long beard"
+		_caption("%s\n%s, %s hair" % [name, String(look[2]),
+			"brown" if String(look[3]) == "default" else String(look[3])],
+			Vector3(x, chest_y - 0.02, 0))
+		var box := AABB(Vector3(b.position.x, chest_y - 0.3, b.position.z),
+			Vector3(b.size.x, b.end.y - chest_y + 0.3, b.size.z))
+		total = box if first else total.merge(box)
 		first = false
 	_heads_only = false
 	return total

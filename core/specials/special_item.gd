@@ -116,7 +116,7 @@ class Context extends RefCounted:
 ## Generator type -> script. Kept as a plain lookup so adding a type is one
 ## line here and one new file; the editor builds its controls from param_spec.
 static func types() -> Array[String]:
-	return ["skirt", "cape", "hood", "shape"]
+	return ["skirt", "cape", "hood", "shape", "facial_hair"]
 
 
 ## Types that hang cloth panels clear of the figure. They measure the figure as
@@ -132,6 +132,7 @@ static func display_name(type: String) -> String:
 		"skirt": return "Skirt"
 		"cape": return "Cape"
 		"shape": return "Drawn shape"
+		"facial_hair": return "Facial hair"
 	return type
 
 
@@ -145,6 +146,8 @@ static func anchor_description(type: String, params: Dictionary = {}) -> String:
 		"shape":
 			var anchor := String(params.get("anchor", "chest"))
 			return "Anchored at: %s." % Anchors.label(anchor)
+		"facial_hair":
+			return "Follows the face on every head: jaw, chin and sideburns."
 	return ""
 
 
@@ -158,6 +161,7 @@ static func param_spec(type: String) -> Array:
 		"skirt": return SkirtGenerator.param_spec()
 		"cape": return CapeGenerator.param_spec()
 		"shape": return ShapeGenerator.param_spec()
+		"facial_hair": return FacialHairGenerator.param_spec()
 	return []
 
 
@@ -191,6 +195,7 @@ static func generate(type: String, ctx: Context, params: Dictionary) -> Result:
 		"skirt": return SkirtGenerator.generate(ctx, p)
 		"cape": return CapeGenerator.generate(ctx, p)
 		"shape": return ShapeGenerator.generate(ctx, p)
+		"facial_hair": return FacialHairGenerator.generate(ctx, p)
 	var empty := Result.new()
 	empty.warnings.append("unknown special type '%s'" % type)
 	return empty

@@ -171,44 +171,102 @@ static func _anchors(t: TestReport, library: AssetLibrary) -> void:
 # ----------------------------------------------------------------- shapes --
 
 static func _shapes(t: TestReport, library: AssetLibrary) -> void:
-	t.group("features: a drawn beard fits every head")
+	t.group("features: facial hair follows every head")
 	var w := Wardrobe.create_default(library)
-	var per_head := {}
+	var crop := {"item": "short_crop", "colourway": "default"}
 	for shape in library.head_shapes():
-		var assembled := _figure(library, w, "male_average", shape, "standard",
-			[{"item": "short_beard", "colourway": "default"}])
-		t.check(assembled.warnings.is_empty(), "the beard generates on the %s head" % shape,
-			", ".join(assembled.warnings))
-		var head := assembled.part(BodyDef.HEAD_PART)
+		var bare := _figure(library, w, "male_average", shape, "standard", [])
+		var bare_head := bare.part(BodyDef.HEAD_PART)
+		var bare_face := _face_cells(bare).size()
+		var per_style := {}
+		for style in FacialHairGenerator.STYLES:
+			var req := CharacterAssembler.Request.make(library, "male_average", shape)
+			req.wardrobe = w
+			req.eye_set_id = "standard"
+			req.features = [crop, {"item": style, "colourway": "default"}]
+			var a := CharacterAssembler.assemble(req)
+			var head := a.part(BodyDef.HEAD_PART)
+			t.check(a.warnings.is_empty(), "%s generates on the %s head" % [style, shape],
+				", ".join(a.warnings))
+			var mine := {}
+			var added := 0
+			var touching := true
+			for cell in head.cells.keys():
+				if String(head.owners.get(cell, "")) != style:
+					continue
+				mine[cell] = true
+				if not bare_head.cells.has(cell):
+					added += 1
+					var near := false
+					for offset in VoxelAxes.NEIGHBOURS:
+						if bare_head.cells.has((cell as Vector3i) + offset):
+							near = true
+					touching = touching and near
+			per_style[style] = [mine.size(), added]
+			t.check(VoxelTopology.is_mirror_symmetric(mine), "%s is symmetric on %s" % [style, shape])
+			t.check(touching, "no %s voxel floats free of the %s head" % [style, shape])
+			t.check_equal(_face_cells(a).size(), bare_face, "%s leaves the eyes alone on %s" % [style, shape])
+			if style == "stubble":
+				t.check(added == 0 and not mine.is_empty(), "stubble only recolours (%s)" % shape,
+					"%d cells, %d added" % [mine.size(), added])
+			if style == "chinstrap":
+				t.check(added > 0, "the chinstrap stands out from the %s face" % shape)
+		var full: Array = per_style["full_beard"]
+		var stub: Array = per_style["stubble"]
+		var strap: Array = per_style["chinstrap"]
+		t.check_equal(int(full[1]), int(strap[1]), "a full beard's added voxels are the chinstrap's (%s)" % shape)
+		t.check_equal(int(full[0]), int(stub[0]) + int(strap[1]),
+			"and the rest is the stubble (%s)" % shape)
+
+	t.group("features: facial hair colours follow the character")
+	var req2 := CharacterAssembler.Request.make(library, "male_average", "round")
+	req2.wardrobe = w
+	req2.features = [{"item": "ponytail", "colourway": "default"}, {"item": "full_beard", "colourway": "default"}]
+	for tone in ["light", "deep"]:
+		req2.skin_tone = tone
+		var a2 := CharacterAssembler.assemble(req2)
+		var head2 := a2.part(BodyDef.HEAD_PART)
+		var hair_mid := CharacterAssembler.hair_tones(req2)[1]
+		var stubble_mid := Palette.stubble_colour(tone, hair_mid)
+		t.check(stubble_mid.get_luminance() <= Palette.lid_colour(tone).get_luminance() + 0.0001,
+			"%s skin: stubble is darker than the skin" % tone)
+		var strap_ok := true
+		for cell in head2.cells.keys():
+			if String(head2.owners.get(cell, "")) != "full_beard":
+				continue
+			var colour: Color = head2.colours[cell]
+			var in_hair := false
+			for c in CharacterAssembler.hair_tones(req2):
+				in_hair = in_hair or colour.is_equal_approx(c)
+			var in_stubble := false
+			for c2 in Palette.skin_like_tones(stubble_mid):
+				in_stubble = in_stubble or colour.is_equal_approx(c2)
+			if not (in_hair or in_stubble):
+				strap_ok = false
+		t.check(strap_ok, "%s skin: every full-beard cell is the hair's or the stubble's colour" % tone)
+	# Fair hair on deep skin: the case that made "always darker" the rule.
+	t.check(Palette.stubble_colour("deep", w.colour("hair_fair")).get_luminance()
+		<= Palette.lid_colour("deep").get_luminance() + 0.0001,
+		"fair hair on deep skin still gives darker stubble")
+
+	t.group("features: the long beard hangs under the chin")
+	for shape2 in library.head_shapes():
+		var req3 := CharacterAssembler.Request.make(library, "male_average", shape2)
+		req3.wardrobe = w
+		req3.features = [{"item": "long_beard", "colourway": "default"}]
+		var a3 := CharacterAssembler.assemble(req3)
+		t.check(a3.warnings.is_empty(), "it generates on the %s head" % shape2, ", ".join(a3.warnings))
+		var head3 := a3.part(BodyDef.HEAD_PART)
 		var beard := {}
-		for cell in head.cells.keys():
-			if String(head.owners.get(cell, "")) == "short_beard":
+		var below := 0
+		for cell in head3.cells.keys():
+			if String(head3.owners.get(cell, "")) == "long_beard":
 				beard[cell] = true
-		per_head[shape] = beard.size()
-		t.check(not beard.is_empty(), "the %s head grows a beard" % shape)
-		t.check(VoxelTopology.is_mirror_symmetric(beard), "the beard is symmetric on %s" % shape)
-		# Wrapped: every beard voxel touches the head it grew on.
-		var head_cells: Dictionary = library.head(shape).cells
-		var floating := 0
-		for cell2 in beard.keys():
-			var touching := false
-			for offset in VoxelAxes.NEIGHBOURS:
-				if head_cells.has((cell2 as Vector3i) + offset) \
-						or beard.has((cell2 as Vector3i) + offset):
-					touching = true
-					break
-			if not touching:
-				floating += 1
-		t.check_equal(floating, 0, "no beard voxel floats free of the %s head" % shape)
-		# And the eyes are still all there.
-		var eyes := 0
-		for cell3 in head.cells.keys():
-			if int(head.sources.get(cell3, 0)) == CharacterAssembler.Source.FACE:
-				eyes += 1
-		t.check(eyes > 0, "the beard leaves the eyes visible on %s" % shape)
-	t.check(int(per_head.get("heart", 0)) < int(per_head.get("round", 0)),
-		"the narrow heart jaw gets a smaller beard than the round one",
-		str(per_head))
+				if (cell as Vector3i).z < BodyLayout.HEAD_BOTTOM:
+					below += 1
+		t.check(below == beard.size() and below > 0, "every voxel of it is below the %s chin" % shape2,
+			"%d of %d" % [below, beard.size()])
+		t.check(VoxelTopology.is_mirror_symmetric(beard), "and it is symmetric (%s)" % shape2)
 
 	t.group("features: wrapped, rigid and recolour placement")
 	var item := GarmentItem.create("test_shape", "Test shape", "accessory")

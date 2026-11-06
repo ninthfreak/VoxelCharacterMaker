@@ -108,6 +108,8 @@ func refresh() -> void:
 			none_text = "(none - bald)"
 		elif selection.slot == "facial_hair":
 			none_text = "(none - clean-shaven)"
+		elif selection.slot == "face_accessory":
+			none_text = "(none)"
 		_list.add_item(none_text)
 	for id in editor.wardrobe.item_ids_by_draw_order(selection.slot):
 		_ids.append(id)

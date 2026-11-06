@@ -336,6 +336,12 @@ static func _claim_eyes(claims: Dictionary, eyes: EyeSet, face: FaceDef, req: Re
 static func brow_colour(req: Request) -> Color:
 	if req.brow_colour.a > 0.0:
 		return req.brow_colour
+	return hair_tones(req)[2]
+
+
+## The light/mid/dark of the hair a request wears (its hair item's "hair" role),
+## or of dark brown hair when bald. What "@hair" resolves to.
+static func hair_tones(req: Request) -> Array[Color]:
 	if req.wardrobe != null:
 		for entry in req.features:
 			var e: Dictionary = entry
@@ -348,10 +354,25 @@ static func brow_colour(req: Request) -> Color:
 			var way := String(e.get("colourway", ""))
 			if not it.has_colourway(way):
 				way = it.first_colourway()
-			return req.wardrobe.tones_for(it.id, way, role)[2]
+			var key := it.palette_key_for(way, role)
+			if not Palette.is_reference(key):
+				return req.wardrobe.tones_for(it.id, way, role)
 		if req.wardrobe.palette.has(Palette.DEFAULT_BROW_HAIR):
-			return Palette.brow_from_hair(req.wardrobe.colour(Palette.DEFAULT_BROW_HAIR))
-	return Palette.brow_from_hair(Color8(98, 66, 44))
+			return Palette.garment_tones(req.wardrobe.colour(Palette.DEFAULT_BROW_HAIR))
+	return Palette.garment_tones(Color8(98, 66, 44))
+
+
+## An item role's tones, resolving colour references against the request.
+static func role_tones(req: Request, item_id: String, colourway: String,
+		role: String) -> Array[Color]:
+	var it := req.wardrobe.item(item_id)
+	var key := it.palette_key_for(colourway, role) if it != null else ""
+	match key:
+		Palette.REF_HAIR:
+			return hair_tones(req)
+		Palette.REF_STUBBLE:
+			return Palette.skin_like_tones(Palette.stubble_colour(req.skin_tone, hair_tones(req)[1]))
+	return req.wardrobe.tones_for(item_id, colourway, role)
 
 
 static func _claim_parametric(claims: Dictionary, item: GarmentItem, colourway: String,
@@ -529,8 +550,7 @@ static func _fill_part(part: Part, cells: Dictionary, part_claims: Dictionary,
 
 		var tones: Array[Color] = Palette.garment_tones(Color.MAGENTA)
 		if req.wardrobe != null:
-			tones = req.wardrobe.tones_for(
-				String(cl["item"]), String(cl["colourway"]), String(cl["role"]))
+			tones = role_tones(req, String(cl["item"]), String(cl["colourway"]), String(cl["role"]))
 		part.colours[c] = Palette.apply_tone(tones, tone)
 
 

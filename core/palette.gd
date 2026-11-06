@@ -79,6 +79,39 @@ static func brow_from_hair(hair: Color) -> Color:
 	return garment_tones(hair)[2]
 
 
+## Colour REFERENCES: an item role can use one of these instead of a palette
+## colour, and it is resolved per character at assembly. Facial hair uses them,
+## so a beard always matches the hair and stubble always suits the skin.
+const REF_HAIR := "@hair"
+const REF_STUBBLE := "@stubble"
+const COLOUR_REFERENCES := {
+	REF_HAIR: "follows the hair",
+	REF_STUBBLE: "stubble (from the skin and hair)",
+}
+
+
+static func is_reference(palette_key: String) -> bool:
+	return palette_key.begins_with("@")
+
+
+## Light, mid and dark shaded the way skin is, for a colour that sits on skin.
+static func skin_like_tones(mid: Color) -> Array[Color]:
+	return [_scaled(mid, SKIN_LIGHT, SKIN_MID), mid, _scaled(mid, SKIN_DARK, SKIN_MID)]
+
+
+## Stubble: always darker than the skin (owner). Start from the skin half a
+## shade darker, lean a third toward the hair, and if that came out lighter
+## than the half-shade skin -- fair hair on deep skin -- darken it until not.
+static func stubble_colour(skin_tone: String, hair: Color) -> Color:
+	var half := lid_colour(skin_tone)
+	var c := half.lerp(hair, 0.35)
+	var guard := 0
+	while c.get_luminance() > half.get_luminance() and guard < 60:
+		c = Color(c.r * 0.95, c.g * 0.95, c.b * 0.95)
+		guard += 1
+	return c
+
+
 ## The light/mid/dark triple for a garment colour.
 static func garment_tones(base: Color) -> Array[Color]:
 	var light := Color(

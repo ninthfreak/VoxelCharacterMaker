@@ -11,7 +11,7 @@ which parts are solid and which are guesses.
 
 ## 1. Verification status
 
-**Everything compiles and the acceptance suite is green: 1259 checks, 0 failures.**
+**Everything compiles and the acceptance suite is green: 1334 checks, 0 failures.**
 
 ```bash
 tests/run.sh                 # measures the assets, then runs the Godot suite
@@ -402,6 +402,26 @@ it only when asked.
    head's mesh. Fine in the editor; for many blinking characters in the game,
    pre-building each character's few lid states or a separate eye overlay mesh
    may be needed. A game-side decision.
+
+## 4e. Facial hair (owner's choices)
+
+Mocked across heads, skin tones and hair colours. Kept: stubble (always
+darker than the skin, with a sideburn strip on the head's side), chinstrap
+(raised strap and sideburns), full beard (= chinstrap + stubble). Rejected:
+goatee, moustache, moustache + goatee, a volumetric beard, flat sideburns.
+The long beard is a *face accessory* (optional slot), hand-drawn under a new
+chin anchor so it can be tweaked.
+
+- Built as one generator that reads each head's surface, so **facial hair no
+  longer needs finer head zones**. The zone question (problem 1 in 4b) now
+  only matters for hair fringes.
+- Colours follow the character via colour references `@stubble` and `@hair`,
+  resolved at assembly; any item role can use them (the colour panel lists
+  them first).
+- The old drawn short beard and moustache items are gone.
+- Review sheet: `docs/renders/facial_hair.png`.
+- Watch: an auburn chinstrap on medium skin is low contrast (hue close to the
+  skin). Fine for now; revisit if it matters in use.
 
 ## 5. Still open, for the owner
 

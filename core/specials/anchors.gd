@@ -42,6 +42,7 @@ class Anchor extends RefCounted:
 const FRONT := Vector3i(0, -1, 0)
 const BACK := Vector3i(0, 1, 0)
 const UP := Vector3i(0, 0, 1)
+const DOWN := Vector3i(0, 0, -1)
 const SIDE := Vector3i(1, 0, 0)   ## the character's left, outward
 const ACROSS := Vector3i(1, 0, 0)
 const RISE := Vector3i(0, 0, 1)
@@ -55,6 +56,8 @@ const DEFINITIONS := {
 		"Face, at the bottom row of the eyes"],
 	"brow": ["head", Vector3i(12, -1, BodyLayout.EYE_Z1 + 1), FRONT, ACROSS, RISE,
 		"Forehead, just above the eyes"],
+	"chin": ["head", Vector3i(12, BodyLayout.FACE_PLANE_Y + 1, -1), DOWN, ACROSS, FORWARD,
+		"Under the chin, hanging down (b is how far down, c how far forward)"],
 	"crown": ["head", Vector3i(12, 11, -1), UP, ACROSS, FORWARD,
 		"Top of the head"],
 	"nape": ["head", Vector3i(12, -1, BodyLayout.EYE_Z0), BACK, ACROSS, RISE,
@@ -78,7 +81,7 @@ const DEFINITIONS := {
 }
 
 const ORDER: Array[String] = [
-	"crown", "brow", "face", "nape", "shoulder", "chest", "back",
+	"crown", "brow", "face", "chin", "nape", "shoulder", "chest", "back",
 	"waist_front", "waist_back", "hip", "wrist", "ankle",
 ]
 

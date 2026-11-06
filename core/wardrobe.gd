@@ -182,39 +182,44 @@ func _add_starter_features() -> void:
 	tail.set_special_param(at, "cells", cells)
 	add_item(tail)
 
-	# Facial hair cannot be regions at all: lower_head (z26-30) also contains
-	# the bottom two eye rows. So a beard is a hand-drawn shape anchored to the
-	# face and wrapped onto it, which fits every head's jaw line. The face
-	# anchor is the eyes' bottom row; there are three rows of face under it.
-	var beard := GarmentItem.create_feature("short_beard", "Short beard", "facial_hair")
-	beard.roles = ["hair"]
-	beard.colourways = {"default": {"hair": "hair_brown"}, "black": {"hair": "hair_black"}}
-	var b := beard.add_special("shape")
-	beard.set_special_param(b, "anchor", "face")
-	beard.set_special_param(b, "wrap", true)
-	beard.set_special_param(b, "mirror", true)
-	var beard_cells: Array = []
-	for a in range(0, 8):
-		for c in [-3, -2, -1]:
-			beard_cells.append([a, 0, c, "hair"])
-	for side in [6, 7]:          # sideburns, outside the eyes
-		for c in [0, 1, 2]:
-			beard_cells.append([side, 0, c, "hair"])
-	beard_cells.append([0, 1, -3, "hair"])   # a little depth at the chin
-	beard.set_special_param(b, "cells", beard_cells)
-	add_item(beard)
+	# Facial hair follows each head's own surface (FacialHairGenerator), and
+	# takes its colours from the character: "@stubble" is always darker than
+	# the skin, "@hair" is the hair worn. The owner chose these three styles.
+	for style in [["stubble", "Stubble", ["stubble"]],
+			["chinstrap", "Chinstrap", ["hair"]],
+			["full_beard", "Full beard", ["stubble", "hair"]]]:
+		var fh := GarmentItem.create_feature(String(style[0]), String(style[1]), "facial_hair")
+		fh.roles = []
+		var way := {}
+		for role in style[2]:
+			fh.roles.append(String(role))
+			way[String(role)] = Palette.REF_STUBBLE if role == "stubble" else Palette.REF_HAIR
+		fh.colourways = {"default": way}
+		var at_fh := fh.add_special("facial_hair")
+		fh.set_special_param(at_fh, "style", String(style[0]))
+		add_item(fh)
 
-	var tache := GarmentItem.create_feature("moustache", "Moustache", "facial_hair")
-	tache.roles = ["hair"]
-	tache.colourways = {"default": {"hair": "hair_brown"}}
-	var m := tache.add_special("shape")
-	tache.set_special_param(m, "anchor", "face")
-	tache.set_special_param(m, "wrap", true)
-	tache.set_special_param(m, "mirror", true)
-	# One skin row under the eyes, then the moustache, drooping at the ends.
-	tache.set_special_param(m, "cells", [[0, 0, -2, "hair"], [1, 0, -2, "hair"],
-		[2, 0, -2, "hair"], [3, 0, -2, "hair"], [3, 0, -3, "hair"]])
-	add_item(tache)
+	# A face accessory, not a facial hair style: optional, hung under the chin,
+	# and drawn by hand so it can be tweaked in the shape grid. b is how far
+	# below the chin, c how far forward of the anchor (the column just behind
+	# the face plane); mirrored, so a = 0..4 is ten wide.
+	var long_beard := GarmentItem.create_feature("long_beard", "Long beard", "face_accessory")
+	long_beard.roles = ["hair"]
+	long_beard.colourways = {"default": {"hair": Palette.REF_HAIR}}
+	var lb := long_beard.add_special("shape")
+	long_beard.set_special_param(lb, "anchor", "chin")
+	long_beard.set_special_param(lb, "wrap", false)
+	long_beard.set_special_param(lb, "mirror", true)
+	var lb_cells: Array = []
+	for a in range(0, 5):
+		for c in range(-2, 3):           # under the chin, front to back
+			lb_cells.append([a, 0, c, "hair"])
+	for row in [[1, 5], [2, 4], [3, 3], [4, 2]]:   # hanging down, narrowing
+		for a in range(0, int(row[1])):
+			for c in [1, 2]:
+				lb_cells.append([a, int(row[0]), c, "hair"])
+	long_beard.set_special_param(lb, "cells", lb_cells)
+	add_item(long_beard)
 
 
 # -------------------------------------------------------------------- items --

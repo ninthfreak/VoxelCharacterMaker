@@ -41,13 +41,16 @@ const CATEGORIES: Array[String] = [
 ]
 
 ## Feature slots and their draw order. Hair sits under hats (80), facial hair
-## under hair so a long fringe falls over a moustache, and both over clothes.
+## under hair so a long fringe falls over facial hair, and both over clothes.
 ## The face itself draws below everything (CharacterAssembler.FACE_DRAW_ORDER).
 const SLOT_DRAW_ORDER := {
 	"hair": 70,
+	"face_accessory": 67,
 	"facial_hair": 65,
 }
-const FEATURE_SLOTS: Array[String] = ["hair", "facial_hair"]
+## Hair and facial hair: one per character, "none" allowed. A face accessory
+## (a long beard...) is optional and also one at a time, so it is a slot too.
+const FEATURE_SLOTS: Array[String] = ["hair", "facial_hair", "face_accessory"]
 
 const CLOTHES := ""
 const DEFAULT_COLOURWAY := "default"
@@ -103,6 +106,7 @@ static func slot_label(p_slot: String) -> String:
 	match p_slot:
 		"hair": return "Hair"
 		"facial_hair": return "Facial hair"
+		"face_accessory": return "Face accessory"
 		CLOTHES: return "Clothes"
 	return p_slot.capitalize()
 

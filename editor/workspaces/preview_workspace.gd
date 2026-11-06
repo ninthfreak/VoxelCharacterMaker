@@ -21,6 +21,7 @@ var hair_id: String = ""
 var hair_colourway: String = ""
 var facial_id: String = ""
 var facial_colourway: String = ""
+var accessory_id: String = ""
 ## Clothing worn: Array of {"item": id, "colourway": name}
 var worn: Array = []
 
@@ -36,6 +37,7 @@ var _hair_pick: OptionButton = null
 var _hair_way_pick: OptionButton = null
 var _facial_pick: OptionButton = null
 var _facial_way_pick: OptionButton = null
+var _accessory_pick: OptionButton = null
 var _outfit_pick: OptionButton = null
 var _clothes_rows: VBoxContainer = null
 var _summary: Label = null
@@ -86,6 +88,8 @@ func _build() -> void:
 		_choose("facial_id", value))
 	_facial_way_pick = picker(side, "Colour", [], [], func(value: String) -> void:
 		_choose("facial_colourway", value))
+	_accessory_pick = picker(side, "Face accessory", [], [], func(value: String) -> void:
+		_choose("accessory_id", value))
 
 	heading(side, "Clothes")
 	_outfit_pick = picker(side, "Outfit", [], [], func(value: String) -> void:
@@ -131,7 +135,7 @@ func make_request() -> CharacterAssembler.Request:
 		request.brow_colour = Palette.brow_from_hair(editor.wardrobe.colour(brow_hair))
 	request.worn = _live_worn()
 	var features: Array = []
-	for pair in [[hair_id, hair_colourway], [facial_id, facial_colourway]]:
+	for pair in [[hair_id, hair_colourway], [facial_id, facial_colourway], [accessory_id, ""]]:
 		var it := editor.wardrobe.item(String(pair[0])) if not String(pair[0]).is_empty() \
 			else null
 		if it != null:
@@ -187,6 +191,7 @@ func refresh() -> void:
 	hair_colourway = _fill_ways(_hair_way_pick, hair_id, hair_colourway)
 	facial_id = _fill_slot(_facial_pick, "facial_hair", facial_id, "(none - clean-shaven)")
 	facial_colourway = _fill_ways(_facial_way_pick, facial_id, facial_colourway)
+	accessory_id = _fill_slot(_accessory_pick, "face_accessory", accessory_id, "(none)")
 
 	# Clothes.
 	var outfit_values: Array = [""]
@@ -301,6 +306,9 @@ func _refresh_summary() -> void:
 		else "none"))
 	lines.append("Facial hair: %s" % ("%s (%s)" % [facial.name, facial_colourway]
 		if facial != null else "none"))
+	var accessory := w.item(accessory_id) if not accessory_id.is_empty() else null
+	if accessory != null:
+		lines.append("Face accessory: %s" % accessory.name)
 	var names: Array[String] = []
 	for entry in _live_worn():
 		var e: Dictionary = entry

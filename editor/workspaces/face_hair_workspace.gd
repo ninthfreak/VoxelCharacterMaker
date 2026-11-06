@@ -19,6 +19,7 @@ var eye_colourway: String = ""
 
 var hair: ItemSelection = null
 var facial_hair: ItemSelection = null
+var face_accessory: ItemSelection = null
 
 var _head_pick: OptionButton = null
 var _body_pick: OptionButton = null
@@ -27,6 +28,7 @@ var _tabs: TabContainer = null
 var _eyes_panel: EyeSetPanel = null
 var _hair_garment: GarmentPanel = null
 var _facial_garment: GarmentPanel = null
+var _accessory_garment: GarmentPanel = null
 
 
 func title() -> String:
@@ -40,6 +42,7 @@ func _build() -> void:
 
 	hair = ItemSelection.make(editor, "hair")
 	facial_hair = ItemSelection.make(editor, "facial_hair")
+	face_accessory = ItemSelection.make(editor, "face_accessory")
 	# Start on something rather than nothing -- and before the panels are
 	# built, since they read this state as they set themselves up.
 	eye_set_id = editor.wardrobe.first_eye_set_id()
@@ -48,6 +51,7 @@ func _build() -> void:
 		hair.select(styles[0])
 	hair.changed.connect(rebuild)
 	facial_hair.changed.connect(rebuild)
+	face_accessory.changed.connect(rebuild)
 
 	heading(side, "Face and hair")
 	note(side, "Eyes, hair and facial hair work like clothes, but every character "
@@ -81,14 +85,23 @@ func _build() -> void:
 	add_panel(ColourPanel.new(), hair, hair_box)
 
 	var facial_box := _tab("Facial hair")
-	note(facial_box, "The head's regions are too coarse for a face: the lower band "
-		+ "also holds the bottom of the eyes. So facial hair is usually a drawn "
-		+ "shape anchored to the face, which wraps onto every jaw line.")
+	note(facial_box, "Facial hair follows each head's own jaw, chin and sideburns. "
+		+ "Its colours follow the character: stubble is always darker than the "
+		+ "skin, and hair is the hair worn.")
 	add_panel(ItemListPanel.new(), facial_hair, facial_box)
 	_facial_garment = GarmentPanel.new()
 	_facial_garment.families = ["head"]
 	add_panel(_facial_garment, facial_hair, facial_box)
 	add_panel(ColourPanel.new(), facial_hair, facial_box)
+
+	var accessory_box := _tab("Face accessory")
+	note(accessory_box, "Optional, one at a time: a long beard and the like. Drawn "
+		+ "by hand, so it can be tweaked in the shape grid.")
+	add_panel(ItemListPanel.new(), face_accessory, accessory_box)
+	_accessory_garment = GarmentPanel.new()
+	_accessory_garment.families = ["head"]
+	add_panel(_accessory_garment, face_accessory, accessory_box)
+	add_panel(ColourPanel.new(), face_accessory, accessory_box)
 
 
 
@@ -100,7 +113,7 @@ func _tab(name: String) -> VBoxContainer:
 	return box
 
 
-## Bring a sub-tab forward: "Eyes", "Hair" or "Facial hair".
+## Bring a sub-tab forward: "Eyes", "Hair", "Facial hair" or "Face accessory".
 func show_section(name: String) -> void:
 	for i in _tabs.get_tab_count():
 		if _tabs.get_tab_title(i) == name:
@@ -116,7 +129,7 @@ func make_request() -> CharacterAssembler.Request:
 	request.wardrobe = editor.wardrobe
 	request.eye_set_id = eye_set_id
 	request.eye_colourway = eye_colourway
-	request.features = hair.as_worn() + facial_hair.as_worn()
+	request.features = hair.as_worn() + facial_hair.as_worn() + face_accessory.as_worn()
 	# Wide open: no lid covers any of the drawing being edited, and the brow
 	# still shows (raised, above the eye) against the hair.
 	request.lids = "wide_open"
@@ -130,6 +143,7 @@ func refresh() -> void:
 		eye_set_id = editor.wardrobe.first_eye_set_id()
 	hair.validate()
 	facial_hair.validate()
+	face_accessory.validate()
 	select_value(_head_pick, head_shape)
 	select_value(_body_pick, body_id)
 	# The eye panel works on this tab's own state rather than a selection, so
@@ -145,6 +159,8 @@ func status_text(assembled: CharacterAssembler.Assembled) -> String:
 	bits.append("hair: %s" % (hair.item().name if hair.item() != null else "none"))
 	bits.append("facial hair: %s" % (facial_hair.item().name
 		if facial_hair.item() != null else "none"))
+	if face_accessory.item() != null:
+		bits.append("accessory: %s" % face_accessory.item().name)
 	return "   |   ".join(bits)
 
 
@@ -154,6 +170,8 @@ func _on_region_picked(region: String) -> void:
 		_hair_garment.select_region(region)
 	elif title == "Facial hair":
 		_facial_garment.select_region(region)
+	elif title == "Face accessory":
+		_accessory_garment.select_region(region)
 	else:
 		return
 	editor.set_status_hint("Picked %s" % editor.library.region_map().label_for(region))

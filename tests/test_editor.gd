@@ -184,15 +184,15 @@ static func _face_hair(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(bald.is_empty(), "with no hair chosen the head is bald",
 		", ".join(bald.keys()))
 	fh.hair.select("short_crop")
-	fh.facial_hair.select("short_beard")
+	fh.facial_hair.select("full_beard")
 	var dressed := _owners(fh.view.assembled)
-	t.check(dressed.has("short_crop") and dressed.has("short_beard"),
+	t.check(dressed.has("short_crop") and dressed.has("full_beard"),
 		"choosing hair and a beard shows both", ", ".join(dressed.keys()))
 
 	# A head change keeps the choices.
 	fh.head_shape = "heart"
 	fh.rebuild()
-	t.check(_owners(fh.view.assembled).has("short_beard"),
+	t.check(_owners(fh.view.assembled).has("full_beard"),
 		"they stay on when the head changes")
 
 	# Drawing the eye changes the face and is undoable.
@@ -259,7 +259,8 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	pv._choose("body_id", "female_heavy")
 	pv._choose("head_shape", "strong")
 	pv._choose("hair_id", "ponytail")
-	pv._choose("facial_id", "moustache")
+	pv._choose("facial_id", "chinstrap")
+	pv._choose("accessory_id", "long_beard")
 	pv._choose("lids", "angry")
 	pv.worn = ed.wardrobe.outfit("travelling")
 	pv.refresh()
@@ -268,7 +269,7 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	t.check_equal(a.body.id, "female_heavy", "the chosen body")
 	t.check_equal(a.head.shape, "strong", "the chosen head")
 	var owners := _owners(a)
-	for id in ["ponytail", "moustache", "cloak", "tunic", "trousers", "boots"]:
+	for id in ["ponytail", "chinstrap", "long_beard", "cloak", "tunic", "trousers", "boots"]:
 		t.check(owners.has(id), "%s is on the character" % id)
 	t.check(a.warnings.is_empty(), "with no warnings", ", ".join(a.warnings))
 	t.check(pv._summary.text.contains("Wearing:"), "and a summary of what is on")
