@@ -390,9 +390,13 @@ Still open, from this:
 
 1. **Drawn expressions vs lids.** The 11 drawn starters were only roughly
    adapted to 5 x 6; most are better made with lids now. Lid *tilt* is built
-   (angry, sad), so lids now cover everything but happy's arcs. What to keep
-   is the owner's call. Sad as built reads somewhat worried; a droopier
-   variant (more upper lid, a little lower lid) is easy if wanted.
+   (angry, sad), so lids now cover everything but happy's arcs -- and the
+   owner does not want ^ ^ arcs at this time. Whether to keep the drawn
+   expressions at all is still open.
+
+**Owner, 2026-11: very happy with the eyes and the lid system as built**
+(G7, lids and brow, tilt, angry and sad included). Treat it as settled; change
+it only when asked.
 2. **Brow colour on light hair** is the weakest case (fair hair gives a light
    line). Revisit if it reads badly in use.
 3. **Runtime cost of blinking (unmeasured).** A lid change rebuilds the
