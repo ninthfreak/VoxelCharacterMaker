@@ -22,11 +22,22 @@ if command -v python3 >/dev/null 2>&1; then
 fi
 
 # Global class names (class_name) live in .godot/global_script_class_cache.cfg,
-# which only an import pass writes. Without it every class in the suite fails to
-# resolve with "Identifier not declared", which looks like broken code rather
-# than a missing cache. A fresh clone has no .godot at all.
-if [ ! -f .godot/global_script_class_cache.cfg ]; then
-  echo "== first run: importing the project =="
+# which only an import pass writes. A fresh clone has no .godot at all, and
+# adding a script with a new class_name leaves the cache stale.
+#
+# Both cases are worth avoiding automatically, because neither fails in a way
+# that points at the cause: a missing cache reports "Identifier not declared"
+# for every class in the suite, which reads as broken code, and a stale one
+# makes Godot HANG on --script rather than report anything.
+CACHE=.godot/global_script_class_cache.cfg
+NEEDS_IMPORT=0
+if [ ! -f "$CACHE" ]; then
+  NEEDS_IMPORT=1
+elif [ -n "$(find . -name '*.gd' -newer "$CACHE" -print -quit 2>/dev/null)" ]; then
+  NEEDS_IMPORT=1
+fi
+if [ "$NEEDS_IMPORT" = "1" ]; then
+  echo "== importing the project (script cache is missing or stale) =="
   "$GODOT_BIN" --headless --path . --import >/dev/null 2>&1 || true
 fi
 
