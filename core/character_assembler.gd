@@ -37,7 +37,6 @@ class Request extends RefCounted:
 	var library: AssetLibrary
 	var body_id: String = "male_average"
 	var head_shape: String = "round"
-	var expression: String = "neutral"
 	var wardrobe: Wardrobe = null
 	## A body to use INSTEAD of looking body_id up in the library. The body
 	## editor sets this so the preview shows what is being drawn rather than
@@ -52,7 +51,7 @@ class Request extends RefCounted:
 	## features, not an outfit), but assembled exactly like clothing.
 	var features: Array = []
 	## The eye set to draw, by id in the wardrobe, and its colourway. With
-	## none, the library's own face for `expression` is drawn in the stock
+	## none, the library's open eye is drawn in the stock
 	## colours: the "basic profile of the eyes" the body workspace shows.
 	var eye_set_id: String = ""
 	var eye_colourway: String = ""
@@ -70,13 +69,11 @@ class Request extends RefCounted:
 	## Multiply colours by face orientation for extra legibility (SPEC 6).
 	var use_face_multiplier: bool = true
 
-	static func make(p_library: AssetLibrary, p_body: String, p_head: String,
-			p_expression: String) -> Request:
+	static func make(p_library: AssetLibrary, p_body: String, p_head: String) -> Request:
 		var r := Request.new()
 		r.library = p_library
 		r.body_id = p_body
 		r.head_shape = p_head
-		r.expression = p_expression
 		return r
 
 
@@ -143,7 +140,7 @@ static func assemble(req: Request) -> Assembled:
 		else req.library.body(req.body_id)
 	out.head = req.head_override if req.head_override != null \
 		else req.library.head(req.head_shape)
-	out.face = req.library.face(req.expression)
+	out.face = req.library.open_face()
 	if out.body == null:
 		out.warnings.append("unknown body '%s'" % req.body_id)
 		return out
@@ -283,16 +280,14 @@ static func _worn_in_draw_order(req: Request) -> Array:
 	return out
 
 
-## The eyes: an eye set's expression (or, with no eye set, the library face),
+## The eyes: an eye set's drawing (or, with no eye set, the library's open eye),
 ## each eye with its lid state applied (EyeLids), coloured, and claimed as a
 ## recolour below every garment. The face never adds volume: a cell that is not
 ## on this head's face plane is skipped (the fit tests catch that).
 static func _claim_eyes(claims: Dictionary, eyes: EyeSet, face: FaceDef, req: Request,
 		head_cells: Dictionary) -> void:
 	var way := ""
-	var expression := req.expression
 	if eyes != null:
-		expression = eyes.resolve(req.expression)
 		way = req.eye_colourway if eyes.colourways.has(req.eye_colourway) \
 			else eyes.first_colourway()
 	var lid := Palette.lid_colour(req.skin_tone)
@@ -300,7 +295,7 @@ static func _claim_eyes(claims: Dictionary, eyes: EyeSet, face: FaceDef, req: Re
 	for eye in [EyeSet.EYE_LEFT, EyeSet.EYE_RIGHT]:
 		var cells: Dictionary = {}
 		if eyes != null:
-			cells = eyes.eye_cells(expression, eye)
+			cells = eyes.eye_cells(eye)
 		else:
 			var source: Dictionary = face.screen_right if eye == EyeSet.EYE_RIGHT \
 				else face.screen_left

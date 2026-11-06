@@ -24,13 +24,9 @@ const SEXES: Array[String] = ["male", "female"]
 const BUILDS: Array[String] = ["slim", "average", "heavy"]
 const HEAD_SHAPES: Array[String] = ["round", "boxy", "oval", "strong", "heart"]
 
-## The starter expressions (SPEC.md section 5). The owner expects to adjust
-## these in the editor, so the list is discovered from disk rather than fixed;
-## this is only the order they appear in UI.
-const EXPRESSION_ORDER: Array[String] = [
-	"neutral", "blink", "happy", "angry", "sad", "surprised",
-	"bored", "wink", "look_left", "look_right", "look_down",
-]
+## The one shipped face: the open eye (SPEC.md section 5). Every other look is
+## made by lids and brow (EyeLids); the old drawn expressions were retired.
+const OPEN_FACE := "open"
 
 ## Whether to prefer assets/edited/. Off for the acceptance tests, which check
 ## the generated assets against SPEC numbers an edit is free to change.
@@ -41,11 +37,10 @@ var edited_dir: String = EDITED_DIR
 
 var bodies: Dictionary = {}       ## "male_average" -> BodyDef
 var heads: Dictionary = {}        ## "round" -> HeadDef
-var faces: Dictionary = {}        ## "neutral" -> FaceDef
+var open_eye: FaceDef = null    ## the open eye, assets/face42_open.json
 var errors: Array[String] = []
 
 var _body_order: Array[String] = []
-var _face_order: Array[String] = []
 
 
 static func body_path(sex: String, build: String) -> String:
@@ -159,9 +154,8 @@ func load_all() -> bool:
 	errors.clear()
 	bodies.clear()
 	heads.clear()
-	faces.clear()
+	open_eye = null
 	_body_order.clear()
-	_face_order.clear()
 
 	for sex in SEXES:
 		for build in BUILDS:
@@ -180,45 +174,11 @@ func load_all() -> bool:
 			continue
 		heads[shape] = head
 
-	for name in _discover_expressions():
-		var face := FaceDef.load_from(face_path(name))
-		if face == null:
-			errors.append("expression %s could not be loaded" % name)
-			continue
-		faces[name] = face
-		_face_order.append(name)
+	open_eye = FaceDef.load_from(face_path(OPEN_FACE))
+	if open_eye == null:
+		errors.append("the open eye face could not be loaded")
 
 	return errors.is_empty()
-
-
-## Expression files present on disk, in EXPRESSION_ORDER first and then any
-## extras the owner has added, alphabetically.
-func _discover_expressions() -> Array[String]:
-	var found: Array[String] = []
-	var dir := DirAccess.open(DIR)
-	if dir != null:
-		for file in dir.get_files():
-			var f := String(file)
-			# An imported project may show "face42_x.json.remap" or ".import".
-			if not f.begins_with("face42_"):
-				continue
-			if not f.ends_with(".json"):
-				continue
-			found.append(f.substr(7, f.length() - 12))
-	var out: Array[String] = []
-	for name in EXPRESSION_ORDER:
-		if name in found:
-			out.append(name)
-	var extras: Array[String] = []
-	for name in found:
-		if not (name in EXPRESSION_ORDER):
-			extras.append(name)
-	extras.sort()
-	out.append_array(extras)
-	if out.is_empty():
-		# Nothing discoverable (can happen in an exported build): fall back.
-		return EXPRESSION_ORDER.duplicate()
-	return out
 
 
 func body(id: String) -> BodyDef:
@@ -233,8 +193,9 @@ func head(shape: String) -> HeadDef:
 	return heads.get(shape, null) as HeadDef
 
 
-func face(name: String) -> FaceDef:
-	return faces.get(name, null) as FaceDef
+## The shipped open eye: the face drawn with no eye set chosen.
+func open_face() -> FaceDef:
+	return open_eye
 
 
 func body_ids() -> Array[String]:
@@ -247,10 +208,6 @@ func head_shapes() -> Array[String]:
 		if heads.has(shape):
 			out.append(shape)
 	return out
-
-
-func expression_names() -> Array[String]:
-	return _face_order.duplicate()
 
 
 ## The region map, which SPEC section 3.4 says is identical on all six bodies.
@@ -284,4 +241,5 @@ func verify_regions_match() -> String:
 
 
 func summary() -> String:
-	return "%d bodies, %d heads, %d expressions" % [bodies.size(), heads.size(), faces.size()]
+	return "%d bodies, %d heads, %s" % [bodies.size(), heads.size(),
+		"the open eye" if open_eye != null else "no eye face"]

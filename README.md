@@ -11,7 +11,7 @@ figures. Godot 4, GDScript.
 
 | Area | State |
 |---|---|
-| Asset loading (6 bodies, 5 heads, 11 expressions) | done, validated against the files |
+| Asset loading (6 bodies, 5 heads, the open eye) | done, validated against the files |
 | Coordinate system and the mapping into Godot | done, locked by a test |
 | Baked light/mid/dark shading | done, matches `build_bodies.py` |
 | Region map (part family + band + side + front/back, 32 a side) | done |
@@ -44,7 +44,7 @@ The editor is the project's main scene. It has four tabs:
 - **Bodies** -- the six bodies and five heads, bare: no hair, clothes or
   items, and only the basic eyes. Open a body or a head to edit it slice by
   slice.
-- **Face & Hair** -- eye sets (expressions and eye colours), hair styles and
+- **Face & Hair** -- eye sets (the open eye and eye colours), hair styles and
   facial hair. These work like clothes, but every character has exactly one of
   each ("none" counts as a choice). The head type can be changed here.
 - **Clothes** -- every clothing item with all its settings, including any
@@ -62,7 +62,7 @@ same character assembled the way the game will do it, with no editor involved.
 ## Tests
 
 Every acceptance check in `SPEC.md` section 12 is an automated test.
-**1433 checks, all passing** on Godot 4.7.2.
+**1259 checks, all passing** on Godot 4.7.2.
 
 ```bash
 godot --headless --path . --script res://tests/run_tests.gd

@@ -183,11 +183,11 @@ the lids drive; see below.)
   tired (upper 3, lower 1, pupil down 1), suspicious (upper 2, lower 2), angry (upper 1, tilt +2), sad (upper 2,
   tilt −2, pupil down 1), blink (closed), wink (one eye closed). They
   live in code; they are chosen on the editor's Preview tab only. Blinking is a lid state swap.
-- **Roles:** white, pupil (= eye colour; a colourway), line (in drawn expressions), lid and brow (from the lid state).
-- **Drawn expressions** remain: each is defined **once per eye in box cells** (c from the eye's outer edge, r from its
-  bottom row), drawn in the Face & Hair tab, and lids apply on top. The 11 starters (neutral, blink, happy, angry, sad,
-  surprised, bored, wink, look_left, look_right, look_down) were only roughly adapted to the 5×6 box; most are now
-  better made with lids (angry and sad now are), and what to keep is still open.
+- **Roles:** white, pupil (= eye colour; a colourway), line (paintable, optional), lid and brow (from the lid state).
+- **No drawn expressions** (owner, 2026-11: retired completely). An eye set is the open eye, drawn **once per eye in box
+  cells** (c from the eye's outer edge, r from its bottom row) in the Face & Hair tab, plus its colourways; every look
+  is a lid state over it. Older wardrobe files load their "neutral" drawing as the eye. The shipped face is one file,
+  `face42_open.json`. No ^ ^ (happy arcs) for now (owner).
 - Draw order: the face draws **under** hair and hats.
 
 ## 6. Shading and colour
@@ -264,12 +264,12 @@ bulk generation and shading) must exist **exactly once**; the editor and the gam
 reason for building the editor in-engine: two implementations of bulk generation would drift.
 
 Features (roughly in priority order):
-- **Preview:** any of 6 bodies × 5 heads × expressions; orbit/pan/zoom; front/back/side buttons; solo an item.
+- **Preview:** any of 6 bodies × 5 heads × lid states; orbit/pan/zoom; front/back/side buttons; solo an item.
 - **Wardrobe panel:** items list (worn toggles, category, draw order), roles and colourways, outfits (wear, save,
   update), palette editing.
 - **Garment editing:** pick regions on the figure or from a list; set role + bulk per region; mirror flag; edge style.
 - **Special items:** choose a type, edit its parameters with live preview.
-- **Face editor:** a grid of the eye box; edit one eye, the other mirrors; add/rename expressions.
+- **Face editor:** a grid of the eye box; edit one eye, the other mirrors. (Expressions were retired: lids make them.)
 - **Body editing (later):** parts as layers, one owner per cell, mandatory mirror pairs, row-band guides, pivot
   markers, and a **pose preview** (arms raised, mid-stride, sitting) — the real test of part splits and pivots.
 - **Files:** native dialogs, Open / Save / Save As, Ctrl+S to the current file, unsaved-changes prompt, reopen last
@@ -296,7 +296,7 @@ Features (roughly in priority order):
 CLAUDE.md, SPEC.md
 assets/      body42_{sex}_{build}_parts.json, .vox   (sex: male, female; build: slim, average, heavy)
              head42_{shape}.json, .vox               (round, boxy, oval, strong, heart)
-             face42_{expression}.json
+             face42_open.json                        (the open eye; lids and brow are drawn over it)
              README.md                               (file formats in brief)
 tools/       build_bodies.py                         (regenerates everything in assets/)
 docs/        sheet_*.png                             (review renders)
@@ -330,7 +330,7 @@ reference/   earlier editor prototypes (HTML, PySide) and a CLI exporter
   3894, 4494, 5926; 3590, 3976, 4714.
 - Every body: mirror-symmetric, one connected piece, every part one piece, no edge-only contacts, parts touch only
   their parents.
-- Every expression fits every head (no eye cell falls off the face plane); every head gives the whole eye box and
+- The eyes fit every head (no eye cell falls off the face plane); every head gives the whole eye box and
   brow row a flat face; every lid state lands on every head.
 - A parametric garment generates without gaps on all six bodies; bulk-0 adds no voxels.
 - Wardrobe file round-trips unchanged (save → load → save is identical).

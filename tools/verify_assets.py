@@ -20,8 +20,8 @@ MIRROR = W - 1  # mirror of x is MIRROR - x (mirror line between x11 and x12)
 
 BODIES = [(s, b) for s in ("male", "female") for b in ("slim", "average", "heavy")]
 HEADS = ["round", "boxy", "oval", "strong", "heart"]
-EXPRESSIONS = ["neutral", "blink", "happy", "angry", "sad", "surprised",
-               "bored", "wink", "look_left", "look_right", "look_down"]
+# One face: the open eye. Every other look is lids and brow, drawn by the Godot side.
+EXPRESSIONS = ["open"]
 
 # SPEC section 12: voxel counts include the round head; the body files exclude it.
 SPEC_COUNTS = {
@@ -296,12 +296,9 @@ for name in EXPRESSIONS:
         "fits_all_heads": all(v == 0 for v in fits.values()),
     }
 
-# mirror pair: look_left and look_right must be each other's mirror
-ll = {(v[0], v[2]): v[3] for v in load("face42_look_left.json")["voxels"]}
-lr = {(MIRROR - x, z): r for (x, z), r in ll.items()}
-actual_lr = {(v[0], v[2]): v[3] for v in load("face42_look_right.json")["voxels"]}
-check(lr == actual_lr, "look_left mirrors to look_right",
-      f"{len(set(lr.items()) ^ set(actual_lr.items()))} cells differ")
+# the open eye is mirror symmetric
+op = {(v[0], v[2]): v[3] for v in load("face42_open.json")["voxels"]}
+check(op == {(MIRROR - x, z): r for (x, z), r in op.items()}, "the open eye is mirror symmetric")
 
 # ------------------------------------------------------------------ output ---
 
@@ -318,7 +315,7 @@ for n in notes:
     print(f"note    {n}")
 for f in failures:
     print(f"FAIL    {f}")
-print(f"\n{len(BODIES)} bodies, {len(HEADS)} heads, {len(EXPRESSIONS)} expressions checked")
+print(f"\n{len(BODIES)} bodies, {len(HEADS)} heads, the open eye checked")
 print(f"wrote {os.path.relpath(out, ROOT)}")
 if failures:
     print(f"{len(failures)} failure(s)")

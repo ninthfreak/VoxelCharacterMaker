@@ -47,7 +47,7 @@ var dirty: bool = false
 
 
 ## A wardrobe with starter content. With the asset library, the shipped
-## expressions become the "Standard" eye set; without it there is no eye set and
+## open eye becomes the "Standard" eye set; without it there is no eye set and
 ## the assembler falls back to the library's faces, which is what the body
 ## workspace shows anyway.
 static func create_default(library: AssetLibrary = null) -> Wardrobe:

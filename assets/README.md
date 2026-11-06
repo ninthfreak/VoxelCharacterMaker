@@ -17,9 +17,8 @@ corner space, so an even-width part pivots on a boundary and a 90-degree turn st
 - `face42_{name}.json` — eyes as skin-tight overlays (bulk 0) on the face plane y5; heads and bodies are exported blank.
   Eye box: 5 wide x 6 tall, all corners rounded; screen-left eye x6-10, screen-right eye x13-17, rows z29-34, brow row z35;
   the same on every head. Lids and brows are drawn over these by the Godot side (core/eye_lids.gd), not stored here.
-  Each expression is stored per eye in box cells (c from the eye's outer edge, r from its bottom row) plus absolute voxels.
-  Roles: white, pupil (eye colour), line (lids), skin. Expressions: neutral, blink, happy, angry, sad, surprised, bored,
-  wink, look_left, look_right, look_down. Blink and expression changes are overlay swaps.
+  One face: `face42_open.json`, the open eye, stored per eye in box cells (c from the eye's outer edge, r from its bottom
+  row) plus absolute voxels. Roles: white, pupil (eye colour). Every other look (blink, angry, wink...) is lids and brow.
 - `sheet_*.png` — review renders.
 
 ## Parts (11, rigid)

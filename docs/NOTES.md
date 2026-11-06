@@ -11,7 +11,7 @@ which parts are solid and which are guesses.
 
 ## 1. Verification status
 
-**Everything compiles and the acceptance suite is green: 1433 checks, 0 failures.**
+**Everything compiles and the acceptance suite is green: 1259 checks, 0 failures.**
 
 ```bash
 tests/run.sh                 # measures the assets, then runs the Godot suite
@@ -388,11 +388,10 @@ Worked out with the owner through mock-ups, neutral only:
 
 Still open, from this:
 
-1. **Drawn expressions vs lids.** The 11 drawn starters were only roughly
-   adapted to 5 x 6; most are better made with lids now. Lid *tilt* is built
-   (angry, sad), so lids now cover everything but happy's arcs -- and the
-   owner does not want ^ ^ arcs at this time. Whether to keep the drawn
-   expressions at all is still open.
+1. ~~Drawn expressions vs lids.~~ **Settled: the drawn expressions are
+   retired completely** (owner). An eye set is now just the open eye and its
+   colours; the generator ships one face, `face42_open.json`; older wardrobe
+   files load their "neutral" drawing as the eye. No ^ ^ arcs for now.
 
 **Owner, 2026-11: very happy with the eyes and the lid system as built**
 (G7, lids and brow, tilt, angry and sad included). Treat it as settled; change

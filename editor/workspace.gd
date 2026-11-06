@@ -61,7 +61,7 @@ func refresh() -> void:
 
 ## Override: what the preview should show.
 func make_request() -> CharacterAssembler.Request:
-	return CharacterAssembler.Request.make(editor.library, "male_average", "round", "neutral")
+	return CharacterAssembler.Request.make(editor.library, "male_average", "round")
 
 
 ## Re-assemble and show. A hidden tab only notes that it needs to.

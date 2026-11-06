@@ -369,13 +369,9 @@ static func _round_trip(t: TestReport, library: AssetLibrary) -> void:
 
 # ------------------------------------------------------------------ heads ---
 
-## Every cell some shipped expression paints.
+## Every cell the open eye paints.
 static func _eye_cells(library: AssetLibrary) -> Dictionary:
-	var out := {}
-	for name in library.expression_names():
-		for cell in library.face(name).ink_cells().keys():
-			out[cell] = true
-	return out
+	return library.open_face().ink_cells()
 
 
 static func _heads(t: TestReport, library: AssetLibrary) -> void:
@@ -402,7 +398,7 @@ static func _heads(t: TestReport, library: AssetLibrary) -> void:
 	t.check_equal(head.owner_at(Vector3i(3, 12, 36)), HeadEdit.PART,
 		"and the edit mirrors across the face")
 
-	# Take away an eye cell: some expression no longer fits.
+	# Take away an eye cell: the eyes no longer fit.
 	var eye_cell: Vector3i = eyes.keys()[0]
 	head.erase(eye_cell)
 	t.check(_fails(head.validate(eyes), "every eye fits"),

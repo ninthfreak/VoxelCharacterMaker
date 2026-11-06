@@ -4,20 +4,17 @@ extends EditorPanel
 
 ## Eyes (SPEC.md section 5, and the face editor of section 8).
 ##
-## Eye sets are styles; every set is drawn through the same expression list, so
-## the expression chosen here carries across when the set changes. Expressions
-## are edited on the eye-box grid, one eye with the other mirroring, or each
-## eye separately for a wink or a sideways look. Eye colour is a colourway.
+## An eye set is the open eye, drawn once on the eye-box grid (one eye with the
+## other mirroring, or each eye separately), plus its colours. Every look is
+## made over it by lids and brow, chosen on the Preview tab. Eye colour is a
+## colourway.
 ##
-## The workspace owns what the preview shows -- eye_set_id, expression and
-## eye_colourway -- and this panel changes them.
+## The workspace owns what the preview shows -- eye_set_id and eye_colourway --
+## and this panel changes them.
 
 var _sets: ItemList = null
 var _set_ids: Array[String] = []
 var _set_name: LineEdit = null
-var _expressions: ItemList = null
-var _expression_names: Array[String] = []
-var _expression_name: LineEdit = null
 var _role: OptionButton = null
 var _both: CheckBox = null
 var _grid: EyeBoxGrid = null
@@ -43,24 +40,6 @@ func _build() -> void:
 		{"text": "Duplicate", "action": _on_duplicate_set},
 		{"text": "Delete", "action": _on_delete_set},
 	])
-
-	var faces := section("Expressions")
-	_expressions = make_list(faces, 150)
-	_expressions.item_selected.connect(func(index: int) -> void:
-		if is_guarded() or index < 0 or index >= _expression_names.size():
-			return
-		workspace.set("expression", _expression_names[index])
-		workspace.call("on_eyes_changed")
-		refresh())
-	_expression_name = labelled(faces, "Name", LineEdit.new()) as LineEdit
-	button_row(faces, [
-		{"text": "Add (copy of selected)", "action": _on_add_expression},
-		{"text": "Rename", "action": _on_rename_expression},
-		{"text": "Remove", "action": _on_remove_expression},
-	])
-	hint(faces, "Every eye set has the same expressions, so changing set keeps the "
-		+ "face being made. Neutral cannot be removed: a missing expression falls "
-		+ "back to it.")
 
 	var draw := section("Draw")
 	var tools := HFlowContainer.new()
@@ -88,7 +67,8 @@ func _build() -> void:
 	_fit = Label.new()
 	_fit.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	draw.add_child(_fit)
-	hint(draw, "Turn \"both eyes\" off for a wink or a sideways look.")
+	hint(draw, "This is the eye wide open. Lids and brow are drawn over it; "
+		+ "pick them on the Preview tab.")
 
 	var colour := section("Eye colours")
 	_colourway = labelled(colour, "Colourway", OptionButton.new()) as OptionButton
@@ -123,19 +103,6 @@ func refresh() -> void:
 
 	var eyes := _eyes()
 	_set_name.text = eyes.name if eyes != null else ""
-	_expression_names.clear()
-	_expressions.clear()
-	var expression := String(workspace.get("expression"))
-	if eyes != null:
-		for name in eyes.expression_names():
-			_expression_names.append(name)
-			var text := name.replace("_", " ")
-			if not eyes.is_symmetric(name):
-				text += "   [each eye drawn]"
-			_expressions.add_item(text)
-			if name == eyes.resolve(expression):
-				_expressions.select(_expressions.item_count - 1)
-		_expression_name.text = eyes.resolve(expression)
 
 	var way := String(workspace.get("eye_colourway"))
 	if eyes != null:
@@ -144,7 +111,6 @@ func refresh() -> void:
 	end_guard()
 
 	_grid.eye_set = eyes
-	_grid.expression = eyes.resolve(expression) if eyes != null else EyeSet.NEUTRAL
 	_grid.role = option_value(_role)
 	var colours := {}
 	if eyes != null:
@@ -156,21 +122,20 @@ func refresh() -> void:
 	_rebuild_assignments(eyes)
 
 
-## Whether the expression fits every head. SPEC 12: "no eye cell falls off the
+## Whether the drawing fits every head. SPEC 12: "no eye cell falls off the
 ## face plane". A cell that does would simply not appear on that head.
 func _refresh_fit(eyes: EyeSet) -> void:
 	if eyes == null:
 		_fit.text = ""
 		return
-	var expression := eyes.resolve(String(workspace.get("expression")))
 	var problems: Array[String] = []
 	for shape in editor.library.head_shapes():
-		var missing := eyes.missing_on_head(expression, editor.library.head(shape))
+		var missing := eyes.missing_on_head(editor.library.head(shape))
 		if not missing.is_empty():
 			problems.append("%s (%d cell%s)" % [shape, missing.size(),
 				"" if missing.size() == 1 else "s"])
 	if problems.is_empty():
-		_fit.text = "ok  This expression fits all %d heads." % editor.library.head_shapes().size()
+		_fit.text = "ok  The eyes fit all %d heads." % editor.library.head_shapes().size()
 		_fit.add_theme_color_override("font_color", Color8(160, 168, 184))
 	else:
 		_fit.text = "FAIL  Falls off: %s." % ", ".join(problems)
@@ -203,7 +168,7 @@ func _rebuild_assignments(eyes: EyeSet) -> void:
 # ------------------------------------------------------------------ actions --
 
 func _on_drawn() -> void:
-	commit("Draw eyes: %s" % _grid.expression.replace("_", " "))
+	commit("Draw eyes")
 	refresh()
 
 
@@ -248,47 +213,6 @@ func _rename_set(text: String) -> void:
 		return
 	eyes.name = trimmed
 	commit("Rename eye set to %s" % trimmed)
-	refresh()
-
-
-func _on_add_expression() -> void:
-	var eyes := _eyes()
-	var name := _expression_name.text.strip_edges().to_snake_case()
-	if eyes == null or name.is_empty():
-		return
-	var source := eyes.resolve(String(workspace.get("expression")))
-	if not eyes.add_expression(name, source):
-		editor.set_status_hint("There is already an expression called %s." % name)
-		return
-	workspace.set("expression", name)
-	commit("Add expression %s" % name)
-	refresh()
-
-
-func _on_rename_expression() -> void:
-	var eyes := _eyes()
-	var old_name := eyes.resolve(String(workspace.get("expression"))) if eyes != null else ""
-	var name := _expression_name.text.strip_edges().to_snake_case()
-	if eyes == null or name.is_empty() or name == old_name:
-		return
-	if not eyes.rename_expression(old_name, name):
-		editor.set_status_hint("Neutral keeps its name, and names must be unique.")
-		return
-	workspace.set("expression", name)
-	commit("Rename expression %s to %s" % [old_name, name])
-	refresh()
-
-
-func _on_remove_expression() -> void:
-	var eyes := _eyes()
-	if eyes == null:
-		return
-	var name := eyes.resolve(String(workspace.get("expression")))
-	if not eyes.remove_expression(name):
-		editor.set_status_hint("Neutral cannot be removed.")
-		return
-	workspace.set("expression", EyeSet.NEUTRAL)
-	commit("Remove expression %s" % name)
 	refresh()
 
 

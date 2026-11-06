@@ -15,7 +15,6 @@ extends Workspace
 var body_id: String = "male_average"
 var head_shape: String = "round"
 var eye_set_id: String = ""
-var expression: String = EyeSet.NEUTRAL
 var eye_colourway: String = ""
 
 var hair: ItemSelection = null
@@ -113,8 +112,7 @@ func on_eyes_changed() -> void:
 
 
 func make_request() -> CharacterAssembler.Request:
-	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape,
-		expression)
+	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape)
 	request.wardrobe = editor.wardrobe
 	request.eye_set_id = eye_set_id
 	request.eye_colourway = eye_colourway
@@ -143,8 +141,7 @@ func refresh() -> void:
 func status_text(assembled: CharacterAssembler.Assembled) -> String:
 	var eyes := editor.wardrobe.eye_set(eye_set_id)
 	var bits: Array[String] = [super.status_text(assembled)]
-	bits.append("eyes: %s, %s" % [eyes.name if eyes != null else "basic",
-		(eyes.resolve(expression) if eyes != null else expression).replace("_", " ")])
+	bits.append("eyes: %s, wide open" % (eyes.name if eyes != null else "basic"))
 	bits.append("hair: %s" % (hair.item().name if hair.item() != null else "none"))
 	bits.append("facial hair: %s" % (facial_hair.item().name
 		if facial_hair.item() != null else "none"))

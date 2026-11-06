@@ -6,7 +6,7 @@ extends Control
 ## eye, the other mirrors").
 ##
 ## Both eyes are drawn side by side as they appear on the face -- screen-left
-## eye on the left -- each 4 wide by 5 tall. With "both eyes" on, painting one
+## eye on the left -- each EyeSet.BOX_W wide by EyeSet.BOX_H tall. With "both eyes" on, painting one
 ## paints the same box cell in the other, which IS the mirror image because box
 ## cells count from each eye's outer edge.
 ##
@@ -20,7 +20,6 @@ signal stroke_finished
 const GAP := 1.5   ## gap between the two eyes, in cells
 
 var eye_set: EyeSet = null
-var expression: String = EyeSet.NEUTRAL
 ## The role a left click paints; right click always paints skin (clears).
 var role: String = EyeSet.ROLE_PUPIL
 var both_eyes := true
@@ -86,7 +85,7 @@ func _draw() -> void:
 		for c in EyeSet.BOX_W:
 			for r in EyeSet.BOX_H:
 				var rect := rect_of(eye, c, r)
-				var cell_role := eye_set.role_at(expression, eye, c, r)
+				var cell_role := eye_set.role_at(eye, c, r)
 				var colour: Color = skin_colour if cell_role == EyeSet.ROLE_SKIN \
 					else colours.get(cell_role, Color.MAGENTA)
 				draw_rect(rect, colour, true)
@@ -132,11 +131,11 @@ func _paint_at(point: Vector2) -> void:
 	var eye := String(h["eye"])
 	var c := int(h["c"])
 	var r := int(h["r"])
-	if eye_set.role_at(expression, eye, c, r) == paint_role \
-			and (not both_eyes or eye_set.role_at(expression,
+	if eye_set.role_at(eye, c, r) == paint_role \
+			and (not both_eyes or eye_set.role_at(
 				EyeSet.EYE_RIGHT if eye == EyeSet.EYE_LEFT else EyeSet.EYE_LEFT, c, r) == paint_role):
 		return
-	eye_set.set_cell(expression, eye, c, r, paint_role, both_eyes)
+	eye_set.set_cell(eye, c, r, paint_role, both_eyes)
 	_changed = true
 	painted.emit(eye, c, r, paint_role)
 	queue_redraw()

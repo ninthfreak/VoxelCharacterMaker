@@ -175,9 +175,8 @@ static func _face_hair(t: TestReport, ed: CharacterEditor) -> void:
 	ed.show_tab("Face & Hair")
 	var fh := ed.face_hair
 	t.check(not fh.eye_set_id.is_empty(), "an eye set is chosen")
-	t.check_equal(fh._eyes_panel._expression_names.size(),
-		ed.wardrobe.eye_set(fh.eye_set_id).expression_names().size(),
-		"and its expressions are listed")
+	t.check(fh._eyes_panel._grid.eye_set == ed.wardrobe.eye_set(fh.eye_set_id),
+		"and its open eye is on the drawing grid")
 
 	fh.hair.select("")
 	fh.facial_hair.select("")
@@ -196,16 +195,16 @@ static func _face_hair(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(_owners(fh.view.assembled).has("short_beard"),
 		"they stay on when the head changes")
 
-	# Drawing an expression changes the face and is undoable.
+	# Drawing the eye changes the face and is undoable.
 	var eyes := ed.wardrobe.eye_set(fh.eye_set_id)
-	var before := eyes.role_at("neutral", EyeSet.EYE_LEFT, 0, 0)
-	eyes.set_cell("neutral", EyeSet.EYE_LEFT, 0, 0, EyeSet.ROLE_LINE, true)
+	var before := eyes.role_at(EyeSet.EYE_LEFT, 0, 0)
+	eyes.set_cell(EyeSet.EYE_LEFT, 0, 0, EyeSet.ROLE_LINE, true)
 	ed.commit("Draw eyes", fh)
 	t.check_equal(ed.next_undo_doc(), CharacterEditor.DOC_WARDROBE,
 		"drawing eyes is a wardrobe edit")
 	ed.undo()
 	t.check_equal(ed.wardrobe.eye_set(fh.eye_set_id).role_at(
-		"neutral", EyeSet.EYE_LEFT, 0, 0), before, "and undo takes it back")
+		EyeSet.EYE_LEFT, 0, 0), before, "and undo takes it back")
 
 
 # ----------------------------------------------------------------- clothes --
@@ -261,7 +260,7 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	pv._choose("head_shape", "strong")
 	pv._choose("hair_id", "ponytail")
 	pv._choose("facial_id", "moustache")
-	pv._choose("expression", "happy")
+	pv._choose("lids", "angry")
 	pv.worn = ed.wardrobe.outfit("travelling")
 	pv.refresh()
 	pv.rebuild()

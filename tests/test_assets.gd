@@ -22,8 +22,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	t.check(library.errors.is_empty(), "every asset loaded", ", ".join(library.errors))
 	t.check_equal(library.bodies.size(), 6, "six bodies")
 	t.check_equal(library.heads.size(), 5, "five heads")
-	t.check(library.faces.size() >= 11, "at least the eleven starter expressions",
-		"got %d" % library.faces.size())
+	t.check(library.open_face() != null, "the open eye face")
 
 	var regions_problem := library.verify_regions_match()
 	t.check(regions_problem.is_empty(),

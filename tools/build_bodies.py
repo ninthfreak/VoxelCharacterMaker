@@ -217,42 +217,15 @@ EYE_BOX = dict(w=5, h=6, z0=0, x0=6, drop=((0, 0), (4, 0), (0, 5), (4, 5)), pupi
 
 
 def _expressions(bx=EYE_BOX):
-    w, h, pc, pr = bx["w"], bx["h"], bx["pupil_cols"], bx["pupil_rows"]; top = h - 1; drop = set(map(tuple, bx["drop"]))
-    def base(): return {(c, r): "white" for c in range(w) for r in range(h) if (c, r) not in drop}
-    def skin(): return {(c, r): "skin" for c in range(w) for r in range(h)}
-    def pupil(e, cols, rows):
-        for c in cols:
-            for r in range(rows[0], rows[1] + 1):
-                if e.get((c, r)) == "white": e[(c, r)] = "pupil"
+    """The open eye (G7), per eye: box cells (c, r) -> role. The only face drawn here: every other look is made by the
+    lid-and-brow system on the Godot side (core/eye_lids.gd). The old drawn expressions were retired by the owner."""
+    w, h, pc, pr = bx["w"], bx["h"], bx["pupil_cols"], bx["pupil_rows"]; drop = set(map(tuple, bx["drop"]))
+    def open_eye():
+        e = {(c, r): "white" for c in range(w) for r in range(h) if (c, r) not in drop}
+        for c in pc:
+            for r in range(pr[0], pr[1] + 1): e[(c, r)] = "pupil"
         return e
-    def neutral(): return pupil(base(), pc, pr)
-    def blink(): e = skin(); [e.__setitem__((c, 2), "line") for c in range(w)]; return e
-    def happy(): e = skin(); e[(0, 2)] = e[(w - 1, 2)] = "line"; [e.__setitem__((c, 3), "line") for c in range(1, w - 1)]; return e
-    def angry():                                               # upper lid slants down toward the nose
-        e = pupil(base(), pc, (1, 2))
-        for c in range(w): e[(c, top)] = "skin"
-        e[(1, top)] = "line"
-        for c in range(2, w): e[(c, top - 1)] = "line"
-        return e
-    def sad():                                                 # upper lid slants down toward the outside, pupils low
-        e = pupil(base(), pc, (1, 2))
-        for c in range(w): e[(c, top)] = "skin"
-        e[(w - 2, top)] = "line"
-        for c in range(0, w - 2): e[(c, top - 1)] = "line"
-        return e
-    def surprised(): return pupil(base(), pc, (pr[1], pr[1]))         # a small pupil, high
-    def bored():
-        e = pupil(base(), pc, (1, 2))
-        for c in range(w): e[(c, top)] = "skin"; e[(c, top - 1)] = "line"
-        return e
-    def look_down(): return pupil(base(), pc, (pr[0] - 1, pr[1] - 1))
-    def look(screen_cols):                                     # both pupils toward the same side of the screen
-        return pupil(base(), screen_cols, pr), pupil(base(), tuple(w - 1 - s for s in screen_cols), pr)
-    same = lambda f: (lambda: (f(), f()))
-    return {"neutral": same(neutral), "blink": same(blink), "happy": same(happy), "angry": same(angry), "sad": same(sad),
-            "surprised": same(surprised), "bored": same(bored), "wink": lambda: (neutral(), blink()),
-            "look_left": lambda: look(tuple(c - 1 for c in pc)), "look_right": lambda: look(tuple(c + 1 for c in pc)),
-            "look_down": same(look_down)}
+    return {"open": lambda: (open_eye(), open_eye())}
 
 
 EXPRESSIONS = _expressions()
@@ -359,7 +332,7 @@ if __name__ == "__main__":
                                "brow_z": bx["z0"] + bx["h"]},
                    "voxels": [[int(x), int(y), int(z)] for x, y, z in zip(*np.nonzero(part))]}, open(f"head42_{shape}.json", "w"))
         print("head", shape, n, "voxels")
-    for old in __import__("glob").glob("face42_*.json"): os.remove(old)
+    for old in __import__("glob").glob("face42_*.json"): os.remove(old)   # retired expressions go too
     for name in EXPRESSIONS:
         L, R = EXPRESSIONS[name]()
         json.dump({"name": name, "plane_y": FACE_Y, "bulk": 0, "roles": ["white", "pupil", "line", "skin"],

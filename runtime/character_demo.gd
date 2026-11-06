@@ -11,7 +11,7 @@ extends Node3D
 
 @export var body_id: String = "male_average"
 @export var head_shape: String = "round"
-@export var expression: String = "neutral"
+@export var lids: String = EyeLids.DEFAULT
 @export var outfit: String = "everyday"
 @export var wardrobe_path: String = ""
 @export var cycle_poses: bool = true
@@ -45,8 +45,9 @@ func _ready() -> void:
 
 
 func rebuild() -> void:
-	var request := CharacterAssembler.Request.make(library, body_id, head_shape, expression)
+	var request := CharacterAssembler.Request.make(library, body_id, head_shape)
 	request.wardrobe = wardrobe
+	request.lids = lids
 	request.worn = CharacterAssembler.worn_from_outfit(wardrobe, outfit)
 	var assembled := CharacterAssembler.assemble(request)
 	for warning in assembled.warnings:

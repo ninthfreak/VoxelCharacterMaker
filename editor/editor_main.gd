@@ -6,7 +6,7 @@ extends Control
 ##
 ##   Bodies        the six body types and the head shapes, bare, with only the
 ##                 basic eyes -- edited on slices
-##   Face & Hair   eye sets and expressions, hair, facial hair: like clothes,
+##   Face & Hair   eye sets (the open eye), hair, facial hair: like clothes,
 ##                 but one of each per character, in their own area
 ##   Clothes       every clothing item with all its parameters and its special
 ##                 shapes, cycled through the six bodies

@@ -2,84 +2,53 @@
 class_name TestFaces
 extends RefCounted
 
-## SPEC.md section 12: "Every expression fits every head (no eye cell falls off
-## the face plane)." Plus the section 5 rules that make that possible: bulk 0,
-## the shared eye box, and the face drawing under hair and hats.
+## SPEC.md section 12: the eyes fit every head (no eye cell falls off the face
+## plane). Plus the section 5 rules that make that possible: bulk 0, the shared
+## eye box, and the face drawing under hair and hats. The one shipped face is the
+## open eye; every other look is lids and brow (EyeLids, tested in features).
 
 
 static func run(t: TestReport, library: AssetLibrary) -> void:
-	t.group("faces: every expression fits every head")
-	for name in library.expression_names():
-		var face := library.face(name)
-		for shape in library.head_shapes():
-			var head := library.head(shape)
-			var missing := face.missing_on_head(head)
-			t.check(missing.is_empty(), "%s fits the %s head" % [name, shape],
-				"%d cells off the face plane, e.g. %s" % [
-					missing.size(), missing[0] if not missing.is_empty() else ""])
+	var face := library.open_face()
+	t.group("faces: the open eye fits every head")
+	t.check(face != null, "the open eye loads")
+	if face == null:
+		return
+	for shape in library.head_shapes():
+		var missing := face.missing_on_head(library.head(shape))
+		t.check(missing.is_empty(), "the open eye fits the %s head" % shape,
+			"%d cells off the face plane, e.g. %s" % [
+				missing.size(), missing[0] if not missing.is_empty() else ""])
 
 	t.group("faces: overlay rules")
-	for name2 in library.expression_names():
-		var face2 := library.face(name2)
-		t.check_equal(face2.bulk, 0, "%s is skin-tight (bulk 0)" % name2)
-		t.check_equal(face2.plane_y, VoxelAxes.FACE_PLANE_Y,
-			"%s sits on the face plane" % name2)
-		var absolute := face2.to_absolute()
-		var off_plane := 0
-		for cell in absolute.keys():
-			if (cell as Vector3i).y != VoxelAxes.FACE_PLANE_Y:
-				off_plane += 1
-		t.check_equal(off_plane, 0, "%s has every cell on the face plane" % name2)
-
-		# The eye box is 4 wide x 5 tall per eye, so no expression may exceed it.
-		var xs_low := 99
-		var xs_high := -99
-		var zs_low := 99
-		var zs_high := -99
-		for cell2 in absolute.keys():
-			var c: Vector3i = cell2
-			xs_low = mini(xs_low, c.x)
-			xs_high = maxi(xs_high, c.x)
-			zs_low = mini(zs_low, c.z)
-			zs_high = maxi(zs_high, c.z)
-		t.check(xs_low >= BodyLayout.EYE_X0 and xs_high <= VoxelAxes.MIRROR_X_MAX - BodyLayout.EYE_X0,
-			"%s stays inside the eye box in x" % name2, "x %d..%d" % [xs_low, xs_high])
-		t.check(zs_low >= BodyLayout.EYE_Z0 and zs_high <= BodyLayout.EYE_Z1,
-			"%s stays inside the eye box in z" % name2, "z %d..%d" % [zs_low, zs_high])
-
-	t.group("faces: symmetry")
-	var symmetric := ["neutral", "blink", "happy", "angry", "sad", "surprised", "bored"]
-	for name3 in symmetric:
-		var face3 := library.face(name3)
-		if face3 == null:
-			continue
-		t.check(face3.is_symmetric(), "%s is stored the same for both eyes" % name3)
-	for name4 in ["wink", "look_left", "look_right"]:
-		var face4 := library.face(name4)
-		if face4 == null:
-			continue
-		t.check(not face4.is_symmetric(),
-			"%s stores both eyes because it is asymmetric" % name4)
-
-	# look_left and look_right must be each other's mirror.
-	var left := library.face("look_left")
-	var right := library.face("look_right")
-	if left != null and right != null:
-		var mirrored := {}
-		for cell in left.to_absolute().keys():
-			mirrored[VoxelAxes.mirror_voxel(cell)] = left.to_absolute()[cell]
-		t.check(mirrored == right.to_absolute(),
-			"look_left mirrors onto look_right")
+	t.check_equal(face.bulk, 0, "the eye is skin-tight (bulk 0)")
+	t.check_equal(face.plane_y, VoxelAxes.FACE_PLANE_Y, "it sits on the face plane")
+	var absolute := face.to_absolute()
+	var off_plane := 0
+	var xs := Vector2i(99, -99)
+	var zs := Vector2i(99, -99)
+	for cell in absolute.keys():
+		var c: Vector3i = cell
+		if c.y != VoxelAxes.FACE_PLANE_Y:
+			off_plane += 1
+		xs = Vector2i(mini(xs.x, c.x), maxi(xs.y, c.x))
+		zs = Vector2i(mini(zs.x, c.z), maxi(zs.y, c.z))
+	t.check_equal(off_plane, 0, "every cell is on the face plane")
+	t.check(xs.x >= BodyLayout.EYE_X0 and xs.y <= VoxelAxes.MIRROR_X_MAX - BodyLayout.EYE_X0,
+		"it stays inside the eye box in x", "x %d..%d" % [xs.x, xs.y])
+	t.check(zs.x >= BodyLayout.EYE_Z0 and zs.y <= BodyLayout.EYE_Z1,
+		"it stays inside the eye box in z", "z %d..%d" % [zs.x, zs.y])
+	t.check(face.is_symmetric(), "it is stored the same for both eyes")
 
 	t.group("faces: the overlay recolours and never adds volume")
 	var request := CharacterAssembler.Request.make(
-		library, "female_average", "oval", "neutral")
+		library, "female_average", "oval")
 	request.wardrobe = Wardrobe.create_default()
 	request.worn = CharacterAssembler.worn_from_outfit(request.wardrobe, "everyday")
 	var dressed := CharacterAssembler.assemble(request)
 
 	var bare := CharacterAssembler.Request.make(
-		library, "female_average", "oval", "neutral")
+		library, "female_average", "oval")
 	bare.wardrobe = request.wardrobe
 	bare.worn = []
 	var head_part := CharacterAssembler.assemble(bare).part(BodyDef.HEAD_PART)
@@ -90,7 +59,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	for cell in head_part.cells.keys():
 		if int(head_part.sources.get(cell, 0)) == CharacterAssembler.Source.FACE:
 			eye_cells += 1
-	t.check(eye_cells > 0, "the neutral face actually paints eye cells",
+	t.check(eye_cells > 0, "the eyes actually paint cells",
 		"%d cells" % eye_cells)
 	t.check(dressed.warnings.is_empty(), "assembling a dressed figure warns about nothing",
 		", ".join(dressed.warnings))

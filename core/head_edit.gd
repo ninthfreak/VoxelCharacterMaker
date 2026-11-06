@@ -54,9 +54,9 @@ func pivot_of(_part_name: String) -> Vector3:
 
 ## Check the head against what every head must share.
 ##
-## eye_cells: every absolute cell some expression paints, from the shipped
-## faces and the wardrobe's eye sets. Each must be a head voxel with nothing in
-## front of it, or that expression would vanish (or be buried) on this head.
+## eye_cells: every absolute cell the eyes, lids or brow can paint (the eye
+## boxes and the brow row). Each must be a head voxel with nothing in front of
+## it, or the eyes would vanish (or be buried) on this head.
 func validate(eye_cells: Dictionary = {}) -> Array:
 	var findings: Array = []
 	var cells: Dictionary = part_cells(PART)
@@ -105,7 +105,7 @@ func validate(eye_cells: Dictionary = {}) -> Array:
 	findings.append(BodyEdit.Finding.new(bottom == HeadDef.NECK_ROW + 1,
 		"head starts straight above the neck", "lowest row is %d" % bottom))
 
-	# The eyes: every cell some expression paints must be on the face plane.
+	# The eyes: every cell the eyes, lids or brow can paint must be on the face plane.
 	var off_face: Array = []
 	var buried: Array = []
 	for cell3 in eye_cells.keys():

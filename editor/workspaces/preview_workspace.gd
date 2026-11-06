@@ -11,7 +11,6 @@ extends Workspace
 var body_id: String = "male_average"
 var head_shape: String = "round"
 var pose: String = Poses.REST
-var expression: String = EyeSet.NEUTRAL
 var lids: String = EyeLids.DEFAULT
 var skin_tone: String = Palette.DEFAULT_SKIN
 ## A hair palette colour whose brow to use; "" = follow the hair worn.
@@ -28,7 +27,6 @@ var worn: Array = []
 var _body_pick: OptionButton = null
 var _head_pick: OptionButton = null
 var _pose_pick: OptionButton = null
-var _expression_pick: OptionButton = null
 var _lid_pick: OptionButton = null
 var _skin_pick: OptionButton = null
 var _brow_pick: OptionButton = null
@@ -76,8 +74,6 @@ func _build() -> void:
 		_choose("brow_hair", value))
 	_eye_pick = picker(side, "Eye set", [], [], func(value: String) -> void:
 		_choose("eye_set_id", value))
-	_expression_pick = picker(side, "Drawn expression", [], [], func(value: String) -> void:
-		_choose("expression", value))
 	_eye_way_pick = picker(side, "Colour", [], [], func(value: String) -> void:
 		_choose("eye_colourway", value))
 
@@ -125,8 +121,7 @@ func _choose(field: String, value: String) -> void:
 
 
 func make_request() -> CharacterAssembler.Request:
-	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape,
-		expression)
+	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape)
 	request.wardrobe = editor.wardrobe
 	request.eye_set_id = eye_set_id
 	request.eye_colourway = eye_colourway
@@ -167,7 +162,7 @@ func refresh() -> void:
 		brow_hair = ""
 	refill(_brow_pick, brow_values, brow_labels, brow_hair)
 
-	# Eyes: a set always, and its expressions and colours.
+	# Eyes: a set always, and its colours.
 	if w.eye_set(eye_set_id) == null:
 		eye_set_id = w.first_eye_set_id()
 	var eye_ids: Array = []
@@ -180,15 +175,6 @@ func refresh() -> void:
 		eye_labels = ["basic (no eye set saved)"]
 	refill(_eye_pick, eye_ids, eye_labels, eye_set_id)
 	var eyes := w.eye_set(eye_set_id)
-	var expressions: Array = []
-	var expression_labels: Array = []
-	var source: Array[String] = eyes.expression_names() if eyes != null \
-		else editor.library.expression_names()
-	for name in source:
-		expressions.append(name)
-		expression_labels.append(name.replace("_", " "))
-	refill(_expression_pick, expressions, expression_labels, expression)
-	expression = option_value(_expression_pick)
 	var ways: Array = []
 	if eyes != null:
 		for way in eyes.colourway_names():
@@ -307,8 +293,8 @@ func _refresh_summary() -> void:
 		body.display_name() if body != null else body_id, head_shape, skin_tone])
 	lines.append("Eyelids: %s; brows %s" % [EyeLids.display_name(lids),
 		"follow the hair" if brow_hair.is_empty() else "like %s hair" % brow_hair.trim_prefix("hair_")])
-	lines.append("Eyes: %s, %s, %s" % [eyes.name if eyes != null else "basic",
-		expression.replace("_", " "), eye_colourway if not eye_colourway.is_empty() else "-"])
+	lines.append("Eyes: %s, %s" % [eyes.name if eyes != null else "basic",
+		eye_colourway if not eye_colourway.is_empty() else "-"])
 	var hair := w.item(hair_id) if not hair_id.is_empty() else null
 	var facial := w.item(facial_id) if not facial_id.is_empty() else null
 	lines.append("Hair: %s" % ("%s (%s)" % [hair.name, hair_colourway] if hair != null

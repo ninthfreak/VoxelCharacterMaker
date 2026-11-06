@@ -84,7 +84,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 
 	# ...but a neighbouring PART does not cull anything, or a limb would open a
 	# hole the moment it rotated away.
-	var request := CharacterAssembler.Request.make(library, "male_average", "round", "neutral")
+	var request := CharacterAssembler.Request.make(library, "male_average", "round")
 	request.wardrobe = Wardrobe.create_default()
 	request.worn = []
 	var assembled := CharacterAssembler.assemble(request)
@@ -176,7 +176,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	wardrobe.add_item(skirt)
 
 	var skirt_request := CharacterAssembler.Request.make(
-		library, "female_average", "round", "neutral")
+		library, "female_average", "round")
 	skirt_request.wardrobe = wardrobe
 	skirt_request.worn = [{"item": "panel_skirt", "colourway": "default"}]
 	var with_skirt := CharacterAssembler.assemble(skirt_request)

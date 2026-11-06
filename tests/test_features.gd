@@ -24,38 +24,34 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 # ------------------------------------------------------------- eye sets ----
 
 static func _eye_sets(t: TestReport, library: AssetLibrary) -> void:
-	t.group("features: the standard eye set is the shipped faces")
+	t.group("features: the standard eye set is the shipped open eye")
 	var eyes := EyeSet.from_library(library)
-	t.check_equal(eyes.expression_names().size(), library.expression_names().size(),
-		"every shipped expression is in the set")
-	for name in library.expression_names():
-		var face := library.face(name)
-		var from_set := eyes.to_absolute(name)
-		t.check(from_set == face.ink_cells(),
-			"%s draws exactly the shipped face's painted cells" % name)
-		for shape in library.head_shapes():
-			t.check(eyes.missing_on_head(name, library.head(shape)).is_empty(),
-				"%s fits the %s head" % [name, shape])
+	t.check(eyes.to_absolute() == library.open_face().ink_cells(),
+		"it draws exactly the shipped eye's painted cells")
+	for shape in library.head_shapes():
+		t.check(eyes.missing_on_head(library.head(shape)).is_empty(),
+			"it fits the %s head" % shape)
 
 	t.group("features: editing an eye set")
 	var edited := eyes.duplicate_as("test", "Test")
-	t.check(edited.is_symmetric("neutral"), "neutral starts symmetric")
-	edited.set_cell("neutral", EyeSet.EYE_LEFT, 0, 2, EyeSet.ROLE_LINE, true)
-	t.check(edited.is_symmetric("neutral"), "painting both eyes keeps it symmetric")
-	t.check_equal(edited.role_at("neutral", EyeSet.EYE_RIGHT, 0, 2), EyeSet.ROLE_LINE,
+	t.check(edited.is_symmetric(), "the eye starts symmetric")
+	edited.set_cell(EyeSet.EYE_LEFT, 0, 2, EyeSet.ROLE_LINE, true)
+	t.check(edited.is_symmetric(), "painting both eyes keeps it symmetric")
+	t.check_equal(edited.role_at(EyeSet.EYE_RIGHT, 0, 2), EyeSet.ROLE_LINE,
 		"and the other eye has the cell")
-	edited.set_cell("neutral", EyeSet.EYE_LEFT, 0, 2, EyeSet.ROLE_SKIN, false)
-	t.check(not edited.is_symmetric("neutral"), "painting one eye alone breaks symmetry")
-	t.check_equal(edited.role_at("neutral", EyeSet.EYE_LEFT, 0, 2), EyeSet.ROLE_SKIN,
+	edited.set_cell(EyeSet.EYE_LEFT, 0, 2, EyeSet.ROLE_SKIN, false)
+	t.check(not edited.is_symmetric(), "painting one eye alone breaks symmetry")
+	t.check_equal(edited.role_at(EyeSet.EYE_LEFT, 0, 2), EyeSet.ROLE_SKIN,
 		"and skin clears the cell")
 
-	t.check(edited.add_expression("squint", "happy"), "an expression can be added")
-	t.check(edited.to_absolute("squint") == edited.to_absolute("happy"),
-		"copied from another")
-	t.check(not edited.remove_expression(EyeSet.NEUTRAL), "neutral cannot be removed")
-	t.check(edited.rename_expression("squint", "glare"), "an expression can be renamed")
-	t.check_equal(edited.resolve("no such face"), EyeSet.NEUTRAL,
-		"a missing expression falls back to neutral, so the eyes never vanish")
+	# Files from before the expressions were retired load their neutral drawing.
+	var legacy := {"name": "Old", "colourways": {}, "expressions": {
+		"neutral": {"left": [[2, 2, "pupil"]], "right": [[2, 2, "pupil"]]},
+		"happy": {"left": [[0, 0, "line"]], "right": [[0, 0, "line"]]}}}
+	var old := EyeSet.from_json("old", legacy)
+	t.check(old.role_at(EyeSet.EYE_LEFT, 2, 2) == EyeSet.ROLE_PUPIL
+		and old.role_at(EyeSet.EYE_LEFT, 0, 0) == EyeSet.ROLE_SKIN,
+		"an older file's neutral drawing becomes the eye; its other expressions are dropped")
 
 	var json := edited.to_json()
 	var again := EyeSet.from_json("test", json)
@@ -65,8 +61,8 @@ static func _eye_sets(t: TestReport, library: AssetLibrary) -> void:
 	t.group("features: an eye set draws through the assembler")
 	var w := Wardrobe.create_default(library)
 	t.check(w.eye_set("standard") != null, "the default wardrobe has the standard set")
-	var with_set := _figure(library, w, "male_average", "oval", "angry", "standard", [])
-	var without := _figure(library, w, "male_average", "oval", "angry", "", [])
+	var with_set := _figure(library, w, "male_average", "oval", "standard", [])
+	var without := _figure(library, w, "male_average", "oval", "", [])
 	var a := _face_cells(with_set)
 	var b := _face_cells(without)
 	t.check(a.keys().size() == b.keys().size() and not a.is_empty(),
@@ -76,8 +72,7 @@ static func _eye_sets(t: TestReport, library: AssetLibrary) -> void:
 	var eyes2: EyeSet = w.eye_set("standard")
 	eyes2.add_colourway("blue")
 	eyes2.set_palette_key("blue", EyeSet.ROLE_PUPIL, "eye_blue")
-	var blue := _figure(library, w, "male_average", "oval", "neutral", "standard", [],
-		"blue")
+	var blue := _figure(library, w, "male_average", "oval", "standard", [], "blue")
 	var head := blue.part(BodyDef.HEAD_PART)
 	var found_blue := false
 	for cell in head.cells.keys():
@@ -153,7 +148,7 @@ static func _anchors(t: TestReport, library: AssetLibrary) -> void:
 	var w := Wardrobe.new()
 	for id in library.body_ids():
 		for shape in library.head_shapes():
-			var assembled := _figure(library, w, id, shape, "neutral", "", [])
+			var assembled := _figure(library, w, id, shape, "", [])
 			var cells := {}
 			for name in assembled.order:
 				cells[name] = assembled.part(String(name)).cells
@@ -180,7 +175,7 @@ static func _shapes(t: TestReport, library: AssetLibrary) -> void:
 	var w := Wardrobe.create_default(library)
 	var per_head := {}
 	for shape in library.head_shapes():
-		var assembled := _figure(library, w, "male_average", shape, "neutral", "standard",
+		var assembled := _figure(library, w, "male_average", shape, "standard",
 			[{"item": "short_beard", "colourway": "default"}])
 		t.check(assembled.warnings.is_empty(), "the beard generates on the %s head" % shape,
 			", ".join(assembled.warnings))
@@ -227,7 +222,7 @@ static func _shapes(t: TestReport, library: AssetLibrary) -> void:
 	var worn := [{"item": "test_shape", "colourway": "default"}]
 	for wrap in [true, false]:
 		item.set_special_param(at, "wrap", wrap)
-		var fig := _figure(library, w, "female_heavy", "round", "neutral", "", worn)
+		var fig := _figure(library, w, "female_heavy", "round", "", worn)
 		var chest := fig.part("chest")
 		var n := 0
 		for cell4 in chest.cells.keys():
@@ -238,8 +233,8 @@ static func _shapes(t: TestReport, library: AssetLibrary) -> void:
 	# Depth -1 recolours the surface instead of adding to it.
 	item.set_special_param(at, "wrap", true)
 	item.set_special_param(at, "cells", [[0, -1, 0, "cloth"], [1, -1, 0, "cloth"]])
-	var bare := _figure(library, w, "male_slim", "round", "neutral", "", [])
-	var painted := _figure(library, w, "male_slim", "round", "neutral", "", worn)
+	var bare := _figure(library, w, "male_slim", "round", "", [])
+	var painted := _figure(library, w, "male_slim", "round", "", worn)
 	t.check_equal(painted.total_voxels(), bare.total_voxels(),
 		"a recolour shape adds no voxels")
 	var repainted := 0
@@ -259,7 +254,7 @@ static func _items_with_specials(t: TestReport, library: AssetLibrary) -> void:
 	t.check(dress.has_coverage() and dress.is_special(),
 		"the dress has a bodice of regions and a skirt shape")
 	for id in library.body_ids():
-		var fig := _figure(library, w, id, "round", "neutral", "",
+		var fig := _figure(library, w, id, "round", "",
 			[{"item": "dress", "colourway": "default"}])
 		t.check(fig.warnings.is_empty(), "%s: the dress generates" % id,
 			", ".join(fig.warnings))
@@ -280,7 +275,7 @@ static func _items_with_specials(t: TestReport, library: AssetLibrary) -> void:
 	extra.colourways = {"default": {"cloth": "moss", "hem": "ochre"}}
 	extra.add_special("skirt")
 	w.add_item(extra)
-	var both := _figure(library, w, "female_average", "round", "neutral", "", [
+	var both := _figure(library, w, "female_average", "round", "", [
 		{"item": "dress", "colourway": "default"},
 		{"item": "over_skirt", "colourway": "default"},
 	])
@@ -293,7 +288,7 @@ static func _items_with_specials(t: TestReport, library: AssetLibrary) -> void:
 
 	t.group("features: the cape and the hooded cloak")
 	for id2 in library.body_ids():
-		var fig2 := _figure(library, w, id2, "round", "neutral", "",
+		var fig2 := _figure(library, w, id2, "round", "",
 			[{"item": "cloak", "colourway": "default"}])
 		t.check(fig2.warnings.is_empty(), "%s: the cloak generates" % id2,
 			", ".join(fig2.warnings))
@@ -321,9 +316,9 @@ static func _items_with_specials(t: TestReport, library: AssetLibrary) -> void:
 
 
 static func _figure(library: AssetLibrary, w: Wardrobe, body: String, head: String,
-		expression: String, eye_set: String, worn: Array,
+		eye_set: String, worn: Array,
 		eye_colourway: String = "") -> CharacterAssembler.Assembled:
-	var request := CharacterAssembler.Request.make(library, body, head, expression)
+	var request := CharacterAssembler.Request.make(library, body, head)
 	request.wardrobe = w
 	request.worn = worn
 	request.eye_set_id = eye_set
@@ -349,7 +344,7 @@ static func _panels_clear(t: TestReport, library: AssetLibrary) -> void:
 		var shared := 0
 		var example := ""
 		for body in library.body_ids():
-			var a := _figure(library, w, body, "round", "neutral", "", look[1])
+			var a := _figure(library, w, body, "round", "", look[1])
 			# Panels against everything else. (Garments on two body parts can
 			# also meet in one cell -- trousers in the gap between the thighs --
 			# which is the separate, deferred trouser problem.)
@@ -389,7 +384,7 @@ static func _lids(t: TestReport, library: AssetLibrary) -> void:
 	t.group("eyes: the G7 open eye, the same size on every head")
 	var w := Wardrobe.create_default(library)
 	var eyes := w.eye_set(w.first_eye_set_id())
-	var open := eyes.eye_cells(EyeSet.NEUTRAL, EyeSet.EYE_LEFT)
+	var open := eyes.eye_cells(EyeSet.EYE_LEFT)
 	t.check_equal(EyeSet.BOX_W * 100 + EyeSet.BOX_H, 506, "the eye box is 5 wide x 6 tall")
 	t.check_equal(_roles_in(open, EyeSet.ROLE_PUPIL).size(), 2, "neutral has a 1 x 2 pupil")
 	t.check_equal(_roles_in(open, EyeSet.ROLE_WHITE).size(), 5 * 6 - 4 - 2,
@@ -477,7 +472,7 @@ static func _lids(t: TestReport, library: AssetLibrary) -> void:
 
 	t.group("eyes: lid, brow and skin colours")
 	var tail := {"item": "ponytail", "colourway": "default"}
-	var req := CharacterAssembler.Request.make(library, "male_average", "round", "neutral")
+	var req := CharacterAssembler.Request.make(library, "male_average", "round")
 	req.wardrobe = w
 	req.eye_set_id = eyes.id
 	req.features = [tail]
@@ -514,13 +509,13 @@ static func _lids(t: TestReport, library: AssetLibrary) -> void:
 	for shape in library.head_shapes():
 		var bad: Array[String] = []
 		for state in EyeLids.names():
-			var r2 := CharacterAssembler.Request.make(library, "female_slim", shape, "neutral")
+			var r2 := CharacterAssembler.Request.make(library, "female_slim", shape)
 			r2.wardrobe = w
 			r2.eye_set_id = eyes.id
 			r2.lids = state
 			var expected := 0
 			for eye in [EyeSet.EYE_LEFT, EyeSet.EYE_RIGHT]:
-				expected += EyeLids.apply(eyes.eye_cells(EyeSet.NEUTRAL, eye),
+				expected += EyeLids.apply(eyes.eye_cells(eye),
 					EyeLids.eye_state(state, eye), eye).size()
 			if _face_cells(CharacterAssembler.assemble(r2)).size() != expected:
 				bad.append(state)
@@ -529,7 +524,7 @@ static func _lids(t: TestReport, library: AssetLibrary) -> void:
 
 static func _tilt_request(library: AssetLibrary, w: Wardrobe, eye_set: String,
 		state: String) -> CharacterAssembler.Request:
-	var r := CharacterAssembler.Request.make(library, "male_average", "round", "neutral")
+	var r := CharacterAssembler.Request.make(library, "male_average", "round")
 	r.wardrobe = w
 	r.eye_set_id = eye_set
 	r.lids = state

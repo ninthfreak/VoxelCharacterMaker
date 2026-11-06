@@ -103,8 +103,7 @@ func show_section(name: String) -> void:
 
 
 func make_request() -> CharacterAssembler.Request:
-	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape,
-		EyeSet.NEUTRAL)
+	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape)
 	request.wardrobe = editor.wardrobe
 	request.worn = clothes.as_worn() if show_mode == SHOW_ITEM else _live_worn()
 	var hair := editor.wardrobe.item(hair_id) if not hair_id.is_empty() else null

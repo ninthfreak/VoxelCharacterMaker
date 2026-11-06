@@ -2,22 +2,19 @@
 class_name FaceDef
 extends RefCounted
 
-## One expression: eyes only, as a skin-tight overlay (SPEC.md section 5).
+## The shipped open eye, as a skin-tight overlay (SPEC.md section 5).
 ##
 ## The owner wants eyes only -- no brows, no mouths. A face recolours head
 ## voxels on the face plane and never adds volume, so bulk is always 0 and
 ## blinking is an overlay swap.
 ##
-## Eye box: 4 wide x 5 tall, top two corners rounded. Screen-left eye x7-10,
-## screen-right eye x13-16, rows from BodyLayout.EYE_Z0. Fits all five heads.
+## Eye box: 5 wide x 6 tall, all corners rounded (BodyLayout). The same on
+## every head. Stored once per eye in BOX CELLS: c counts from that eye's OUTER
+## edge (away from the nose) and r from its bottom row.
 ##
-## An expression is stored once per eye in BOX CELLS: c counts from that eye's
-## OUTER edge (away from the nose) and r from its bottom row. Symmetric
-## expressions hold the same cells twice; asymmetric ones (wink, look_left,
-## look_right) differ between the two eyes, which is why both are stored.
-##
-## Roles: white, pupil (the eye colour, which is a colourway), line (lids),
-## skin (the overlay hides the eye there). The face draws UNDER hair and hats.
+## Roles: white, pupil (the eye colour, which is a colourway), line, skin (the
+## overlay leaves the skin there). The face draws UNDER hair and hats. Lids and
+## brow are added over it by EyeLids.
 
 const ROLE_WHITE := "white"
 const ROLE_PUPIL := "pupil"
@@ -109,7 +106,7 @@ func cell_to_voxel(c: int, r: int, mirrored: bool) -> Vector3i:
 	return Vector3i(x, plane_y, int(eye_box["z0"]) + r)
 
 
-## The whole expression as absolute voxels: Vector3i -> role.
+## The whole face as absolute voxels: Vector3i -> role.
 func to_absolute() -> Dictionary:
 	var out := {}
 	for cell in screen_left.keys():
@@ -133,7 +130,7 @@ func ink_cells() -> Dictionary:
 	return out
 
 
-## True when every cell of this expression lands on the given head's face plane
+## True when every cell of this face lands on the given head's face plane
 ## (SPEC section 12: "no eye cell falls off the face plane").
 func fits_head(head: HeadDef) -> bool:
 	return missing_on_head(head).is_empty()

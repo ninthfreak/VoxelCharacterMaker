@@ -197,10 +197,10 @@ func _add_specials() -> void:
 	_wardrobe.add_item(hood)
 
 
-func _rig(body_id: String, head: String, expression: String, worn: Array,
+func _rig(body_id: String, head: String, worn: Array,
 		at: Vector3, pose: String = Poses.REST, features: Array = [],
 		lids: String = EyeLids.DEFAULT, skin_tone: String = Palette.DEFAULT_SKIN) -> AABB:
-	var request := CharacterAssembler.Request.make(_library, body_id, head, expression)
+	var request := CharacterAssembler.Request.make(_library, body_id, head)
 	request.wardrobe = _wardrobe
 	request.worn = worn
 	request.features = features
@@ -232,7 +232,7 @@ func _lay_out_bodies(worn: Array) -> AABB:
 	var first := true
 	for i in ids.size():
 		var x := (float(ids.size() - 1) * 0.5 - float(i)) * SPACING_FIGURES
-		var b := _rig(ids[i], "round", "neutral", worn, Vector3(x, 0, 0))
+		var b := _rig(ids[i], "round", worn, Vector3(x, 0, 0))
 		var body := _library.body(ids[i])
 		_caption(body.display_name() if body != null else ids[i], Vector3(x, 0, 0))
 		total = b if first else total.merge(b)
@@ -246,7 +246,7 @@ func _lay_out_poses(worn: Array) -> AABB:
 	var first := true
 	for i in poses.size():
 		var x := (float(poses.size() - 1) * 0.5 - float(i)) * SPACING_POSES
-		var b := _rig("male_average", "round", "neutral", worn,
+		var b := _rig("male_average", "round", worn,
 			Vector3(x, 0, 0), poses[i])
 		_caption(Poses.display_name(poses[i]), Vector3(x, 0, 0))
 		total = b if first else total.merge(b)
@@ -278,7 +278,7 @@ func _lay_out_specials() -> AABB:
 	for i in shapes.size():
 		var look: Dictionary = looks[i % looks.size()]
 		var x := (float(shapes.size() - 1) * 0.5 - float(i)) * SPACING_FIGURES
-		var b := _rig(String(look["body"]), shapes[i], "neutral", look["worn"],
+		var b := _rig(String(look["body"]), shapes[i], look["worn"],
 			Vector3(x, 0, 0), String(look["pose"]), look["features"])
 		_caption("%s head\n%s" % [shapes[i], look["label"]], Vector3(x, 0, 0))
 		total = b if first else total.merge(b)
@@ -303,7 +303,7 @@ func _lay_out_faces(states: Array) -> AABB:
 		var x := (float(states.size() - 1) * 0.5 - float(i)) * SPACING_HEADS
 		var skin := Palette.SKIN_TONE_NAMES[i % Palette.SKIN_TONE_NAMES.size()]
 		var h: Dictionary = hair[i % hair.size()]
-		var b := _rig("male_average", shapes[i % shapes.size()], "neutral", [],
+		var b := _rig("male_average", shapes[i % shapes.size()], [],
 			Vector3(x, 0, 0), Poses.REST, [] if h.is_empty() else [h], states[i], skin)
 		_caption("%s\n%s skin" % [EyeLids.display_name(states[i]), skin],
 			Vector3(x, neck_y - 0.02, 0))

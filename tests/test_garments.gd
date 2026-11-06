@@ -316,7 +316,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 
 	for shape in library.head_shapes():
 		var request := CharacterAssembler.Request.make(
-			library, "male_average", shape, "neutral")
+			library, "male_average", shape)
 		request.wardrobe = wardrobe
 		request.worn = [{"item": "hood", "colourway": "default"}]
 		var hooded := CharacterAssembler.assemble(request)
@@ -340,7 +340,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 
 static func _assemble(library: AssetLibrary, wardrobe: Wardrobe, body_id: String,
 		worn: Array) -> CharacterAssembler.Assembled:
-	var request := CharacterAssembler.Request.make(library, body_id, "round", "neutral")
+	var request := CharacterAssembler.Request.make(library, body_id, "round")
 	request.wardrobe = wardrobe
 	request.worn = worn
 	return CharacterAssembler.assemble(request)

@@ -185,8 +185,7 @@ func _build_checks() -> void:
 
 func make_request() -> CharacterAssembler.Request:
 	# Bare: no wardrobe items, no features, and the library's own neutral eyes.
-	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape,
-		EyeSet.NEUTRAL)
+	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape)
 	return request
 
 
@@ -485,8 +484,7 @@ static func _num(f: float) -> String:
 	return str(int(roundf(f))) if is_equal_approx(f, roundf(f)) else "%.1f" % f
 
 
-## Every cell some expression paints, from the shipped faces and every eye set
-## in the wardrobe: a head has to carry all of them.
+## Every cell the eyes can paint: a head has to carry all of them.
 func eye_cells() -> Dictionary:
 	# The whole eye box and the brow row: lids and brows can land on any of
 	# them, and the eyes are the same size on every head, always.
@@ -495,15 +493,6 @@ func eye_cells() -> Dictionary:
 		for c in EyeSet.BOX_W:
 			for r in EyeSet.BOX_H + 1:
 				out[EyeSet.cell_to_voxel(c, r, eye)] = true
-	for name in editor.library.expression_names():
-		for cell in editor.library.face(name).ink_cells().keys():
-			out[cell] = true
-	if editor.wardrobe != null:
-		for id in editor.wardrobe.eye_set_ids():
-			var eyes := editor.wardrobe.eye_set(id)
-			for expression in eyes.expression_names():
-				for cell2 in eyes.to_absolute(expression).keys():
-					out[cell2] = true
 	return out
 
 
