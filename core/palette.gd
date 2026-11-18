@@ -195,6 +195,7 @@ static func default_wardrobe_colours() -> Dictionary:
 		"teal": Color8(58, 116, 124),
 		"slate": Color8(96, 104, 124),
 		"plum": Color8(104, 66, 94),
+		"denim": Color8(66, 96, 150),
 		# Eyes: the stock colours SPEC section 6 gives, plus two iris colours.
 		"eye_white": EYE_WHITE,
 		"eye_dark": EYE_BLACK,

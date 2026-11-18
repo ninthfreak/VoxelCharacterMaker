@@ -11,7 +11,7 @@ which parts are solid and which are guesses.
 
 ## 1. Verification status
 
-**Everything compiles and the acceptance suite is green: 1421 checks, 0 failures.**
+**Everything compiles and the acceptance suite is green: 1488 checks, 0 failures.**
 
 ```bash
 tests/run.sh                 # measures the assets, then runs the Godot suite
@@ -466,6 +466,29 @@ the legs into one block -- the most visible flaw at sprite size. Now:
   half-size voxels for clothing (mixed voxel sizes; not pursued).
 - Drawn shapes are placed as drawn: rule 8 governs grown bulk, not hand-drawn
   cells.
+
+## 4g. Suspenders, and overalls as an outfit (owner's idea)
+
+Zones alone can make trousers with a bib but not straps: the smallest zone on
+the upper chest is a quarter of it. So:
+
+- **Shoulder straps** are a new special type (`core/specials/
+  strap_generator.gd`): up the chest, over the top beside the neck, straight
+  down the back, one voxel proud, placed halfway between the neck and the
+  chest's edge so wide chests carry them wider. Steps in the chest (the
+  rounded collar row, a bust) are bridged so each strap is one connected
+  strip. Width 1 or 2. A crossed back was tried and reads as a cluster of
+  pixels at this size; the owner chose straight.
+- **Starter items:** Suspenders (accessory, uses the straps), Bib (zones only,
+  draws above tops), and a skin-tight Shirt to wear under them. Trousers gain
+  a denim colourway.
+- **Overalls are an outfit:** trousers + shirt + bib + suspenders, with the
+  three denim pieces in one colour. Each piece is useful alone.
+- **Starter outfits are now five:** everyday, travelling, dressed up, shirt
+  and suspenders, overalls.
+- The bib is skin-tight, so under a thick top (the starter tunic) it is
+  hidden by the layering rule; raise its bulk to wear it over one.
+- Not yet verified: whether the bib alone reads as an apron.
 
 ## 5. Still open, for the owner
 

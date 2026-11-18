@@ -18,7 +18,7 @@ figures. Godot 4, GDScript.
 | Parametric garments (regions, roles, bulk, mirror, edge style) | done |
 | Layering by reach, then draw order | done |
 | One-file wardrobe (v2) with exact round-trip | done; v1 files still open |
-| Special shapes on any item | skirt, cape, hood, and a drawn shape anchored to the body |
+| Special shapes on any item | skirt, cape, hood, shoulder straps, facial hair, and a drawn shape anchored to the body |
 | Eyes, hair, facial hair as their own kind of item | done |
 | Eyelids and brows over the open eye; skin tones | done (Preview picks them) |
 | Mesher (exposed-face culling, vertex colours) | done |
@@ -62,7 +62,7 @@ same character assembled the way the game will do it, with no editor involved.
 ## Tests
 
 Every acceptance check in `SPEC.md` section 12 is an automated test.
-**1421 checks, all passing** on Godot 4.7.2.
+**1488 checks, all passing** on Godot 4.7.2.
 
 ```bash
 godot --headless --path . --script res://tests/run_tests.gd

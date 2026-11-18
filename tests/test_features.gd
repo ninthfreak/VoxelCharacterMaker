@@ -18,6 +18,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	_shapes(t, library)
 	_items_with_specials(t, library)
 	_panels_clear(t, library)
+	_straps(t, library)
 	_lids(t, library)
 
 
@@ -595,4 +596,98 @@ static func _tilt_request(library: AssetLibrary, w: Wardrobe, eye_set: String,
 	r.eye_set_id = eye_set
 	r.lids = state
 	return r
+
+
+# ------------------------------------------------------ straps, overalls ----
+
+static func _owned(part: CharacterAssembler.Part, item_id: String) -> Dictionary:
+	var out := {}
+	for cell in part.cells.keys():
+		if String(part.owners.get(cell, "")) == item_id:
+			out[cell] = true
+	return out
+
+
+## Suspenders are a pair of shoulder straps placed on each chest; overalls are
+## an outfit of trousers, bib and suspenders in one colour (owner's design).
+static func _straps(t: TestReport, library: AssetLibrary) -> void:
+	t.group("straps: suspenders fit every body")
+	var w := Wardrobe.create_default(library)
+	var bottom := BodyLayout.z0("belly")
+	var columns := {}
+	for id in library.body_ids():
+		var chest_body: Dictionary = library.body(id).part("chest").cells
+		var a := _figure(library, w, id, "round", "", w.outfit("shirt and suspenders"))
+		t.check(a.warnings.is_empty(), "%s: they generate" % id, ", ".join(a.warnings))
+		var straps := _owned(a.part("chest"), "suspenders")
+		var on_body := 0
+		var low := 99
+		var high := -1
+		var at_bottom := 0
+		for cell in straps.keys():
+			var c: Vector3i = cell
+			if chest_body.has(c):
+				on_body += 1
+			low = mini(low, c.z)
+			high = maxi(high, c.z)
+			if c.z == bottom:
+				at_bottom += 1
+		t.check(not straps.is_empty() and on_body == 0, "%s: the straps stand out from the chest" % id)
+		t.check(VoxelTopology.is_mirror_symmetric(straps), "%s: they are mirror images" % id)
+		t.check_equal(VoxelTopology.components(straps), 2,
+			"%s: each strap is one piece -- front, over the top, and back" % id)
+		t.check(low == bottom and high == BodyLayout.NECK_ROW,
+			"%s: they run from the belly's bottom row to over the shoulder" % id,
+			"rows %d to %d" % [low, high])
+		t.check_equal(at_bottom, 4, "%s: both straps reach the bottom, front and back" % id)
+		var cols := StrapGenerator.strap_columns(chest_body, 1)
+		var top_row := int(VoxelTopology.bounds(chest_body).end.z) - 1
+		t.check(cols.size() == 1 and cols[0] > BodyLayout.NECK_SOCKET_X.y
+			and cols[0] <= VoxelTopology.row_extent_x(chest_body, top_row).y,
+			"%s: the strap sits between the neck and the edge of the chest" % id, str(cols))
+		columns[id] = cols[0] if not cols.is_empty() else -1
+	t.check(int(columns["male_heavy"]) > int(columns["female_slim"]),
+		"a wide chest carries its straps wider than a narrow one", str(columns))
+
+	# Two voxels wide, and over a thick top.
+	var wide := w.item("suspenders").duplicate_as("wide_suspenders", "Wide suspenders")
+	wide.set_special_param(0, "width", 2)
+	w.add_item(wide)
+	var a2 := _figure(library, w, "male_average", "round", "",
+		[{"item": "wide_suspenders", "colourway": "default"}])
+	var wide_bottom := 0
+	for cell in _owned(a2.part("chest"), "wide_suspenders").keys():
+		if (cell as Vector3i).z == bottom:
+			wide_bottom += 1
+	t.check_equal(wide_bottom, 8, "width 2 doubles each strap")
+	var over_tunic := _figure(library, w, "male_average", "round", "",
+		w.outfit("everyday") + [{"item": "suspenders", "colourway": "default"}])
+	t.check(not _owned(over_tunic.part("chest"), "suspenders").is_empty(),
+		"suspenders show over a thick top: same reach, and accessories draw above tops")
+
+	t.group("straps: overalls are an outfit of three pieces in one colour")
+	t.check(w.outfit_names().has("overalls") and w.outfit_names().has("shirt and suspenders"),
+		"the starter wardrobe has both outfits", ", ".join(w.outfit_names()))
+	var denim := Palette.garment_tones(w.colour("denim"))
+	for id2 in library.body_ids():
+		var o := _figure(library, w, id2, "round", "", w.outfit("overalls"))
+		t.check(o.warnings.is_empty(), "%s: the overalls outfit assembles" % id2, ", ".join(o.warnings))
+		var seen := {}
+		var one_colour := true
+		for name in o.order:
+			var part := o.part(String(name))
+			for cell in part.cells.keys():
+				var owner := String(part.owners.get(cell, ""))
+				if owner.is_empty():
+					continue
+				seen[owner] = true
+				if owner in ["bib", "suspenders", "trousers"]:
+					var colour: Color = part.colours[cell]
+					var is_denim := false
+					for tone in denim:
+						is_denim = is_denim or colour.is_equal_approx(tone)
+					one_colour = one_colour and is_denim
+		t.check(seen.has("bib") and seen.has("suspenders") and seen.has("trousers") and seen.has("shirt"),
+			"%s: trousers, shirt, bib and suspenders all show" % id2, ", ".join(seen.keys()))
+		t.check(one_colour, "%s: trousers, bib and suspenders are one colour" % id2)
 

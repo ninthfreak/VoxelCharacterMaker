@@ -86,7 +86,10 @@ func _add_starter_clothes() -> void:
 	# is for legwear meant to look thick; rule 8 keeps the legs apart either way.
 	var trousers := GarmentItem.create("trousers", "Trousers", "bottom")
 	trousers.roles = ["cloth", "trim"]
-	trousers.colourways = {"default": {"cloth": "slate", "trim": "ink"}}
+	trousers.colourways = {
+		"default": {"cloth": "slate", "trim": "ink"},
+		"denim": {"cloth": "denim", "trim": "denim"},
+	}
 	for key in ["hips.L.F", "hips.L.B", "upper_thigh.L", "lower_thigh.L", "shin.L"]:
 		trousers.set_region(key, "cloth", 0)
 	trousers.set_region("knee.L", "trim", 0)
@@ -100,6 +103,35 @@ func _add_starter_clothes() -> void:
 	boots.set_region("foot.L", "leather", 1)
 	boots.set_region("ankle.L", "leather", 1)
 	add_item(boots)
+
+	# A plain shirt, skin-tight like the trousers: what a bib or straps go over.
+	var shirt := GarmentItem.create("shirt", "Shirt", "top")
+	shirt.roles = ["cloth"]
+	shirt.colourways = {"default": {"cloth": "bone"}, "rust": {"cloth": "rust"}}
+	for key in ["upper_chest.L.F", "upper_chest.L.B", "lower_chest.L.F", "lower_chest.L.B",
+			"belly.L.F", "belly.L.B", "collar.L.F", "collar.L.B", "shoulder.L", "upper_arm.L"]:
+		shirt.set_region(key, "cloth", 0)
+	add_item(shirt)
+
+	# Overalls are not a garment but an outfit of three pieces in one colour
+	# (owner's idea): trousers, this bib, and the suspenders. Each is useful on
+	# its own. The bib is zones only -- waist, belly and the front of the lower
+	# chest -- and draws above tops so it shows over a shirt. Skin-tight, so
+	# under a thick top it is hidden: raise its bulk to wear it over one.
+	var bib := GarmentItem.create("bib", "Bib", "other")
+	bib.roles = ["cloth"]
+	bib.colourways = {"default": {"cloth": "denim"}, "bone": {"cloth": "bone"}}
+	for key in ["waist.L.F", "waist.L.B", "belly.L.F", "belly.L.B", "lower_chest.L.F"]:
+		bib.set_region(key, "cloth", 0)
+	add_item(bib)
+
+	# Suspenders: a pair of shoulder straps, placed on each chest by the strap
+	# generator. An accessory, so they draw over tops and under a thick coat.
+	var suspenders := GarmentItem.create("suspenders", "Suspenders", "accessory")
+	suspenders.roles = ["strap"]
+	suspenders.colourways = {"default": {"strap": "rust"}, "denim": {"strap": "denim"}}
+	suspenders.add_special("straps")
+	add_item(suspenders)
 
 	# A dress is a bodice of regions plus a skirt shape: one item, both kinds.
 	var dress := GarmentItem.create("dress", "Dress", "top")
@@ -146,6 +178,19 @@ func _add_starter_clothes() -> void:
 	outfits["dressed up"] = [
 		{"item": "boots", "colourway": "default"},
 		{"item": "dress", "colourway": "default"},
+	]
+	outfits["shirt and suspenders"] = [
+		{"item": "boots", "colourway": "default"},
+		{"item": "trousers", "colourway": "default"},
+		{"item": "shirt", "colourway": "default"},
+		{"item": "suspenders", "colourway": "default"},
+	]
+	outfits["overalls"] = [
+		{"item": "boots", "colourway": "default"},
+		{"item": "trousers", "colourway": "denim"},
+		{"item": "shirt", "colourway": "default"},
+		{"item": "bib", "colourway": "default"},
+		{"item": "suspenders", "colourway": "denim"},
 	]
 
 

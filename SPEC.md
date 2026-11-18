@@ -274,6 +274,11 @@ from a pivot on a body part (front/back/side panels from the pelvis; cape panels
 driver rule (front panel follows the more-forward thigh, back panel the more-backward one, side panels their own
 thigh). Legs may clip at extreme poses; accepted.
 
+**Built so far:** skirt, cape, hood, shoulder straps, facial hair (§5.1), and a hand-drawn shape placed at a body
+anchor. **Straps** run up the chest, across the top beside the neck and straight down the back, one voxel proud, in a
+column halfway between the neck and the chest's edge, so they fit every body. Worn over a shirt they are suspenders.
+**Overalls are an outfit, not a garment** (owner): trousers, a bib of zones, and suspenders, all in one colour.
+
 Hand-placed voxel edits: allowed on special types; ordinary parametric garments stay purely parametric (hand edits
 would stop them fitting other bodies). Decals (buttons, emblems) are deferred; thin trim bands cover most of it.
 
