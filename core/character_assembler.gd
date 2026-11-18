@@ -490,6 +490,7 @@ static func _claim_special(claims: Dictionary, panels: Array, out: Assembled,
 			"reach": REACH_RECOLOUR if recolour else int(c.get("reach", 1)),
 			"draw_order": item.draw_order,
 			"region": regions.key_for_cell(part_name, cell),
+			"tone": int(c.get("tone", -1)),
 		})
 
 
@@ -543,6 +544,10 @@ static func _fill_part(part: Part, cells: Dictionary, part_claims: Dictionary,
 			continue
 
 		var cl: Dictionary = claim
+		# A claim may fix its own shade (a strap matching the cloth under it).
+		if int(cl.get("tone", -1)) >= 0:
+			tone = int(cl["tone"])
+			part.tones[c] = tone
 		var source := int(cl["source"])
 		part.sources[c] = source
 		part.owners[c] = String(cl["item"])

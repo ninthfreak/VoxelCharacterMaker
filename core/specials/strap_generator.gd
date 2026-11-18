@@ -22,6 +22,11 @@ extends RefCounted
 ##
 ## Straight down the back: a crossed back was tried and turns into a cluster of
 ## pixels at this size (owner chose straight).
+##
+## Shade: a strap one voxel wide is all edge, and the baked lighting would make
+## every voxel of it the light shade -- lighter than the bib and trousers it
+## is meant to match on overalls. So each run takes the shade its outward face
+## has on a flat garment: mid on the front, dark on the back, light on top.
 
 const ROLE_STRAP := "strap"
 
@@ -39,7 +44,7 @@ static func strap_columns(chest: Dictionary, width: int) -> Array[int]:
 	var out: Array[int] = []
 	if chest.is_empty():
 		return out
-	var top := int(VoxelTopology.bounds(chest).end.z) - 1
+	var top := int(VoxelTopology.bounds(chest).end.z)   # bounds are inclusive: this IS the top row
 	var edge := VoxelTopology.row_extent_x(chest, top).y
 	var beside_neck := BodyLayout.NECK_SOCKET_X.y + 1
 	if edge < beside_neck:
@@ -90,8 +95,8 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 				var z := int(rows[i])
 				var f := int(front[z]) - 1
 				var b := int(back[z]) + 1
-				_add(out, done, chest, Vector3i(x, f, z))
-				_add(out, done, chest, Vector3i(x, b, z))
+				_add(out, done, chest, Vector3i(x, f, z), Shading.Tone.MID)
+				_add(out, done, chest, Vector3i(x, b, z), Shading.Tone.DARK)
 				if i + 1 >= rows.size() or int(rows[i + 1]) != z + 1:
 					continue
 				# Where the chest steps in or out from one row to the next (the
@@ -102,22 +107,22 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 				if f2 != f:
 					var inner_row := z + 1 if f2 > f else z
 					for y in range(mini(f, f2), maxi(f, f2)):
-						_add(out, done, chest, Vector3i(x, y, inner_row))
+						_add(out, done, chest, Vector3i(x, y, inner_row), Shading.Tone.MID)
 				var b2 := int(back[z + 1]) + 1
 				if b2 != b:
 					var inner_row_b := z + 1 if b2 < b else z
 					for y in range(mini(b, b2) + 1, maxi(b, b2) + 1):
-						_add(out, done, chest, Vector3i(x, y, inner_row_b))
+						_add(out, done, chest, Vector3i(x, y, inner_row_b), Shading.Tone.DARK)
 			# Over the top: above the column's top cells, and one further at
 			# each end so the top meets the front and back runs.
 			for y in range(int(front[top]) - 1, int(back[top]) + 2):
-				_add(out, done, chest, Vector3i(x, y, top + 1))
+				_add(out, done, chest, Vector3i(x, y, top + 1), Shading.Tone.LIGHT)
 	return out
 
 
 static func _add(out: SpecialItem.Result, done: Dictionary, chest: Dictionary,
-		cell: Vector3i) -> void:
+		cell: Vector3i, tone: int) -> void:
 	if done.has(cell) or chest.has(cell) or not VoxelAxes.in_grid(cell):
 		return
 	done[cell] = true
-	out.claim("chest", cell, ROLE_STRAP, 1)
+	out.claim("chest", cell, ROLE_STRAP, 1, false, tone)

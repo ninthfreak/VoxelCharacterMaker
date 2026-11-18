@@ -18,7 +18,8 @@ extends RefCounted
 ## What a generator returns.
 class Result extends RefCounted:
 	## Claims on cells: Array of
-	## {"part": String, "cell": Vector3i, "role": String, "reach": int}
+	## {"part": String, "cell": Vector3i, "role": String, "reach": int,
+	##  "recolour": bool, "tone": int}
 	var claims: Array = []
 
 	## Garment-owned rigid parts: Array of
@@ -29,10 +30,15 @@ class Result extends RefCounted:
 
 	## `recolour` lets the claim land on a body voxel and repaint it, instead
 	## of being refused there as an ordinary special-shape claim is.
+	##
+	## `tone` fixes the cell's shade (a Shading.Tone) instead of leaving it to
+	## the baked lighting. A thin raised strip is all edge, so the lighting
+	## would make every voxel of it the light shade; a shape that should match
+	## the cloth it lies on says which shade its face would have. -1 = baked.
 	func claim(part: String, cell: Vector3i, role: String, reach: int = 1,
-			recolour: bool = false) -> void:
+			recolour: bool = false, tone: int = -1) -> void:
 		claims.append({"part": part, "cell": cell, "role": role, "reach": reach,
-			"recolour": recolour})
+			"recolour": recolour, "tone": tone})
 
 	func panel(name: String, parent: String, pivot: Vector3, driver: String) -> void:
 		panels.append({"name": name, "parent": parent, "pivot": pivot, "driver": driver})

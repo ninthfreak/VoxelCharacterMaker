@@ -11,7 +11,7 @@ which parts are solid and which are guesses.
 
 ## 1. Verification status
 
-**Everything compiles and the acceptance suite is green: 1488 checks, 0 failures.**
+**Everything compiles and the acceptance suite is green: 1494 checks, 0 failures.**
 
 ```bash
 tests/run.sh                 # measures the assets, then runs the Godot suite
@@ -489,6 +489,11 @@ the upper chest is a quarter of it. So:
 - The bib is skin-tight, so under a thick top (the starter tunic) it is
   hidden by the layering rule; raise its bulk to wear it over one.
 - Not yet verified: whether the bib alone reads as an apron.
+- **Straps take the shade of the cloth they lie on.** A strap one voxel wide
+  is all edge, so the baked lighting made every voxel the light shade and the
+  overalls' straps read lighter than the bib (owner noticed). A special's
+  claim can now fix its own shade; straps use mid in front, dark behind and
+  light on top, which is what a flat garment's faces get there.
 
 ## 5. Still open, for the owner
 

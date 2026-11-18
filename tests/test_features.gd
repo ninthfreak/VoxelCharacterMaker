@@ -641,7 +641,7 @@ static func _straps(t: TestReport, library: AssetLibrary) -> void:
 			"rows %d to %d" % [low, high])
 		t.check_equal(at_bottom, 4, "%s: both straps reach the bottom, front and back" % id)
 		var cols := StrapGenerator.strap_columns(chest_body, 1)
-		var top_row := int(VoxelTopology.bounds(chest_body).end.z) - 1
+		var top_row := int(VoxelTopology.bounds(chest_body).end.z)
 		t.check(cols.size() == 1 and cols[0] > BodyLayout.NECK_SOCKET_X.y
 			and cols[0] <= VoxelTopology.row_extent_x(chest_body, top_row).y,
 			"%s: the strap sits between the neck and the edge of the chest" % id, str(cols))
@@ -690,4 +690,18 @@ static func _straps(t: TestReport, library: AssetLibrary) -> void:
 		t.check(seen.has("bib") and seen.has("suspenders") and seen.has("trousers") and seen.has("shirt"),
 			"%s: trousers, shirt, bib and suspenders all show" % id2, ", ".join(seen.keys()))
 		t.check(one_colour, "%s: trousers, bib and suspenders are one colour" % id2)
+		# ...and one SHADE where they meet: a thin raised strap would otherwise
+		# catch the edge highlight on every voxel and read lighter than the bib.
+		var chest_part := o.part("chest")
+		var chest_body: Dictionary = library.body(id2).part("chest").cells
+		var chest_top := int(VoxelTopology.bounds(chest_body).end.z)
+		var wrong := 0
+		for cell in _owned(chest_part, "suspenders").keys():
+			var c: Vector3i = cell
+			var want: Color = denim[0] if c.z > chest_top \
+				else (denim[1] if c.y < VoxelAxes.DEPTH_CENTRE else denim[2])
+			if not (chest_part.colours[c] as Color).is_equal_approx(want):
+				wrong += 1
+		t.check_equal(wrong, 0,
+			"%s: the straps take the shade of the cloth they lie on (mid in front, dark behind)" % id2)
 
