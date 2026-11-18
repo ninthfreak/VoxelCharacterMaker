@@ -81,13 +81,16 @@ func _add_starter_clothes() -> void:
 	tunic.set_region("waist.L.B", "trim", 1)
 	add_item(tunic)
 
+	# Skin-tight (bulk 0) is the norm for trousers (owner): slender legs, the
+	# classic sprite look, and a top's hem then reads as worn over them. Bulk
+	# is for legwear meant to look thick; rule 8 keeps the legs apart either way.
 	var trousers := GarmentItem.create("trousers", "Trousers", "bottom")
 	trousers.roles = ["cloth", "trim"]
 	trousers.colourways = {"default": {"cloth": "slate", "trim": "ink"}}
 	for key in ["hips.L.F", "hips.L.B", "upper_thigh.L", "lower_thigh.L", "shin.L"]:
-		trousers.set_region(key, "cloth", 1)
-	trousers.set_region("knee.L", "trim", 1)
-	trousers.set_region("ankle.L", "trim", 1)
+		trousers.set_region(key, "cloth", 0)
+	trousers.set_region("knee.L", "trim", 0)
+	trousers.set_region("ankle.L", "trim", 0)
 	add_item(trousers)
 
 	var boots := GarmentItem.create("boots", "Boots", "feet")

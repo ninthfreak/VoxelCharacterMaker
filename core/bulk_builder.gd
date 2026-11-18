@@ -32,6 +32,15 @@ extends RefCounted
 ##                                          distances returned here
 ## 7. Edge style per garment: soft (rounded corners, cloth) or hard (squared,
 ##    plate).                            -> the stencil metric
+## 8. Nothing worn on the legs or feet grows into the gap between them. The
+##    side of a leg that faces the other leg gets no added voxels; the leg's
+##    own inner face is recoloured instead. Two legs each growing one voxel
+##    inward would close the two-voxel gap and turn trousers or boots into one
+##    block (owner's decision, with skin-tight as the norm for trousers).
+##                                       -> without_leg_gap() and
+##                                          leg_inner_face(), applied by
+##                                          CharacterAssembler to thigh and
+##                                          shin parts
 ##
 ## The returned distance is the Chebyshev layer index, 1..bulk: how far out from
 ## the body surface a cell sits. "Bulk is measured from the body, not from the
@@ -171,6 +180,68 @@ static func _apply(out: Dictionary, part_cells: Dictionary, c: Vector3i, offsets
 		var seen: Variant = out.get(target)
 		if seen == null or int(seen) > layer:
 			out[target] = layer
+
+
+# ------------------------------------------------------------ rule 8: legs ---
+
+## The parts rule 8 applies to: both thighs and both shins (the shin includes
+## the foot).
+static func is_leg_part(part_name: String) -> bool:
+	var family := RegionMap.family_of(part_name)
+	return (family == "thigh" or family == "shin") \
+		and (part_name.ends_with("_L") or part_name.ends_with("_R"))
+
+
+## Whether a cell lies on the far side of a leg's inner edge -- in the gap
+## between the legs. The character's left leg is on the +x side, so its inner
+## edge is its smallest x; the right leg mirrors that. The edge is taken per
+## row, so an edited leg that is not a straight column is still followed; a row
+## the leg does not reach uses the leg's innermost x anywhere.
+static func _leg_inner_edges(part_name: String, part_cells: Dictionary) -> Dictionary:
+	var left := part_name.ends_with("_L")
+	var edges := {}
+	var overall := 999 if left else -999
+	for cell in part_cells.keys():
+		var c: Vector3i = cell
+		var seen: Variant = edges.get(c.z)
+		if seen == null or (c.x < int(seen) if left else c.x > int(seen)):
+			edges[c.z] = c.x
+		overall = mini(overall, c.x) if left else maxi(overall, c.x)
+	edges["any"] = overall
+	return edges
+
+
+## `grown` (from grow()) with every cell in the gap between the legs removed.
+## For a part that is not a leg the result is `grown` itself.
+static func without_leg_gap(part_name: String, part_cells: Dictionary,
+		grown: Dictionary) -> Dictionary:
+	if not is_leg_part(part_name) or grown.is_empty():
+		return grown
+	var left := part_name.ends_with("_L")
+	var edges := _leg_inner_edges(part_name, part_cells)
+	var out := {}
+	for cell in grown.keys():
+		var c: Vector3i = cell
+		var edge := int(edges.get(c.z, edges["any"]))
+		if c.x < edge if left else c.x > edge:
+			continue
+		out[c] = grown[cell]
+	return out
+
+
+## The cells of a leg region whose face toward the other leg is open: the
+## inner face rule 8 leaves bare of added voxels, to be recoloured instead so
+## no skin shows inside the gap. Empty for a part that is not a leg.
+static func leg_inner_face(part_name: String, region_cells: Variant,
+		occupancy: Dictionary) -> Array:
+	var out: Array = []
+	if not is_leg_part(part_name):
+		return out
+	var toward := Vector3i(-1, 0, 0) if part_name.ends_with("_L") else Vector3i(1, 0, 0)
+	for cell in region_cells:
+		if not occupancy.has((cell as Vector3i) + toward):
+			out.append(cell)
+	return out
 
 
 ## Cells of a part that fall inside a set of region keys.

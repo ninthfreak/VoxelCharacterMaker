@@ -333,9 +333,12 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 				continue
 			if String(head_part.owners.get(c12, "")) != "hood":
 				continue
-			if c12.x >= 7 and c12.x <= 16 and c12.z >= 30 and c12.z <= 34:
+			if c12.x >= BodyLayout.EYE_X0 and c12.x <= VoxelAxes.MIRROR_X_MAX - BodyLayout.EYE_X0 \
+					and c12.z >= BodyLayout.EYE_Z0 and c12.z <= BodyLayout.BROW_ROW:
 				blocked += 1
-		t.check_equal(blocked, 0, "the hood leaves the eyes clear on the %s head" % shape)
+		t.check_equal(blocked, 0, "the hood leaves the eyes and brow clear on the %s head" % shape)
+
+	_leg_gap(t, library)
 
 
 static func _assemble(library: AssetLibrary, wardrobe: Wardrobe, body_id: String,
@@ -344,3 +347,89 @@ static func _assemble(library: AssetLibrary, wardrobe: Wardrobe, body_id: String
 	request.wardrobe = wardrobe
 	request.worn = worn
 	return CharacterAssembler.assemble(request)
+
+
+## Rule 8: nothing worn on the legs or feet grows into the gap between them.
+## Two legs each growing one voxel inward would close the two-voxel gap, and
+## trousers or boots would read as one block -- the most visible flaw at sprite
+## size. Checked with the everyday outfit (skin-tight trousers, thick boots)
+## and with thick legwear in both edge styles, on every body.
+static func _leg_gap(t: TestReport, library: AssetLibrary) -> void:
+	t.group("garments: rule 8 -- nothing grows between the legs")
+	t.check(BulkBuilder.is_leg_part("thigh_L") and BulkBuilder.is_leg_part("shin_R"),
+		"thighs and shins are legs")
+	t.check(not BulkBuilder.is_leg_part("pelvis") and not BulkBuilder.is_leg_part("forearm_L"),
+		"the pelvis and the arms are not")
+	var untouched := {Vector3i(1, 2, 3): 1}
+	t.check(BulkBuilder.without_leg_gap("chest", {}, untouched) == untouched,
+		"growth on other parts is left alone")
+
+	var w := Wardrobe.create_default(library)
+	for style in [BulkBuilder.EdgeStyle.SOFT, BulkBuilder.EdgeStyle.HARD]:
+		var thick := GarmentItem.create("thick_%d" % style, "Thick legwear", "bottom")
+		thick.edge_style = style
+		thick.roles = ["plate"]
+		thick.colourways = {"default": {"plate": "slate"}}
+		thick.set_region("hips.L.F", "plate", 1)
+		thick.set_region("hips.L.B", "plate", 1)
+		for key in ["upper_thigh.L", "lower_thigh.L", "knee.L", "shin.L", "ankle.L", "foot.L"]:
+			thick.set_region(key, "plate", 2)
+		w.add_item(thick)
+	# [label, worn, rows at the top of the legs the hips' own cloth may hang into]
+	var looks := [
+		["everyday (skin-tight trousers, thick boots)", w.outfit("everyday"), 0],
+		["thick soft legwear", [{"item": "thick_0", "colourway": "default"}], 1],
+		["thick hard legwear", [{"item": "thick_1", "colourway": "default"}], 1],
+	]
+	var leg_names := ["thigh_L", "thigh_R", "shin_L", "shin_R"]
+	var top_row := BodyLayout.z0("hips") - 1
+	for look in looks:
+		for id in library.body_ids():
+			var body := library.body(id)
+			# The bare body's gap, row by row: the columns between the legs.
+			var left_edge := {}
+			var right_edge := {}
+			var outer := -1
+			for leg in leg_names:
+				for cell in body.part(leg).cells.keys():
+					var c: Vector3i = cell
+					if String(leg).ends_with("_L"):
+						left_edge[c.z] = mini(int(left_edge.get(c.z, 99)), c.x)
+						outer = maxi(outer, c.x)
+					else:
+						right_edge[c.z] = maxi(int(right_edge.get(c.z, -99)), c.x)
+			var a := _assemble(library, w, id, look[1])
+			var leg_cells_in_gap := 0
+			var anything_in_gap := 0
+			var skin_in_gap := 0
+			var grew_outward := false
+			var legs := {}
+			for name in a.order:
+				var part := a.part(String(name))
+				var is_leg := String(name) in leg_names
+				for cell in part.cells.keys():
+					var c2: Vector3i = cell
+					if is_leg:
+						legs[c2] = true
+						if c2.x > outer:
+							grew_outward = true
+					if c2.z > top_row or not left_edge.has(c2.z):
+						continue
+					var in_gap := c2.x > int(right_edge[c2.z]) and c2.x < int(left_edge[c2.z])
+					if in_gap and is_leg:
+						leg_cells_in_gap += 1
+					if in_gap and c2.z <= top_row - int(look[2]):
+						anything_in_gap += 1
+					# A leg cell on the gap's edge must wear the garment's colour.
+					if is_leg and (c2.x == int(left_edge[c2.z]) or c2.x == int(right_edge[c2.z])) \
+							and body.part(String(name)).cells.has(c2) \
+							and String(part.owners.get(c2, "")).is_empty():
+						skin_in_gap += 1
+			var label := "%s, %s" % [look[0], id]
+			t.check_equal(leg_cells_in_gap, 0, "%s: no legwear voxel is between the legs" % label)
+			t.check_equal(anything_in_gap, 0, "%s: the gap is open from feet to hips" % label)
+			t.check_equal(skin_in_gap, 0, "%s: the legs' inner faces take the garment's colour" % label)
+			t.check(VoxelTopology.is_mirror_symmetric(legs), "%s: the legs stay mirror images" % label)
+			if int(look[2]) > 0:
+				t.check(grew_outward, "%s: thick legwear still grows outward" % label)
+

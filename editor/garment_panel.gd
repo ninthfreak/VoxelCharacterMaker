@@ -79,6 +79,8 @@ func _build_regions() -> void:
 	_regions = make_list(box, 230, true)
 	hint(box, "Select one or more regions, then apply a role and a bulk. Bulk 0 "
 		+ "recolours the body's own voxels; 1 or more adds that many voxels outward. "
+		+ "Legwear is usually bulk 0 (skin-tight), and nothing on the legs ever "
+		+ "grows into the gap between them. "
 		+ "A trim band is one row thick: a cuff, belt, collar or hem.")
 	var apply_row := HFlowContainer.new()
 	box.add_child(apply_row)

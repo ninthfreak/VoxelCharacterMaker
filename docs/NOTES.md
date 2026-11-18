@@ -11,7 +11,7 @@ which parts are solid and which are guesses.
 
 ## 1. Verification status
 
-**Everything compiles and the acceptance suite is green: 1334 checks, 0 failures.**
+**Everything compiles and the acceptance suite is green: 1421 checks, 0 failures.**
 
 ```bash
 tests/run.sh                 # measures the assets, then runs the Godot suite
@@ -108,6 +108,11 @@ like a coincidence nobody intended. Four ways out, for the owner to pick:
 
 *Recommended:* option 2, because it is reversible and costs nothing until a
 garment asks for it. Not done, because which way this goes is a look decision.
+
+**Resolved (owner, 2026-11), as option 3 without the opt-out:** bulk rule 8 --
+nothing worn on the legs or feet grows into the gap between them; the leg's
+inner face is recoloured instead -- plus skin-tight trousers as the norm. See
+section 4f.
 
 ---
 
@@ -286,9 +291,8 @@ A hooded cloak is a cape plus a hood on one item.
    that curves *around* a corner of the body (a scarf, a belt buckle on a
    side). Those still want regions, or a future "wrap around" mode. Moderate
    difficulty, medium confidence it matters.
-6. **Skirt panels and trousers.** The deferred thigh-gap problem touches skirts
-   too: a long skirt over trousers is two layers of cloth panel. Still
-   deferred, as agreed.
+6. ~~Skirt panels and trousers.~~ The thigh-gap problem is fixed (4f); a
+   skirt's panels already clear thick trousers worn under it (4c).
 
 **Owner's answers (problems above):** 1 -- to be worked out together. 2 --
 probably not a problem; later. 3 -- hats will likely need a few options for
@@ -356,9 +360,10 @@ panel shares a voxel with any other part, for every outfit on every body.
 One edge case: a skirt over trousers on the slim feminine body meets the hand,
 which hangs one voxel clear of the hips; the skirt leaves those few cells out.
 
-**Not changed, still deferred:** trousers fill the gap between the thighs
-from both legs, and the tunic does the same at the armpits (two body parts'
-garments in one cell). That is the trouser problem the owner deferred.
+**Not changed here:** trousers filled the gap between the thighs from both
+legs (fixed later, see 4f), and the tunic and a sleeve still meet in one cell
+where an arm hangs against the torso. That one is left alone on purpose: an
+arm resting against the body is the normal sprite look.
 
 **Edited bodies and heads** saved before this change (in `assets/edited/`)
 would be on the old layout and would need redoing; none existed here.
@@ -422,6 +427,45 @@ chin anchor so it can be tweaked.
 - Review sheet: `docs/renders/facial_hair.png`.
 - Watch: an auburn chinstrap on medium skin is low contrast (hue close to the
   skin). Fine for now; revisit if it matters in use.
+
+## 4f. Evaluation at sprite size, and the trouser fix
+
+**The test.** Assembled characters drawn straight on at one voxel per pixel
+are sprites about 24 x 42 px -- classic 16-bit size. Findings (2026-11):
+
+- Faces carry: angry, tired, suspicious and wide open are all told apart at
+  the actual 42 px.
+- Body types only partly read once dressed alike. Dressed widths are 20 / 24
+  / 26 px (masculine slim / average / heavy) and 18 / 20 / 24 (feminine);
+  masculine slim and feminine average have almost the same outline (6 px
+  differ of about 390). Bare, all six read. Whether to widen the spread or let
+  hair and clothes carry it is the owner's call, still open.
+- Outlines are all "head on a block": nothing built yet changes the outline
+  from the front. A hair pass aimed at volume is the likely fix.
+- The bust shows through a tunic as light blotches rather than a shape.
+- The homage is in the data (sprite-sized, chibi head, three tones, eyes-only
+  faces) but unproven in motion: smoothly rotating rigid parts turn voxels
+  off the grid, which reads as a toy rather than a sprite. A small look test
+  (one walk cycle in a few styles, at low resolution, from a candidate
+  camera) is the recommended next experiment.
+
+**The trouser fix (owner chose it from mock-ups).** Trousers and boots fused
+the legs into one block -- the most visible flaw at sprite size. Now:
+
+- Bulk rule 8: nothing worn on the legs or feet grows into the gap between
+  them; the leg's inner face is recoloured instead (`BulkBuilder.
+  without_leg_gap`, `leg_inner_face`, applied by the assembler to thigh and
+  shin parts). Any bulk, either edge style.
+- Skin-tight (bulk 0) is the norm for trousers; the starter trousers are now
+  skin-tight, so a top's hem reads as worn over them.
+- Tests on every body: the everyday outfit and thick legwear in both edge
+  styles keep the gap open from feet to hips, leave no skin on the inner
+  faces, stay symmetric, and thick legwear still grows outward. (With the rule
+  switched off, 36 of those checks fail.)
+- Rejected: a dark seam down a fused block (still reads as one block), and
+  half-size voxels for clothing (mixed voxel sizes; not pursued).
+- Drawn shapes are placed as drawn: rule 8 governs grown bulk, not hand-drawn
+  cells.
 
 ## 5. Still open, for the owner
 

@@ -254,6 +254,11 @@ Bulk rules:
 6. **Layering:** when worn items claim the same cell, the one reaching farthest from the body wins; draw order breaks
    ties. Bulk is measured from the body, not from the layer underneath.
 7. **Edge style** per garment: soft (rounded corners, cloth) or hard (squared, plate).
+8. **Nothing worn on the legs or feet grows into the gap between them** (owner, 2026-11). The side of a leg that
+   faces the other leg gets no added voxels; the leg's own inner face is recoloured instead. The legs stand two voxels
+   apart, so each growing one voxel inward would fuse trousers or boots into one block. Applies to thigh and shin
+   parts (the shin includes the foot), at any bulk and either edge style. **Skin-tight (bulk 0) is the norm for
+   trousers**; bulk is for legwear meant to look thick.
 
 Normal range 0–3; more is allowed.
 

@@ -396,7 +396,15 @@ static func _panels_clear(t: TestReport, library: AssetLibrary) -> void:
 	var looks: Array = []
 	for outfit in w.outfit_names():
 		looks.append([outfit, w.outfit(outfit)])
-	looks.append(["dress over trousers", [{"item": "trousers", "colourway": "default"},
+	# Thick trousers under a skirt: the starter trousers are skin-tight now, so
+	# the case the panels must clear needs legwear with bulk.
+	var thick := GarmentItem.create("thick_trousers", "Thick trousers", "bottom")
+	thick.roles = ["cloth"]
+	thick.colourways = {"default": {"cloth": "slate"}}
+	for key in ["hips.L.F", "hips.L.B", "upper_thigh.L", "lower_thigh.L", "knee.L", "shin.L"]:
+		thick.set_region(key, "cloth", 1)
+	w.add_item(thick)
+	looks.append(["dress over thick trousers", [{"item": "thick_trousers", "colourway": "default"},
 		{"item": "dress", "colourway": "default"}]])
 	for look in looks:
 		var shared := 0
@@ -404,8 +412,8 @@ static func _panels_clear(t: TestReport, library: AssetLibrary) -> void:
 		for body in library.body_ids():
 			var a := _figure(library, w, body, "round", "", look[1])
 			# Panels against everything else. (Garments on two body parts can
-			# also meet in one cell -- trousers in the gap between the thighs --
-			# which is the separate, deferred trouser problem.)
+			# still meet in one cell where an arm hangs against the torso; the
+			# legs no longer do, by bulk rule 8.)
 			var fixed := {}
 			for name in a.order:
 				var part := a.part(String(name))

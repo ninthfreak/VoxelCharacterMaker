@@ -405,6 +405,15 @@ static func _claim_parametric(claims: Dictionary, item: GarmentItem, colourway: 
 
 			var grown := BulkBuilder.grow(
 				part_cells, region_cells, bulk, item.edge_style, occupancy)
+			# Rule 8: nothing grows into the gap between the legs; the leg's
+			# inner face takes the garment's colour instead.
+			grown = BulkBuilder.without_leg_gap(name, part_cells, grown)
+			for cell in BulkBuilder.leg_inner_face(name, region_cells, occupancy):
+				_offer(claims, name, cell, {
+					"source": Source.GARMENT, "role": role, "item": item.id,
+					"colourway": colourway, "reach": REACH_RECOLOUR,
+					"draw_order": item.draw_order, "region": key,
+				})
 			for cell in grown.keys():
 				# Rule 5: grown voxels belong to the region and part they grew
 				# from. Rule 6: reach is how far the ITEM gets from the body.
