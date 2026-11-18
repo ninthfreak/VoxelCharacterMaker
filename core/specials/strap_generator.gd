@@ -95,8 +95,8 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 				var z := int(rows[i])
 				var f := int(front[z]) - 1
 				var b := int(back[z]) + 1
-				_add(out, done, chest, Vector3i(x, f, z), Shading.Tone.MID)
-				_add(out, done, chest, Vector3i(x, b, z), Shading.Tone.DARK)
+				_add(out, done, chest, Vector3i(x, f, z), Shading.face_tone(VoxelAxes.FRONT))
+				_add(out, done, chest, Vector3i(x, b, z), Shading.face_tone(VoxelAxes.BACK))
 				if i + 1 >= rows.size() or int(rows[i + 1]) != z + 1:
 					continue
 				# Where the chest steps in or out from one row to the next (the
@@ -107,16 +107,16 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 				if f2 != f:
 					var inner_row := z + 1 if f2 > f else z
 					for y in range(mini(f, f2), maxi(f, f2)):
-						_add(out, done, chest, Vector3i(x, y, inner_row), Shading.Tone.MID)
+						_add(out, done, chest, Vector3i(x, y, inner_row), Shading.face_tone(VoxelAxes.FRONT))
 				var b2 := int(back[z + 1]) + 1
 				if b2 != b:
 					var inner_row_b := z + 1 if b2 < b else z
 					for y in range(mini(b, b2) + 1, maxi(b, b2) + 1):
-						_add(out, done, chest, Vector3i(x, y, inner_row_b), Shading.Tone.DARK)
+						_add(out, done, chest, Vector3i(x, y, inner_row_b), Shading.face_tone(VoxelAxes.BACK))
 			# Over the top: above the column's top cells, and one further at
 			# each end so the top meets the front and back runs.
 			for y in range(int(front[top]) - 1, int(back[top]) + 2):
-				_add(out, done, chest, Vector3i(x, y, top + 1), Shading.Tone.LIGHT)
+				_add(out, done, chest, Vector3i(x, y, top + 1), Shading.face_tone(VoxelAxes.UP))
 	return out
 
 

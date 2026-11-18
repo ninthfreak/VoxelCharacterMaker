@@ -101,7 +101,7 @@ xvfb-run -a godot --path . --rendering-driver opengl3 \
 ```
 
 Other options: `--tab "Face & Hair" --section Eyes`, `--tab Clothes --select
-dress`, `--edit-head`, `--scroll PX`, `--name FILE`.
+skirt`, `--edit-head`, `--scroll PX`, `--name FILE`.
 
 ## Regenerating assets
 

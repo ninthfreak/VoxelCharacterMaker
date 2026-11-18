@@ -181,14 +181,18 @@ static func assemble(req: Request) -> Assembled:
 		_claim_eyes(claims, eyes, out.face, req, base.get(BodyDef.HEAD_PART, {}))
 
 	# Every item has its regions AND its special shapes; neither excludes the
-	# other, so a dress is a bodice and a skirt.
-	for entry in _worn_in_draw_order(req):
-		var e: Dictionary = entry
-		var item: GarmentItem = e["item"]
-		var colourway := String(e["colourway"])
-		if item.has_coverage():
-			_claim_parametric(claims, item, colourway, base, regions, occupancy)
-		for hanging in [false, true]:
+	# other. Shapes that hang clear of the figure (skirt panels, a cape) go
+	# last of all, after every item's regions and other shapes: they measure
+	# the figure as worn, and a skirt must clear boots whichever of the two
+	# draws first. Draw order still decides who wins a contested voxel.
+	var worn_order := _worn_in_draw_order(req)
+	for hanging in [false, true]:
+		for entry in worn_order:
+			var e: Dictionary = entry
+			var item: GarmentItem = e["item"]
+			var colourway := String(e["colourway"])
+			if not hanging and item.has_coverage():
+				_claim_parametric(claims, item, colourway, base, regions, occupancy)
 			for index in item.specials.size():
 				if SpecialItem.hangs_clear(item.special_type(index)) == hanging:
 					_claim_special(claims, panels, out, item, index, colourway, base, regions,

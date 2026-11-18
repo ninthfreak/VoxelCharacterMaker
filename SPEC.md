@@ -217,6 +217,11 @@ rejected: goatee, moustache, moustache + goatee, a volumetric full beard, flat s
   light (255,214,172), mid (236,178,134), dark (190,128,92) — and every other tone derives its light and dark in the
   same proportions to its mid, so all tones shade alike. Eye black (20,20,26), line (70,38,24), eye white
   (250,250,248); lid and brow colours as in §5.
+- **Thin cloth is shaded by the way it faces, not voxel by voxel** (owner). The rule above assumes solid shapes. A
+  hanging panel is a sheet one voxel thick: its inside face looks at the legs, so the rule prints them onto the back of
+  a skirt (dark where a leg touches the cloth, lighter where there is air behind it), and a one-voxel strap is all edge
+  and comes out all light. So a strap, a skirt panel and a cape each take the tone a flat face of a solid would have:
+  top light; front and viewer's-left mid; back, viewer's-right and bottom dark.
 - Garment colours: from a palette colour c, light = c + (255 − c) × 0.28, mid = c, dark = c × 0.68.
 - *Recommended* in Godot: unshaded material with vertex colours, so the baked look is exact. Optional extra legibility:
   multiply per face orientation (top 1.0, front 0.97, sides 0.9, back 0.84, bottom 0.74) — the prototypes used this.
@@ -272,12 +277,27 @@ measurements so it still fits every body, using region names for lengths. A limi
 Long garments that hang across the legs (skirts, robes, capes) use **cloth panels**: garment-owned rigid parts hung
 from a pivot on a body part (front/back/side panels from the pelvis; cape panels from the chest), rotated by a simple
 driver rule (front panel follows the more-forward thigh, back panel the more-backward one, side panels their own
-thigh). Legs may clip at extreme poses; accepted.
+thigh). Legs may clip at extreme poses; accepted. Panels measure the figure **as worn**, so they are placed after
+everything else that is worn, whatever the draw order: a skirt then hangs clear of boots and of thick trousers.
 
-**Built so far:** skirt, cape, hood, shoulder straps, facial hair (§5.1), and a hand-drawn shape placed at a body
-anchor. **Straps** run up the chest, across the top beside the neck and straight down the back, one voxel proud, in a
+**Skirts are always their own items; a dress is an outfit** (owner). A skirt item is the hips in cloth plus the skirt
+shape, with its waistband on so no skin shows under a top that stops short. A *dress* is a bodice (a top that ends at
+the waist) and a skirt in one colour — voxel for voxel the figure a one-piece dress would be — and the same holds for a
+toga (one-shouldered top + wrap skirt) and a robe (long-sleeved top + open skirt). Each half also goes with anything
+else. The skirt's settings: length (to knee / shin / ankle), flare, two or four panels, waistband, hem trim, and two
+that make it asymmetric, both aimed at one **side** (the character's own left or right):
+
+- **Hem slant** 0–6: the hem rises that many rows from the other side to this one, and the trim follows it. The high
+  side always keeps at least two rows.
+- **Opening**: *wrap* cuts the front on a line from this side's hip to the middle at the hem, so this leg shows;
+  *front* opens it down the middle (two columns at the hips, four at the hem) as two flaps, each following its own leg
+  forward and hanging when that leg goes back. A narrow slit was tried and dropped: at this size it reads as a stripe.
+
+**Built so far:** skirt (above), cape, hood, shoulder straps, facial hair (§5.1), and a hand-drawn shape placed at a
+body anchor. **Straps** run up the chest, across the top beside the neck and straight down the back, one voxel proud, in a
 column halfway between the neck and the chest's edge, so they fit every body. Worn over a shirt they are suspenders.
-**Overalls are an outfit, not a garment** (owner): trousers, a bib of zones, and suspenders, all in one colour.
+**Overalls are an outfit, not a garment** (owner): trousers, a bib of zones, and suspenders, all in one colour —
+the same idea as the dress.
 
 Hand-placed voxel edits: allowed on special types; ordinary parametric garments stay purely parametric (hand edits
 would stop them fitting other bodies). Decals (buttons, emblems) are deferred; thin trim bands cover most of it.

@@ -214,7 +214,7 @@ static func _clothes(t: TestReport, ed: CharacterEditor) -> void:
 	_fresh(ed)
 	ed.show_tab("Clothes")
 	var cl := ed.clothes
-	cl.clothes.select("dress")
+	cl.clothes.select("skirt")
 	cl.show_mode = ClothesWorkspace.SHOW_ITEM
 	var bodies_with_dress := 0
 	for id in ed.library.body_ids():
@@ -225,11 +225,11 @@ static func _clothes(t: TestReport, ed: CharacterEditor) -> void:
 		for name in a.order:
 			if a.part(String(name)).is_panel():
 				panels += 1
-		if _owners(a).has("dress") and panels > 0 and a.warnings.is_empty():
+		if _owners(a).has("skirt") and panels > 0 and a.warnings.is_empty():
 			bodies_with_dress += 1
-	t.check_equal(bodies_with_dress, 6, "the dress, bodice and skirt, on all six bodies")
+	t.check_equal(bodies_with_dress, 6, "the skirt, hips and panels, on all six bodies")
 
-	t.check(_owners(cl.view.assembled).keys() == ["dress"],
+	t.check(_owners(cl.view.assembled).keys() == ["skirt"],
 		"'this item only' shows just the item", ", ".join(_owners(cl.view.assembled).keys()))
 	cl.set_worn_list(ed.wardrobe.outfit("everyday"))
 	t.check_equal(cl.show_mode, ClothesWorkspace.SHOW_WORN, "wearing an outfit shows the worn set")

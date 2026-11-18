@@ -41,6 +41,23 @@ static func tone_for(cell: Vector3i, solid: Dictionary) -> int:
 	return Tone.MID
 
 
+## The tone a flat face of a solid gets from the rule above, by the way the
+## face looks: what a surface voxel comes out as when only that face is open.
+##
+## Thin cloth cannot use the per-voxel rule. A hanging panel is a sheet one
+## voxel thick, and its inside face looks at the legs: where a leg touches it
+## and where there is air behind it are different answers to "is the front
+## neighbour empty?", so the rule prints the legs onto the back of a skirt as
+## a pattern (and makes a one-voxel strap all edge, so all light). Such shapes
+## say which way each piece faces and take this shade instead.
+static func face_tone(outward: Vector3i) -> int:
+	if outward == VoxelAxes.UP:
+		return Tone.LIGHT
+	if outward == VoxelAxes.FRONT or outward == VoxelAxes.VIEWER_LEFT:
+		return Tone.MID
+	return Tone.DARK
+
+
 ## Tone for every occupied cell: Dictionary of Vector3i -> Tone.
 static func tone_map(solid: Dictionary) -> Dictionary:
 	var out := {}

@@ -484,8 +484,8 @@ the upper chest is a quarter of it. So:
   a denim colourway.
 - **Overalls are an outfit:** trousers + shirt + bib + suspenders, with the
   three denim pieces in one colour. Each piece is useful alone.
-- **Starter outfits are now five:** everyday, travelling, dressed up, shirt
-  and suspenders, overalls.
+- **Starter outfits were then five:** everyday, travelling, dressed up, shirt
+  and suspenders, overalls. (Seven now: see 4h.)
 - The bib is skin-tight, so under a thick top (the starter tunic) it is
   hidden by the layering rule; raise its bulk to wear it over one.
 - Not yet verified: whether the bib alone reads as an apron.
@@ -494,6 +494,52 @@ the upper chest is a quarter of it. So:
   overalls' straps read lighter than the bib (owner noticed). A special's
   claim can now fix its own shade; straps use mid in front, dark behind and
   light on top, which is what a flat garment's faces get there.
+
+## 4h. Skirts as their own items; dress, toga and robe as outfits (owner's design)
+
+- **No dress item.** The owner's rule: skirts are always skirt-only items,
+  and a dress is a top that matches the skirt. Checked before building: a
+  bodice + a skirt item assemble into exactly the voxels of a one-piece dress
+  on all six bodies (a test now builds the one-piece version and compares).
+- **What a skirt item is:** the hips in cloth (regions) + the skirt shape,
+  category `bottom`. The waistband is on, because a top that stops above the
+  waist (the shirt) otherwise leaves one row of skin showing at the join.
+- **Honest limit:** "any top with any skirt" works, but the one-garment look
+  needs a top made for it, one that ends at the waist: tunic + skirt reads as
+  a tunic and a skirt. Shapes that cross the waist as one line (a wrap edge
+  from collar to hem, a sash from shoulder to hip) have to be made as a pair.
+- **Two fixes the split exposed:**
+  - *Placement order.* Panels used to be placed last within their own item.
+    A skirt-only item draws before boots, so an ankle-length skirt shared up
+    to 34 voxels with the boots (flicker). All hanging shapes are now placed
+    after everything worn; draw order still decides contested voxels.
+  - *Back shading.* The per-voxel shading printed the legs onto the back of
+    every skirt: dark where a leg touched the cloth, lighter between the
+    thighs and around the shins. Capes had the same fault (a dark patch where
+    the cape touched the back). Panels now take one shade by the way they
+    face, the same idea the straps already used; all three go through
+    `Shading.face_tone`. This is the third time the per-voxel rule misread
+    thin cloth (straps, bust blotches, panels). The bust is still open, and
+    "no baked shades" would remove the whole family: see section 5.
+- **Asymmetry is two settings on the normal skirt**, not a new item type:
+  hem slant and opening (wrap / front), both aimed at one side. Evaluated at
+  sprite size first: the slanted hem and the toga read best; the wrap reads
+  from the front and in 3D but not from the side (the side panel still
+  covers); a narrow slit read as a two-pixel stripe and was dropped; the
+  open front reads as a robe but is the busiest of the three.
+- **An open front is two flaps**, each following its own leg forward and
+  hanging when that leg goes back, so the opening widens in a stride.
+- **Starter pieces:** Bodice, Skirt, Wrap skirt, One-shoulder top (mirror
+  off), Robe top, Robe skirt. **Starter outfits are now seven:** everyday,
+  travelling, dress, toga, robe, shirt and suspenders, overalls.
+- **Known and left alone:** an ankle-length skirt over boots stands one
+  voxel proud of the hips, because the panels must clear the boot cuffs and a
+  panel is flat. Skirts always start at the hips, so a high-waisted dress
+  would need a new setting. Colours of the two halves of a dress are kept in
+  step by hand (same colourway names; one shared palette colour).
+- **Test runner:** a script error stops the suite it happens in and the
+  checks after it never run, yet the tally could still say "0 failed".
+  `tests/run.sh` now fails the run if any script error is printed.
 
 ## 5. Still open, for the owner
 
@@ -512,3 +558,14 @@ Carried from `SPEC.md` section 13, plus what building raised:
 5. **Eye colour** now lives in eye-set colourways (4b). Which colourway a
    given character uses -- and its skin tone, lid state and brow colour -- is
    the game's to remember, not the editor's.
+6. **Baked lighting: keep it?** The owner is not sure they want baked shades
+   at all. Compared as stills: as now; without the edge highlight; no baked
+   shades (true colours, form still reads in 3D from the per-face dimming,
+   but a front-on sprite is flat colour blocks); and nothing baked with a
+   real engine light (form and shadows, shadow-map glitches at voxel size).
+   Left open on purpose. Recommendation recorded, not decided: make it a
+   setting on the assembler, since the game assembles characters anyway.
+7. **Hoods are on hold.** The current hood is a skin-tight shell and does
+   not read as a hood. The owner chose: generate a looser hood, then
+   hand-tune it. That needs a new hand-editable 3D piece (the drawn shape is
+   a thin relief and cannot hold a hood's volume). Not started.

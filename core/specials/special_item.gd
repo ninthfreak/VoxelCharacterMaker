@@ -32,9 +32,9 @@ class Result extends RefCounted:
 	## of being refused there as an ordinary special-shape claim is.
 	##
 	## `tone` fixes the cell's shade (a Shading.Tone) instead of leaving it to
-	## the baked lighting. A thin raised strip is all edge, so the lighting
-	## would make every voxel of it the light shade; a shape that should match
-	## the cloth it lies on says which shade its face would have. -1 = baked.
+	## the baked lighting. Thin cloth -- a one-voxel strap, a hanging panel --
+	## is misread by the per-voxel rule, so it says which shade its face would
+	## have on a solid (Shading.face_tone). -1 = baked.
 	func claim(part: String, cell: Vector3i, role: String, reach: int = 1,
 			recolour: bool = false, tone: int = -1) -> void:
 		claims.append({"part": part, "cell": cell, "role": role, "reach": reach,
@@ -54,6 +54,10 @@ const DRIVER_FORWARD_THIGH := "forward_thigh"
 const DRIVER_BACKWARD_THIGH := "backward_thigh"
 const DRIVER_THIGH_L := "thigh_L"
 const DRIVER_THIGH_R := "thigh_R"
+## A front flap of an open-fronted skirt: forward with its own thigh, and never
+## backward -- when that leg goes back the flap just hangs.
+const DRIVER_FLAP_L := "flap_L"
+const DRIVER_FLAP_R := "flap_R"
 const DRIVER_STATIC := "static"
 ## Swing back with whichever thigh is furthest back, and never forward: a cape
 ## following a leg forward would go through the body when sitting.
@@ -126,8 +130,10 @@ static func types() -> Array[String]:
 
 
 ## Types that hang cloth panels clear of the figure. They measure the figure as
-## worn, so within one item they are placed after its other shapes: a hooded
-## cloak's cape then hangs behind its own hood's collar, not through it.
+## worn, so they are placed after EVERYTHING else that is worn -- every item's
+## regions and every other shape -- in draw order among themselves. A skirt
+## then clears boots put on "after" it, and a hooded cloak's cape hangs behind
+## its own hood's collar, not through it.
 static func hangs_clear(type: String) -> bool:
 	return type in ["skirt", "cape"]
 

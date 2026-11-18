@@ -18,6 +18,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	_shapes(t, library)
 	_items_with_specials(t, library)
 	_panels_clear(t, library)
+	_skirts(t, library)
 	_straps(t, library)
 	_lids(t, library)
 
@@ -309,24 +310,21 @@ static func _shapes(t: TestReport, library: AssetLibrary) -> void:
 static func _items_with_specials(t: TestReport, library: AssetLibrary) -> void:
 	t.group("features: one item, regions and special shapes together")
 	var w := Wardrobe.create_default(library)
-	var dress := w.item("dress")
-	t.check(dress.has_coverage() and dress.is_special(),
-		"the dress has a bodice of regions and a skirt shape")
+	var skirt := w.item("skirt")
+	t.check(skirt.has_coverage() and skirt.is_special(),
+		"the skirt has hips of regions and a skirt shape")
 	for id in library.body_ids():
 		var fig := _figure(library, w, id, "round", "",
-			[{"item": "dress", "colourway": "default"}])
-		t.check(fig.warnings.is_empty(), "%s: the dress generates" % id,
+			[{"item": "skirt", "colourway": "default"}])
+		t.check(fig.warnings.is_empty(), "%s: the skirt generates" % id,
 			", ".join(fig.warnings))
-		var bodice := 0
-		for cell in fig.part("chest").cells.keys():
-			if String(fig.part("chest").owners.get(cell, "")) == "dress":
-				bodice += 1
+		var hips := _owned(fig.part("pelvis"), "skirt").size()
 		var panels := 0
 		for name in fig.order:
 			if fig.part(String(name)).is_panel():
 				panels += 1
-		t.check(bodice > 0 and panels > 0, "%s: both the bodice and the skirt" % id,
-			"bodice %d, panels %d" % [bodice, panels])
+		t.check(hips > 0 and panels > 0, "%s: both the hips and the panels" % id,
+			"hips %d, panels %d" % [hips, panels])
 
 	t.group("features: two skirts are two sets of panels")
 	var extra := GarmentItem.create("over_skirt", "Over skirt", "bottom")
@@ -335,7 +333,7 @@ static func _items_with_specials(t: TestReport, library: AssetLibrary) -> void:
 	extra.add_special("skirt")
 	w.add_item(extra)
 	var both := _figure(library, w, "female_average", "round", "", [
-		{"item": "dress", "colourway": "default"},
+		{"item": "skirt", "colourway": "default"},
 		{"item": "over_skirt", "colourway": "default"},
 	])
 	var panel_names: Array[String] = []
@@ -405,8 +403,20 @@ static func _panels_clear(t: TestReport, library: AssetLibrary) -> void:
 	for key in ["hips.L.F", "hips.L.B", "upper_thigh.L", "lower_thigh.L", "knee.L", "shin.L"]:
 		thick.set_region(key, "cloth", 1)
 	w.add_item(thick)
-	looks.append(["dress over thick trousers", [{"item": "thick_trousers", "colourway": "default"},
-		{"item": "dress", "colourway": "default"}]])
+	looks.append(["skirt over thick trousers", [{"item": "thick_trousers", "colourway": "default"},
+		{"item": "skirt", "colourway": "default"}]])
+	# A skirt is a "bottom" and boots are "feet", which draw after it. The
+	# panels are placed after everything worn, so a skirt long enough to reach
+	# the boots still hangs clear of them (it shared 34 voxels before).
+	for long_skirt in ["wrap_skirt", "robe_skirt"]:
+		looks.append(["%s and boots" % long_skirt, [{"item": "boots", "colourway": "default"},
+			{"item": long_skirt, "colourway": "default"}]])
+		looks.append(["%s, thick trousers and boots" % long_skirt, [
+			{"item": "boots", "colourway": "default"},
+			{"item": "thick_trousers", "colourway": "default"},
+			{"item": long_skirt, "colourway": "default"}]])
+	looks.append(["skirt under a cloak", [{"item": "cloak", "colourway": "default"},
+		{"item": "skirt", "colourway": "default"}]])
 	for look in looks:
 		var shared := 0
 		var example := ""
@@ -435,6 +445,339 @@ static func _panels_clear(t: TestReport, library: AssetLibrary) -> void:
 					panel_of[cell] = String(name)
 		t.check(shared == 0, "%s: no panel shares a voxel with another part, on any body" % look[0],
 			"%d shared, e.g. %s" % [shared, example])
+
+
+# ----------------------------------------------------------------- skirts ----
+
+## The panels of one item's skirt, by the generator's own names.
+static func _skirt_panels(a: CharacterAssembler.Assembled, item_id: String) -> Dictionary:
+	var out := {}
+	for generator_name in [SkirtGenerator.PANEL_FRONT, SkirtGenerator.PANEL_BACK,
+			SkirtGenerator.PANEL_LEFT, SkirtGenerator.PANEL_RIGHT,
+			SkirtGenerator.PANEL_FRONT_LEFT, SkirtGenerator.PANEL_FRONT_RIGHT]:
+		var part := a.part(CharacterAssembler.panel_name(item_id, 0, generator_name))
+		if part != null:
+			out[generator_name] = part
+	return out
+
+
+## A test skirt with the hips in cloth, like the starter ones.
+static func _test_skirt(w: Wardrobe, id: String, settings: Dictionary) -> void:
+	var item := GarmentItem.create(id, id, "bottom")
+	item.roles = ["cloth", "hem"]
+	item.colourways = {"default": {"cloth": "plum", "hem": "ochre"}}
+	item.set_region("hips.L.F", "cloth", 1)
+	item.set_region("hips.L.B", "cloth", 1)
+	var at := item.add_special("skirt")
+	for key in settings.keys():
+		item.set_special_param(at, String(key), settings[key])
+	w.add_item(item)
+
+
+## Lowest row of a panel in each column: x -> z.
+static func _hemline(part: CharacterAssembler.Part) -> Dictionary:
+	var out := {}
+	for cell in part.cells.keys():
+		var c: Vector3i = cell
+		out[c.x] = mini(int(out.get(c.x, 999)), c.z)
+	return out
+
+
+## Skin showing on one part in one row, seen from the front and from the back.
+static func _skin_showing(a: CharacterAssembler.Assembled, part_name: String, z: int) -> int:
+	var count := 0
+	for from_front in [true, false]:
+		var nearest := {}   # x -> [y, part name, cell]
+		for name in a.order:
+			for cell in a.part(String(name)).cells.keys():
+				var c: Vector3i = cell
+				if c.z != z:
+					continue
+				var better: bool = not nearest.has(c.x) \
+					or (c.y < int(nearest[c.x][0]) if from_front else c.y > int(nearest[c.x][0]))
+				if better:
+					nearest[c.x] = [c.y, String(name), c]
+		for x in nearest.keys():
+			if String(nearest[x][1]) != part_name:
+				continue
+			var part := a.part(part_name)
+			if int(part.sources.get(nearest[x][2], 0)) == CharacterAssembler.Source.SKIN:
+				count += 1
+	return count
+
+
+static func _skirts(t: TestReport, library: AssetLibrary) -> void:
+	var w := Wardrobe.create_default(library)
+	var e := func(item: String, colourway: String = "default") -> Dictionary:
+		return {"item": item, "colourway": colourway}
+
+	t.group("skirts: a dress is an outfit, not an item")
+	t.check(w.item("dress") == null, "there is no one-piece dress item")
+	for outfit in ["dress", "toga", "robe"]:
+		t.check(outfit in w.outfit_names(), "the '%s' outfit exists" % outfit)
+	for id in ["skirt", "wrap_skirt", "robe_skirt"]:
+		var item := w.item(id)
+		t.check(item != null and item.category == "bottom" and item.is_special()
+			and item.has_coverage(), "%s is a skirt-only item: hips and a skirt shape" % id)
+
+	# The owner's requirement: a matching top and skirt look like one garment.
+	# Build the one-piece dress they replace and compare voxel for voxel.
+	var one := GarmentItem.create("one_piece", "One-piece dress", "top")
+	one.roles = ["cloth", "trim", "hem"]
+	one.colourways = {"default": {"cloth": "plum", "trim": "bone", "hem": "ochre"}}
+	for key in ["upper_chest.L.F", "upper_chest.L.B", "lower_chest.L.F", "lower_chest.L.B",
+			"belly.L.F", "belly.L.B", "hips.L.F", "hips.L.B", "shoulder.L"]:
+		one.set_region(key, "cloth", 1)
+	for key in ["collar.L.F", "collar.L.B", "waist.L.F", "waist.L.B"]:
+		one.set_region(key, "trim", 1)
+	one.set_special_param(one.add_special("skirt"), "length", "to_shin")
+	w.add_item(one)
+	var differing := 0
+	var where := ""
+	for body in library.body_ids():
+		var whole := _figure(library, w, body, "round", "", [e.call("boots"), e.call("one_piece")])
+		var split := _figure(library, w, body, "round", "", w.outfit("dress"))
+		t.check(split.warnings.is_empty(), "%s: the dress outfit assembles" % body,
+			", ".join(split.warnings))
+		var whole_panels := _skirt_panels(whole, "one_piece")
+		var split_panels := _skirt_panels(split, "skirt")
+		for name in whole.body.part_names():
+			if not VoxelTopology.same_cells(whole.part(name).cells, split.part(name).cells):
+				differing += 1
+				where = "%s %s" % [body, name]
+		for name in whole_panels.keys():
+			if not split_panels.has(name) or not VoxelTopology.same_cells(
+					(whole_panels[name] as CharacterAssembler.Part).cells,
+					(split_panels[name] as CharacterAssembler.Part).cells):
+				differing += 1
+				where = "%s %s" % [body, name]
+	t.check(differing == 0,
+		"bodice + skirt is voxel for voxel the one-piece dress, on all six bodies",
+		"%d parts differ, e.g. %s" % [differing, where])
+
+	t.group("skirts: no skin at the waist under a top that stops short")
+	_test_skirt(w, "no_band", {"length": "to_shin", "waistband": false})
+	var showing := 0
+	var showing_without := 0
+	var waist := BodyLayout.z0("waist")
+	for body in library.body_ids():
+		showing += _skin_showing(_figure(library, w, body, "round", "",
+			[e.call("shirt"), e.call("skirt")]), "pelvis", waist)
+		showing_without += _skin_showing(_figure(library, w, body, "round", "",
+			[e.call("shirt"), e.call("no_band")]), "pelvis", waist)
+	t.check_equal(showing, 0, "shirt + skirt: the waistband closes the gap on every body")
+	t.check(showing_without > 0, "and it is the waistband doing it: without one, skin shows",
+		"%d voxels" % showing_without)
+
+	t.group("skirts: panels are shaded by the way they face")
+	var faces := {
+		SkirtGenerator.PANEL_FRONT: Shading.Tone.MID,
+		SkirtGenerator.PANEL_BACK: Shading.Tone.DARK,
+		SkirtGenerator.PANEL_LEFT: Shading.Tone.DARK,     # the character's left faces viewer-right
+		SkirtGenerator.PANEL_RIGHT: Shading.Tone.MID,
+		SkirtGenerator.PANEL_FRONT_LEFT: Shading.Tone.MID,
+		SkirtGenerator.PANEL_FRONT_RIGHT: Shading.Tone.MID,
+	}
+	t.check_equal(Shading.face_tone(VoxelAxes.UP), Shading.Tone.LIGHT, "a top face is light")
+	t.check_equal(Shading.face_tone(VoxelAxes.FRONT), Shading.Tone.MID, "a front face is mid")
+	t.check_equal(Shading.face_tone(VoxelAxes.BACK), Shading.Tone.DARK, "a back face is dark")
+	t.check_equal(Shading.face_tone(VoxelAxes.VIEWER_LEFT), Shading.Tone.MID,
+		"a face toward the viewer's left is mid")
+	t.check_equal(Shading.face_tone(VoxelAxes.VIEWER_RIGHT), Shading.Tone.DARK,
+		"a face toward the viewer's right is dark")
+	var off_tone := 0
+	var cloth_shades := {}
+	for body in library.body_ids():
+		for look in [w.outfit("dress"), w.outfit("robe"), w.outfit("toga"),
+				[e.call("trousers"), e.call("skirt")]]:
+			var a := _figure(library, w, body, "round", "", look)
+			for item_id in ["skirt", "robe_skirt", "wrap_skirt"]:
+				var panels := _skirt_panels(a, item_id)
+				for name in panels.keys():
+					var part: CharacterAssembler.Part = panels[name]
+					for cell in part.cells.keys():
+						if int(part.tones[cell]) != int(faces[name]):
+							off_tone += 1
+						if item_id == "skirt" and name == SkirtGenerator.PANEL_BACK \
+								and (cell as Vector3i).z > BodyLayout.z0("shin"):
+							cloth_shades[part.colours[cell]] = true
+	t.check_equal(off_tone, 0, "every panel voxel has its panel's shade, on every body")
+	t.check_equal(cloth_shades.size(), 1,
+		"so the back of a skirt is one flat colour: the legs do not print through")
+	var cape_off := 0
+	for body in library.body_ids():
+		var caped := _figure(library, w, body, "round", "", w.outfit("travelling"))
+		for name in caped.order:
+			var part := caped.part(String(name))
+			if part.is_panel():
+				for cell in part.cells.keys():
+					if int(part.tones[cell]) != Shading.Tone.DARK:
+						cape_off += 1
+	t.check_equal(cape_off, 0, "a cape hangs behind the back: dark all over")
+
+	t.group("skirts: a slanted hem")
+	_test_skirt(w, "level", {"length": "to_ankle"})
+	_test_skirt(w, "slant_left", {"length": "to_ankle", "slant": 4, "side": "left"})
+	_test_skirt(w, "slant_right", {"length": "to_ankle", "slant": 4, "side": "right"})
+	_test_skirt(w, "slant_short", {"length": "to_knee", "slant": SkirtGenerator.MAX_SLANT})
+	for body in library.body_ids():
+		var level := _skirt_panels(_figure(library, w, body, "round", "", [e.call("level")]), "level")
+		var left_fig := _figure(library, w, body, "round", "", [e.call("slant_left")])
+		var left := _skirt_panels(left_fig, "slant_left")
+		var right := _skirt_panels(
+			_figure(library, w, body, "round", "", [e.call("slant_right")]), "slant_right")
+		var front: CharacterAssembler.Part = left[SkirtGenerator.PANEL_FRONT]
+		var line := _hemline(front)
+		var xs := line.keys()
+		xs.sort()
+		var hem_z := int(_hemline(level[SkirtGenerator.PANEL_FRONT]).values().min())
+		t.check_equal(int(line[xs[0]]), hem_z, "%s: the low side stays at the level hem" % body)
+		t.check_equal(int(line[xs[-1]]), hem_z + 4, "%s: the high side is 4 rows up" % body)
+		var steps_ok := true
+		for i in range(1, xs.size()):
+			var step := int(line[xs[i]]) - int(line[xs[i - 1]])
+			if step < 0 or step > 1:
+				steps_ok = false
+		t.check(steps_ok, "%s: the hem climbs toward the high side one row at a time" % body)
+		# The hem trim follows the slant: the lowest voxel of every column is
+		# the hem colour, and the one above it is not.
+		var trimmed := true
+		for x in xs:
+			var low := Vector3i(int(x), 0, int(line[x]))
+			for cell in front.cells.keys():
+				if (cell as Vector3i).x == low.x and (cell as Vector3i).z == low.z:
+					low = cell
+			var above := low + VoxelAxes.UP
+			if front.cells.has(above) and front.colours[above] == front.colours[low]:
+				trimmed = false
+		t.check(trimmed, "%s: the hem trim follows the slant" % body)
+		var mirrored := true
+		for name in left.keys():
+			if not right.has(name):
+				mirrored = false
+		t.check(mirrored and VoxelTopology.same_cells(
+				VoxelTopology.mirrored(front.cells),
+				(right[SkirtGenerator.PANEL_FRONT] as CharacterAssembler.Part).cells),
+			"%s: the other side is the mirror image" % body)
+		# The high side's own panel is the short one.
+		var high_side: CharacterAssembler.Part = left[SkirtGenerator.PANEL_LEFT]
+		var low_side: CharacterAssembler.Part = left[SkirtGenerator.PANEL_RIGHT]
+		t.check(high_side.count() < low_side.count(),
+			"%s: the side panel on the high side is the shorter one" % body,
+			"%d vs %d" % [high_side.count(), low_side.count()])
+		for name in left.keys():
+			t.check(VoxelTopology.is_one_piece((left[name] as CharacterAssembler.Part).cells),
+				"%s: %s is one piece" % [body, name])
+		var short := _skirt_panels(
+			_figure(library, w, body, "round", "", [e.call("slant_short")]), "slant_short")
+		var short_line := _hemline(short[SkirtGenerator.PANEL_FRONT])
+		var top_row := BodyLayout.z0("hips") - 1
+		t.check(top_row - int(short_line.values().max()) + 1 >= SkirtGenerator.MIN_ROWS,
+			"%s: however steep, the high side keeps %d rows of cloth" % [body, SkirtGenerator.MIN_ROWS])
+
+	t.group("skirts: a wrap opening shows one leg")
+	_test_skirt(w, "wrap_left", {"length": "to_ankle", "opening": "wrap", "side": "left"})
+	_test_skirt(w, "wrap_right", {"length": "to_ankle", "opening": "wrap", "side": "right"})
+	for body in library.body_ids():
+		var level := _skirt_panels(_figure(library, w, body, "round", "", [e.call("level")]), "level")
+		var fig := _figure(library, w, body, "round", "", [e.call("wrap_left")])
+		var wrap := _skirt_panels(fig, "wrap_left")
+		var front: CharacterAssembler.Part = wrap[SkirtGenerator.PANEL_FRONT]
+		var whole: CharacterAssembler.Part = level[SkirtGenerator.PANEL_FRONT]
+		var hem_z := int(_hemline(whole).values().min())
+		var top_row := BodyLayout.z0("hips") - 1
+		t.check_equal(VoxelTopology.count_in_row(front.cells, top_row),
+			VoxelTopology.count_in_row(whole.cells, top_row),
+			"%s: the top row is whole, so the skirt still closes at the hip" % body)
+		# At the hem the open side is bare from just past the middle outward.
+		var past_middle := 0
+		for cell in front.cells.keys():
+			var c: Vector3i = cell
+			if c.z == hem_z and c.x > VoxelAxes.MIRROR_X_MAX / 2 + 1:
+				past_middle += 1
+		t.check_equal(past_middle, 0, "%s: at the hem nothing covers the open leg" % body)
+		# ...and the leg is what shows there: seen from the front, the nearest
+		# voxel in the open leg's columns belongs to the leg, not to a panel.
+		var leg_x := VoxelTopology.row_extent_x(fig.part("shin_L").cells, hem_z + 1)
+		var leg_seen := 0
+		for x in range(leg_x.x, leg_x.y + 1):
+			var nearest := 999
+			var owner := ""
+			for name in fig.order:
+				for cell in fig.part(String(name)).cells.keys():
+					var c: Vector3i = cell
+					if c.x == x and c.z == hem_z + 1 and c.y < nearest:
+						nearest = c.y
+						owner = String(name)
+			if owner == "shin_L":
+				leg_seen += 1
+		t.check(leg_seen >= leg_x.y - leg_x.x, "%s: the open leg shows from the front" % body,
+			"%d of %d columns" % [leg_seen, leg_x.y - leg_x.x + 1])
+		t.check(VoxelTopology.is_one_piece(front.cells), "%s: the wrapped front is one piece" % body)
+		t.check(VoxelTopology.same_cells(
+				(wrap[SkirtGenerator.PANEL_BACK] as CharacterAssembler.Part).cells,
+				(level[SkirtGenerator.PANEL_BACK] as CharacterAssembler.Part).cells),
+			"%s: only the front opens; the back is untouched" % body)
+		var other := _skirt_panels(
+			_figure(library, w, body, "round", "", [e.call("wrap_right")]), "wrap_right")
+		t.check(VoxelTopology.same_cells(VoxelTopology.mirrored(front.cells),
+				(other[SkirtGenerator.PANEL_FRONT] as CharacterAssembler.Part).cells),
+			"%s: the other side is the mirror image" % body)
+
+	t.group("skirts: an open front is two flaps")
+	_test_skirt(w, "open_front", {"length": "to_ankle", "opening": "front"})
+	for body in library.body_ids():
+		var fig := _figure(library, w, body, "round", "", [e.call("open_front")])
+		var open := _skirt_panels(fig, "open_front")
+		t.check(open.has(SkirtGenerator.PANEL_FRONT_LEFT) and open.has(SkirtGenerator.PANEL_FRONT_RIGHT)
+			and not open.has(SkirtGenerator.PANEL_FRONT),
+			"%s: the front is a left flap and a right flap" % body)
+		if not open.has(SkirtGenerator.PANEL_FRONT_LEFT):
+			continue
+		var flap_l: CharacterAssembler.Part = open[SkirtGenerator.PANEL_FRONT_LEFT]
+		var flap_r: CharacterAssembler.Part = open[SkirtGenerator.PANEL_FRONT_RIGHT]
+		var in_gap := 0
+		var wrong_side := 0
+		for cell in flap_l.cells.keys():
+			var c: Vector3i = cell
+			if c.x <= VoxelAxes.MIRROR_X_MAX / 2 + 1:
+				in_gap += 1
+			if not VoxelAxes.is_left(c):
+				wrong_side += 1
+		t.check_equal(in_gap, 0, "%s: the two middle columns stay open top to bottom" % body)
+		t.check_equal(wrong_side, 0, "%s: each flap keeps to its own side" % body)
+		t.check(VoxelTopology.same_cells(VoxelTopology.mirrored(flap_l.cells), flap_r.cells),
+			"%s: the flaps mirror each other" % body)
+		t.check(VoxelTopology.is_one_piece(flap_l.cells), "%s: a flap is one piece" % body)
+		t.check_equal(flap_l.driver, SpecialItem.DRIVER_FLAP_L, "%s: the left flap follows the left leg" % body)
+		t.check_equal(flap_r.driver, SpecialItem.DRIVER_FLAP_R, "%s: the right flap follows the right leg" % body)
+	var stride := Poses.get_pose(Poses.MID_STRIDE)
+	var thigh_l: Vector3 = stride.get("thigh_L", Vector3.ZERO)
+	var thigh_r: Vector3 = stride.get("thigh_R", Vector3.ZERO)
+	var forward := SpecialItem.DRIVER_FLAP_L if thigh_l.x > thigh_r.x else SpecialItem.DRIVER_FLAP_R
+	var behind := SpecialItem.DRIVER_FLAP_R if thigh_l.x > thigh_r.x else SpecialItem.DRIVER_FLAP_L
+	t.check(Poses.panel_rotation(forward, stride).x > 0.0,
+		"mid-stride, the forward leg's flap swings forward with it")
+	t.check(is_zero_approx(Poses.panel_rotation(behind, stride).x),
+		"and the other flap just hangs: it never follows a leg backward")
+
+	t.group("skirts: the toga's top leaves one shoulder bare")
+	var toga := _figure(library, w, "male_average", "strong", "", w.outfit("toga"))
+	var top_owned := _owned(toga.part("chest"), "one_shoulder_top")
+	var upper := BodyLayout.z1("upper_chest")
+	var left_top := 0
+	var right_top := 0
+	for cell in top_owned.keys():
+		var c: Vector3i = cell
+		if c.z == upper:
+			if VoxelAxes.is_left(c):
+				left_top += 1
+			else:
+				right_top += 1
+	t.check(left_top > 0 and right_top == 0,
+		"the top row of the chest is covered on the left only",
+		"left %d, right %d" % [left_top, right_top])
+	t.check(toga.warnings.is_empty(), "the toga assembles without warnings", ", ".join(toga.warnings))
 
 
 # ------------------------------------------------------------ lids, brows ----

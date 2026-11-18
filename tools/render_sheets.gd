@@ -67,6 +67,10 @@ func _initialize() -> void:
 		{"name": "specials", "kind": "specials", "worn": []},
 		# Capes and ponytails hang behind; a front view cannot show them.
 		{"name": "specials_back", "kind": "specials", "worn": [], "back": true},
+		# Skirts as their own items: the dress, toga and robe outfits, and the
+		# back view, where panels used to show the legs through the cloth.
+		{"name": "skirts", "kind": "skirts", "worn": []},
+		{"name": "skirts_back", "kind": "skirts", "worn": [], "back": true},
 		{"name": "faces", "kind": "faces", "worn": []},
 		{"name": "facial_hair", "kind": "facial_hair", "worn": []},
 		# Close up on the tilted lids, beside neutral for comparison.
@@ -128,6 +132,8 @@ func _next_sheet() -> void:
 			bounds = _lay_out_poses(sheet["worn"])
 		"specials":
 			bounds = _lay_out_specials()
+		"skirts":
+			bounds = _lay_out_skirts()
 		"faces":
 			bounds = _lay_out_faces(sheet.get("states", EyeLids.names()))
 		"facial_hair":
@@ -263,14 +269,14 @@ func _lay_out_poses(worn: Array) -> AABB:
 	return total
 
 
-## One figure per head shape, each showing a different special shape: a
-## dress (bodice regions + skirt), a hooded cloak (cape + hood), a raised hood,
+## One figure per head shape, each showing a different special shape: the
+## dress outfit (bodice + skirt), a hooded cloak (cape + hood), a raised hood,
 ## a full beard with a crop, and a ponytail with a long beard.
 func _lay_out_specials() -> AABB:
 	var shapes := _library.head_shapes()
 	var looks := [
-		{"body": "female_average", "worn": [_w("dress"), _w("boots")], "features": [],
-			"label": "dress", "pose": Poses.MID_STRIDE},
+		{"body": "female_average", "worn": _outfit("dress"), "features": [],
+			"label": "dress outfit", "pose": Poses.MID_STRIDE},
 		{"body": "male_average", "worn": _outfit("travelling"),
 			"features": [_w("short_crop")], "label": "hooded cloak", "pose": Poses.REST},
 		{"body": "female_slim", "worn": [_w("boots"), _w("trousers"), _w("tunic"), _w("render_hood")],
@@ -291,6 +297,37 @@ func _lay_out_specials() -> AABB:
 		var b := _rig(String(look["body"]), shapes[i], look["worn"],
 			Vector3(x, 0, 0), String(look["pose"]), look["features"])
 		_caption("%s head\n%s" % [shapes[i], look["label"]], Vector3(x, 0, 0))
+		total = b if first else total.merge(b)
+		first = false
+	return total
+
+
+## Skirts are their own items, and a dress, a toga and a robe are outfits of a
+## top and a skirt. One figure per head shape.
+func _lay_out_skirts() -> AABB:
+	var shapes := _library.head_shapes()
+	var looks := [
+		{"body": "female_average", "worn": _outfit("dress"), "features": [_w("ponytail")],
+			"label": "dress: bodice + skirt", "pose": Poses.REST},
+		{"body": "female_slim", "worn": [_w("boots"), _w("shirt"),
+				{"item": "skirt", "colourway": "ink"}],
+			"features": [_w("ponytail")], "label": "shirt + skirt", "pose": Poses.MID_STRIDE},
+		{"body": "male_average", "worn": _outfit("toga"), "features": [_w("short_crop")],
+			"label": "toga: one-shoulder top\n+ wrap skirt", "pose": Poses.REST},
+		{"body": "female_heavy", "worn": [_w("boots"), _w("bodice"),
+				{"item": "wrap_skirt", "colourway": "plum"}],
+			"features": [_w("ponytail")], "label": "bodice + wrap skirt", "pose": Poses.MID_STRIDE},
+		{"body": "male_slim", "worn": _outfit("robe"), "features": [_w("short_crop")],
+			"label": "robe: robe top\n+ open skirt", "pose": Poses.MID_STRIDE},
+	]
+	var total := AABB()
+	var first := true
+	for i in shapes.size():
+		var look: Dictionary = looks[i % looks.size()]
+		var x := (float(shapes.size() - 1) * 0.5 - float(i)) * SPACING_FIGURES
+		var b := _rig(String(look["body"]), shapes[i], look["worn"],
+			Vector3(x, 0, 0), String(look["pose"]), look["features"])
+		_caption("%s" % look["label"], Vector3(x, 0, 0))
 		total = b if first else total.merge(b)
 		first = false
 	return total

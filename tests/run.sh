@@ -47,4 +47,18 @@ fi
 
 echo
 echo "== acceptance checks =="
-"$GODOT_BIN" --headless --path . --script res://tests/run_tests.gd
+# A script error does not fail a check: it stops the suite it happens in, and
+# every check after it silently does not run -- the tally can still say "0
+# failed". So a script error anywhere in the output fails the run.
+LOG="$(mktemp)"
+set +e
+"$GODOT_BIN" --headless --path . --script res://tests/run_tests.gd 2>&1 | tee "$LOG"
+STATUS=${PIPESTATUS[0]}
+set -e
+if grep -q "SCRIPT ERROR" "$LOG"; then
+  echo >&2
+  echo "FAILED: a script error stopped part of the suite; the checks after it did not run." >&2
+  STATUS=1
+fi
+rm -f "$LOG"
+exit "$STATUS"

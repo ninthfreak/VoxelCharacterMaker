@@ -133,25 +133,79 @@ func _add_starter_clothes() -> void:
 	suspenders.add_special("straps")
 	add_item(suspenders)
 
-	# A dress is a bodice of regions plus a skirt shape: one item, both kinds.
-	var dress := GarmentItem.create("dress", "Dress", "top")
-	dress.roles = ["cloth", "trim", "hem"]
-	dress.colourways = {
-		"default": {"cloth": "plum", "trim": "bone", "hem": "ochre"},
-		"moss": {"cloth": "moss", "trim": "bone", "hem": "ink"},
+	# A dress is not a garment but an outfit (owner): a top and a skirt in one
+	# colour, which assemble into exactly the figure a one-piece dress would.
+	# Skirts are always their own items, so each also goes with any other top.
+	#
+	# The bodice is the top half: it ends at the waist with a trim line.
+	var bodice := GarmentItem.create("bodice", "Bodice", "top")
+	bodice.roles = ["cloth", "trim"]
+	bodice.colourways = {
+		"default": {"cloth": "plum", "trim": "bone"},
+		"moss": {"cloth": "moss", "trim": "bone"},
 	}
 	for key in ["upper_chest.L.F", "upper_chest.L.B", "lower_chest.L.F",
-			"lower_chest.L.B", "belly.L.F", "belly.L.B", "hips.L.F", "hips.L.B",
-			"shoulder.L"]:
-		dress.set_region(key, "cloth", 1)
-	dress.set_region("collar.L.F", "trim", 1)
-	dress.set_region("collar.L.B", "trim", 1)
-	dress.set_region("waist.L.F", "trim", 1)
-	dress.set_region("waist.L.B", "trim", 1)
-	var skirt_at := dress.add_special("skirt")
-	dress.set_special_param(skirt_at, "length", "to_shin")
-	dress.set_special_param(skirt_at, "waistband", false)
-	add_item(dress)
+			"lower_chest.L.B", "belly.L.F", "belly.L.B", "shoulder.L"]:
+		bodice.set_region(key, "cloth", 1)
+	for key in ["collar.L.F", "collar.L.B", "waist.L.F", "waist.L.B"]:
+		bodice.set_region(key, "trim", 1)
+	add_item(bodice)
+
+	# A skirt item is the hips in cloth plus the skirt shape. Its waistband is
+	# on, so under a top that stops short (the shirt) no skin shows at the waist.
+	var skirt := _skirt_item("skirt", "Skirt", {"length": "to_shin"})
+	skirt.colourways = {
+		"default": {"cloth": "plum", "hem": "ochre"},
+		"moss": {"cloth": "moss", "hem": "ink"},
+		"ink": {"cloth": "ink", "hem": "rust"},
+	}
+
+	# The asymmetric skirt: hem slanted up to the character's left, and the
+	# front wrapped open on that side so the leg shows. The lower half of a
+	# toga, or of a dress cut that way.
+	var wrap := _skirt_item("wrap_skirt", "Wrap skirt",
+		{"length": "to_ankle", "slant": 4, "opening": "wrap", "side": "left"})
+	wrap.colourways = {
+		"default": {"cloth": "bone", "hem": "ochre"},
+		"plum": {"cloth": "plum", "hem": "ochre"},
+	}
+
+	# One shoulder covered, the other bare: mirror is off and each side has
+	# its own regions. With the wrap skirt in the same colour it is a toga.
+	var drape := GarmentItem.create("one_shoulder_top", "One-shoulder top", "top")
+	drape.mirror = false
+	drape.roles = ["cloth"]
+	drape.colourways = {"default": {"cloth": "bone"}, "plum": {"cloth": "plum"}}
+	for key in ["upper_chest.L.F", "upper_chest.L.B", "shoulder.L",
+			"lower_chest.L.F", "lower_chest.L.B", "belly.L.F", "belly.L.B",
+			"waist.L.F", "waist.L.B",
+			"lower_chest.R.F", "lower_chest.R.B", "belly.R.F", "belly.R.B",
+			"waist.R.F", "waist.R.B"]:
+		drape.set_region(key, "cloth", 1)
+	add_item(drape)
+
+	# A robe, again as two pieces: a long-sleeved top with a sash at the
+	# waist, and a long skirt open down the front over whatever is worn below.
+	var robe_top := GarmentItem.create("robe_top", "Robe top", "top")
+	robe_top.roles = ["cloth", "trim"]
+	robe_top.colourways = {
+		"default": {"cloth": "ink", "trim": "rust"},
+		"moss": {"cloth": "moss", "trim": "ochre"},
+	}
+	for key in ["upper_chest.L.F", "upper_chest.L.B", "lower_chest.L.F",
+			"lower_chest.L.B", "belly.L.F", "belly.L.B", "shoulder.L",
+			"upper_arm.L", "elbow.L", "forearm.L"]:
+		robe_top.set_region(key, "cloth", 1)
+	for key in ["collar.L.F", "collar.L.B", "waist.L.F", "waist.L.B"]:
+		robe_top.set_region(key, "trim", 1)
+	add_item(robe_top)
+
+	var robe_skirt := _skirt_item("robe_skirt", "Robe skirt",
+		{"length": "to_ankle", "opening": "front"})
+	robe_skirt.colourways = {
+		"default": {"cloth": "ink", "hem": "rust"},
+		"moss": {"cloth": "moss", "hem": "ochre"},
+	}
 
 	# A cloak: a hood and a cape, both anchored, plus a collar of regions.
 	var cloak := GarmentItem.create("cloak", "Hooded cloak", "back")
@@ -175,9 +229,20 @@ func _add_starter_clothes() -> void:
 		{"item": "trousers", "colourway": "default"},
 		{"item": "tunic", "colourway": "rust"},
 	]
-	outfits["dressed up"] = [
+	outfits["dress"] = [
 		{"item": "boots", "colourway": "default"},
-		{"item": "dress", "colourway": "default"},
+		{"item": "bodice", "colourway": "default"},
+		{"item": "skirt", "colourway": "default"},
+	]
+	outfits["toga"] = [
+		{"item": "one_shoulder_top", "colourway": "default"},
+		{"item": "wrap_skirt", "colourway": "default"},
+	]
+	outfits["robe"] = [
+		{"item": "boots", "colourway": "default"},
+		{"item": "trousers", "colourway": "default"},
+		{"item": "robe_top", "colourway": "default"},
+		{"item": "robe_skirt", "colourway": "default"},
 	]
 	outfits["shirt and suspenders"] = [
 		{"item": "boots", "colourway": "default"},
@@ -192,6 +257,20 @@ func _add_starter_clothes() -> void:
 		{"item": "bib", "colourway": "default"},
 		{"item": "suspenders", "colourway": "denim"},
 	]
+
+
+## A skirt-only item: the hips in cloth, and the skirt shape with these
+## settings (anything left out keeps the generator's default).
+func _skirt_item(id: String, label: String, settings: Dictionary) -> GarmentItem:
+	var item := GarmentItem.create(id, label, "bottom")
+	item.roles = ["cloth", "hem"]
+	item.set_region("hips.L.F", "cloth", 1)
+	item.set_region("hips.L.B", "cloth", 1)
+	var at := item.add_special("skirt")
+	for key in settings.keys():
+		item.set_special_param(at, String(key), settings[key])
+	add_item(item)
+	return item
 
 
 func _add_starter_features() -> void:

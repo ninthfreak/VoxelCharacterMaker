@@ -102,11 +102,14 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 	out.panel(PANEL, "chest", Vector3(VoxelAxes.MIRROR_X, plane_y, top_z + 1),
 		SpecialItem.DRIVER_TRAIL)
 
+	# One sheet hanging behind the back: every voxel takes the shade a
+	# back-facing surface has, not one that depends on what it touches.
+	var tone := Shading.face_tone(VoxelAxes.BACK)
 	var rows := top_z - hem_z
 	for z in range(hem_z, top_z + 1):
 		var t := float(top_z - z) / float(maxi(1, rows))
 		var widen := int(roundf(t * float(flare)))
 		var role := ROLE_HEM if (hem_trim and z == hem_z) else ROLE_CLOTH
 		for x in range(span.x - widen, span.y + widen + 1):
-			out.claim(PANEL, Vector3i(x, plane_y, z), role, 1)
+			out.claim(PANEL, Vector3i(x, plane_y, z), role, 1, false, tone)
 	return out

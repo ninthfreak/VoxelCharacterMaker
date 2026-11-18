@@ -100,7 +100,8 @@ static func get_pose(pose: String) -> Dictionary:
 ## Rotation for a cloth panel, from the driver rule and the pose it hangs in.
 ##
 ## The front panel follows the more forward thigh, the back panel the more
-## backward one, and a side panel its own thigh (SPEC 7.4).
+## backward one, and a side panel its own thigh (SPEC 7.4). The two flaps of an
+## open front each follow their own thigh forward, and hang when it goes back.
 static func panel_rotation(driver: String, pose: Dictionary) -> Vector3:
 	var left: Vector3 = pose.get("thigh_L", Vector3.ZERO)
 	var right: Vector3 = pose.get("thigh_R", Vector3.ZERO)
@@ -113,6 +114,10 @@ static func panel_rotation(driver: String, pose: Dictionary) -> Vector3:
 			return Vector3(0, 0, left.z * PANEL_FOLLOW)
 		SpecialItem.DRIVER_THIGH_R:
 			return Vector3(0, 0, right.z * PANEL_FOLLOW)
+		SpecialItem.DRIVER_FLAP_L:
+			return Vector3(maxf(0.0, left.x) * PANEL_FOLLOW, 0, 0)
+		SpecialItem.DRIVER_FLAP_R:
+			return Vector3(maxf(0.0, right.x) * PANEL_FOLLOW, 0, 0)
 		SpecialItem.DRIVER_TRAIL:
 			return Vector3(minf(0.0, minf(left.x, right.x)) * PANEL_FOLLOW, 0, 0)
 	return Vector3.ZERO
