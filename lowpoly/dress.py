@@ -9,9 +9,10 @@ order, colourways, special shapes, outfits) and applies the parametric rules of 
   4  arms, feet and head are separate pieces, so their bulk may overlap the torso's
   6  where worn items claim the same region, the larger bulk wins, then the higher draw order
   8  nothing on a leg or foot grows toward the other leg
-Special shapes (specials.py): straps, skirt and cape are built; a skirt or a cape is hanging cloth (hang.py) and is
-placed after everything else that is worn. Not done here: rule 7 (soft or hard edge style), and the other special
-shapes (hood, facial hair, drawn shapes).
+Special shapes (specials.py): straps, skirt, cape and facial hair are built; a skirt or a cape is hanging cloth
+(hang.py) and is placed after everything else that is worn. Hair, facial hair, a skin tone and a face (faces.py) make
+the figure a character. Not done here: rule 7 (soft or hard edge style), and the other special shapes (hood, drawn
+shapes).
 
 The project keeps garment logic in exactly one place, and that place is core/ (GDScript), which today only knows
 voxels. When the Godot side builds polygons these rules move there, and this file goes or shrinks to a cross-check.
@@ -36,6 +37,10 @@ class Wardrobe:
         assert d["format"] == "voxel_wardrobe"
         self.palette = {k: hex_rgb(v) for k, v in d["palette"].items()}
         self.items = d["items"]; self.outfits = d["outfits"]
+        self.eye_sets = d.get("eye_sets", {})
+        self.features = {}                    # hair, facial hair, face accessories: feature id -> (slot, item)
+        for slot, items in d.get("features", {}).items():
+            for item_id, item in items.items(): self.features[item_id] = (slot, item)
 
     def outfit(self, name):
         return [(e["item"], e["colourway"]) for e in self.outfits[name]]
@@ -126,22 +131,60 @@ class Look:
         import pose
         return pose.posed(self.body, self, {})
 
-    def groups(self):
-        return {"all": self.standing()}
+    def groups(self, pose_=None):
+        """The figure in a pose (standing if none), ready for picture.prepare_coloured."""
+        import pose
+        return pose.posed_groups(self.body, self, pose_ or {})
 
 
-def dress(body, wardrobe, worn, skin=SKIN, paint=None):
-    """worn: [(item id, colourway)]. paint: optional {region key: rgb} to colour bare regions (for the region map).
-    Returns a Look."""
-    polys = body["polys"]; notes = []
+def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, brow=None):
+    """A figure, dressed. Returns a Look.
+    worn      [(item id, colourway)] from the wardrobe's items
+    features  [(feature id, colourway)] from its features: hair, facial hair
+    skin      a colour, or the name of one of the game's skin tones (lids and stubble need the name)
+    eyes      None for a blank face, or what faces.eyes takes: eye_set, colourway, lids, style ({} for the standard
+              eye, neutral)
+    brow      a brow colour, instead of the one the hair gives
+    paint     optional {region key: rgb} to colour bare regions (for the region map)"""
+    notes = []
+    tables = []
+
+    def game_tables():                                               # only fetched when a face or a skin tone needs them
+        if not tables:
+            import game
+            tables.append(game.tables())
+        return tables[0]
+
+    tone = None
+    if isinstance(skin, str):
+        tone = skin; skin = tuple(game_tables()["skin"][tone]["mid"])
+    hair = None                                                      # the palette name of the hair colour, if hair is worn
+    for feature_id, cw in features:
+        slot, it = wardrobe.features[feature_id]
+        name = it["colourways"][cw].get("hair", "")
+        if slot == "hair" and name and not name.startswith("@"): hair = name
+
+    def colour_of(name):
+        """A palette colour, or one of the game's two references: "@hair" follows the hair (dark brown when bald),
+        "@stubble" is worked out from the skin tone and the hair."""
+        if name == "@hair": return wardrobe.palette[hair or game_tables()["default_brow_hair"]]
+        if name == "@stubble":
+            t = game_tables()
+            return tuple(t["hair"][hair or t["default_brow_hair"]]["stubble"][tone or t["default_skin"]])
+        return wardrobe.palette[name]
+
+    polys = list(body["polys"])
     layers = []; shapes = []
     known = set(lb.all_region_keys())
-    for item_id, cw in worn:
-        it = wardrobe.items[item_id]
-        colours = {role: wardrobe.palette[name] for role, name in it["colourways"][cw].items() if name in wardrobe.palette}
+    wearing = [(wardrobe.items[i], i, cw) for i, cw in worn] + [(wardrobe.features[i][1], i, cw) for i, cw in features]
+    for it, item_id, cw in wearing:
+        colours = {role: colour_of(name) for role, name in it["colourways"][cw].items() if name.startswith("@") or name in wardrobe.palette}
         cov = resolve(it)
         for sp in it.get("specials", []):
             kind = sp["type"]
+            if kind in specials.ON_SKIN:                             # it claims the body's own polygons
+                polys, more = specials.ON_SKIN[kind](polys, sp.get("params", {}), colours, int(it["draw_order"]))
+                notes += [f"{item_id}: {m}" for m in more]; continue
             if kind not in specials.BUILT:
                 notes.append(f"{item_id}: special shape '{kind}' not built"); continue
             cov = {**specials.coverage(kind, sp.get("params", {})), **cov}       # the item's own regions come first
@@ -154,12 +197,14 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None):
     win = []
     for r in polys:
         best = None
-        if not r["hidden"]:
+        if not r["hidden"] and r.get("at", ("",))[0] != "ear":       # ears stay skin: nothing made of regions covers them
             for L in layers:
                 if r["key"] in L["cov"]:
                     role, bulk = L["cov"][r["key"]]
                     if best is None or (bulk, L["order"]) > (best[0], best[1]):
                         best = (bulk, L["order"], L["colours"][role])
+            for claim in r.get("claims", ()):
+                if best is None or (claim[0], claim[1]) > (best[0], best[1]): best = tuple(claim)
         win.append(best)
 
     # per piece: weld corners, corner normals from the visible polygons, who is across each edge, and the most
@@ -197,7 +242,10 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None):
         return np.array(v, float) if i is None else moved(polys[i], v, bulk)
 
     out = []
-    shares_of = lambda r, src: [body["shares"][lb.share_key(r["piece"], s)] for s in src]
+
+    def shares_of(r, src):
+        if r["piece"] == "head": return [{"head": 1.0}] * len(src)   # every corner of a head follows the head alone
+        return [body["shares"][lb.share_key(r["piece"], s)] for s in src]
 
     def put(r, pts, rgb, src):
         out.append(dict(pts=np.asarray(pts, float), rgb=rgb, src=src, shares=shares_of(r, src), part=r["part"], piece=r["piece"],
@@ -243,5 +291,9 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None):
                 for pts, _ in hang.lay(cloth, fit.rest(), P, Z0):
                     fit._polys = fit._polys + [dict(pts=pts, piece="cloth:" + cloth.name, band=None, hidden=False)]
         notes += more
-    look = Look(body, out, cloths, notes)
-    return look
+    if eyes is not None:                                             # the face: under hair and hats, which stand in front of it
+        import faces
+        for q in faces.eyes(game_tables(), wardrobe, skin=tone, hair=hair, brow=brow, **eyes):
+            out.append(dict(pts=q["pts"], rgb=q["rgb"], src=None, shares=[{"head": 1.0}] * len(q["pts"]), part="head", piece="face",
+                            band=None, hidden=False, unlit=q["unlit"]))
+    return Look(body, out, cloths, notes)

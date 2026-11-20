@@ -593,7 +593,7 @@ The first three of the special shapes (`SPEC.md` 7.4) are rebuilt for the
 low-poly figures, in `lowpoly/specials.py` and `lowpoly/hang.py`. Each takes
 the voxel generator's settings under the same names, and a check holds the
 defaults equal to the game's own table. Hood, hair, beards and drawn shapes
-are still to come.
+are still to come (stubble, chinstrap and full beard followed in 4l).
 
 - **Hanging cloth is laid afresh for every pose** (difficulty medium;
   confidence high that it works in Python, medium on the Godot work, which is
@@ -665,10 +665,77 @@ are still to come.
   round the rest is. Two treatments are built, one number apart
   (`FACE_BEND`): one flat face, or each eye on its own flat patch with the
   two turned 15 degrees outward, which makes the front round as well. The
-  second changes the spec's rule, so the heads are committed with the first
-  and the choice is put to the owner (`lowpoly/renders/heads.png`).
+  second changes the spec's rule, so the heads were committed with the first
+  and the choice was put to the owner (`lowpoly/renders/heads.png`).
+  **The owner chose the second:** each eye on its own flat patch, 15
+  degrees. The heads are built that way from 4l on.
 - **Kept as a record:** the first rebuild's sheet, as
   `lowpoly/renders/heads_first_rebuild.png`.
+- **A lesson about asking.** The choice between the two faces was put as a
+  paragraph inside a longer report and the owner did not see that anything
+  was being asked. A needed answer now goes at the very end, as one marked
+  question (`CLAUDE.md`).
+
+## 4l. Eyes and facial hair on the low-poly heads (owner's request)
+
+The owner asked for the voxel faces' eye options and facial hair options on
+the low-poly heads. Built in `lowpoly/faces.py` and `lowpoly/specials.py`;
+shown on `lowpoly/renders/faces.png`.
+
+- **What is carried over, unchanged** (difficulty low; confidence high,
+  because it is checked against the game cell by cell). Eye sets and their
+  colourways from the wardrobe file; the ten lid states, each five numbers
+  for each eye; the lid colour from the skin tone; the brow colour from the
+  hair; the six skin tones; stubble, chinstrap and full beard, with the
+  beard taking the hair's colour and the stubble worked out from skin and
+  hair. None of it is copied into Python: `lowpoly/dump_wardrobe.gd` now
+  also writes the eye box, the lid states, every eye set's cells with every
+  state applied, and the colours the game works out, and `faces.py` reads
+  them.
+- **The eye is drawn with straight edges, which is a call** (difficulty
+  low; confidence medium on the look, which is the owner's to judge). On a
+  voxel face a lid that tilts is a staircase and the eye's rounded outline
+  is cut corners. Drawn as squares on a low-poly head those read as a
+  low-resolution texture. So a one-cell step in the outline becomes a
+  diagonal, and a tilted lid becomes one sloped edge with the brow as a bar
+  along it. Drawing the game's cells as squares is also built ("cells"), so
+  the two can be compared on the sheet, row 5.
+- **How the straight edges are kept honest.** The eased eye is checked
+  against the game's cells: at the middle of every cell it must show what
+  the game shows there, and nothing may be drawn at the outer part of a cell
+  the game leaves bare. Only the columns where a tilted lid's edge runs
+  through the middle of the cells are left out, since there the staircase
+  and the slope cannot agree.
+- **A pair of eyes is 6 to 18 polygons.** Each eye is worked out strip by
+  strip and the strips are joined wherever the result is still a convex
+  polygon. The polygons of one eye do not overlap, so they all lie at one
+  small height off the face (0.04 units).
+- **Facial hair claims the head's own polygons.** The voxel generator found
+  cells by looking at the head (its frontmost cell in each column, its
+  outermost on each side). Here the head's polygons are tagged with where
+  they are (which ring, which place round it), and facial hair marks the
+  ones it wants: stubble as a recolour, the chinstrap with one step of bulk.
+  The ordinary garment rules then do the work, so a raised beard gets its
+  edges the same way a sleeve gets its hem. The head is cut once more, at
+  the top of the sideburns, so that a sideburn has an edge to stop at.
+- **Ears stay skin under hair.** The short crop's regions include the ears'
+  polygons. Coloured and lifted as hair they read as lumps on the side of
+  the head, so region coverage never claims an ear.
+- **Not ported: the long beard.** It is a drawn (anchored) shape, a relief
+  of voxels hung on the chin. Drawn shapes are not rebuilt yet, and what a
+  hand-drawn shape should be on a low-poly figure is its own question.
+- **Hair is a stand-in.** The short crop is put on by the ordinary region
+  rules, which is enough to show brows and beards following its colour. It
+  stands off the whole back of the head like a cap. Hair itself is not
+  rebuilt.
+- **Things the sheet shows that are worth a look.** A chinstrap stands one
+  whole step of bulk off the jaw, as the voxel one does, and reads heavy. A
+  sideburn stops one row short of the top of the eye, as in the game, which
+  leaves a strip of bare temple under the crop's edge. With a tilted lid the
+  brow's high end is cut square where it reaches the top of the brow row.
+- **For Godot later.** The eyes here are separate flat polygons just off the
+  face. In the engine they should be cut into the face's polygons, or drawn
+  with a depth offset, so that they cannot flicker against the face.
 
 ## 5. Still open, for the owner
 

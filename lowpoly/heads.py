@@ -6,9 +6,9 @@ steps, a jaw that tapers. What every head shares, so that faces, hair and hats f
 
   - the same size: 16 tall (heights 26 to 42), 14 deep, 16 wide (the oval 14), attached at the neck;
   - the face: each eye box, with the brow row above it, lies on one flat patch of the head (5 wide from 1 to 6 either
-    side of the centre line, heights 29 to 36). FACE_BEND says how the two patches stand to each other: 0 puts both
-    on one plane, the face plane, as the voxel heads have it; more turns each patch outward by that many degrees, so
-    that the front of the head is round as well;
+    side of the centre line, heights 29 to 36). FACE_BEND says how the two patches stand to each other: each is
+    turned outward by that many degrees, so that the front of the head is round as well (the owner chose 15; 0 would
+    put both on one plane, the face plane, as the voxel heads have it). faces.py draws the eyes on them;
   - the ears, level with the eyes;
   - the same layout of polygons, with an edge on every head region (heights 31 and 37, the centre line, the side seam).
 
@@ -29,7 +29,7 @@ FACE_HALF_WIDTH = 6.0           # the eye boxes reach this far either side of th
 FACE_Z = (29.0, 36.0)           # eye boxes (29 to 35) and the brow row above them
 BELT = (29.0, 37.0)             # the rings between these heights carry the face; its patches are flat between them
 FACE_Y = CY - 7.0               # the face plane: where the face is on the centre line
-FACE_BEND = 0.0                 # degrees each eye's patch is turned outward from the face plane
+FACE_BEND = 15.0                # degrees each eye's patch is turned outward from the face plane (owner: 15, not 0)
 EYE_BOX = dict(z=(29.0, 35.0), inner=1.0, outer=6.0, pupil_x=(3.0, 4.0), pupil_z=(31.0, 33.0))
 ROUND_OFF = [1.0, 0.5, 0.0, 0.0, 0.0, 0.5, 1.0]     # per ring: how far its front has left the face's flatness for a round outline
 SEAM = 0.3                      # the side seam (the widest point of a ring) is this far behind the depth centre
@@ -98,22 +98,24 @@ def build(name, bend=None):
         m = np.mean(pts, axis=0)
         return ("L" if m[0] > CX else "R"), ("F" if m[1] < CY + SEAM else "B")
 
-    def add(pts, band):
+    def add(pts, band, at):
+        """at: where on the head this polygon is: ("ring", band of rings from the top, place round the ring from the
+        front centre by the figure's left), ("crown", place), ("base", quarter) or ("ear", side)."""
         side, face = tag(pts)
-        out.append(lb.rec(pts, band, side, face, "head"))
+        r = lb.rec(pts, band, side, face, "head")
+        if r is not None: r["at"] = at; out.append(r)
 
-    for (za, a), (zb, b) in zip(zip(RING_Z[:-1], rg[:-1]), zip(RING_Z[1:], rg[1:])):
+    for i, ((za, a), (zb, b)) in enumerate(zip(zip(RING_Z[:-1], rg[:-1]), zip(RING_Z[1:], rg[1:]))):
         band = lb.band_at(0.5 * (za + zb), ("head",))
         band = "lower_head" if band == "neck" else band
         for k in range(n):
-            add([a[k], a[(k + 1) % n], b[(k + 1) % n], b[k]], band)
+            add([a[k], a[(k + 1) % n], b[(k + 1) % n], b[k]], band, ("ring", i, k))
     crown = np.array([CX, CY + SEAM, TOP])
     for k in range(n):                                               # the crown: a point, joined to the top ring
-        add([crown, rg[0][k], rg[0][(k + 1) % n]], "crown")
+        add([crown, rg[0][k], rg[0][(k + 1) % n]], "crown", ("crown", k))
     base = np.array([CX, CY + SEAM, BOTTOM]); low = rg[-1]; s = HALF // 2
-    for run in (range(0, s + 1), range(s, HALF), range(HALF - 1, n - s + 1), list(range(n - s, n)) + [0]):   # the base: flat, cut in four
-        add([base] + [low[k] for k in run], "lower_head")
-    out = [r for r in out if r is not None]
+    for q, run in enumerate((range(0, s + 1), range(s, HALF), range(HALF - 1, n - s + 1), list(range(n - s, n)) + [0])):   # the base: flat, cut in four
+        add([base] + [low[k] for k in run], "lower_head", ("base", q))
     _wind(out, np.array([CX, CY, 0.5 * (TOP + BOTTOM)]))
     # ears: a small wedge on each side, level with the eyes, set on the side seam and flaring toward the back
     a, b = rg[RING_Z.index(37.0)], rg[RING_Z.index(31.0)]
@@ -129,6 +131,7 @@ def build(name, bend=None):
         outer = [tip(lo_f, 1.0, 0.5), tip(lo_b, 0.4, 0.5), tip(hi_b, 0.4, -0.5), tip(hi_f, 1.0, -0.5)]
         faces = [outer, inner[::-1]] + [[inner[k], inner[(k + 1) % 4], outer[(k + 1) % 4], outer[k]] for k in range(4)]
         ear = [lb.rec(fc, "mid_head", side, "B", "head") for fc in faces]
+        for r in ear: r["at"] = ("ear", side)
         _wind(ear, np.mean(inner + outer, axis=0))
         out += ear
     return out
@@ -145,23 +148,6 @@ def face_y(x, bend=None):
     """Where the face is, that far from the mirror plane: the face plane, or its two patches."""
     bend = FACE_BEND if bend is None else bend
     return FACE_Y + abs(x - CX) * float(np.tan(np.radians(bend)))
-
-
-def eye_preview(bend=None, skin_front=0.04):
-    """The standard open eye as flat polygons just in front of the face: [(polygon, colour name)].
-    Placement only: the eye system itself (lids, brows, colourways) is not rebuilt yet."""
-    z0, z1 = EYE_BOX["z"]
-    at = lambda x, z, lift=0.0: [x, face_y(x, bend) - skin_front - lift, z]
-    out = []
-    for sign in (1.0, -1.0):
-        x0, x1 = CX + sign * EYE_BOX["inner"], CX + sign * EYE_BOX["outer"]
-        xa, xb = min(x0, x1), max(x0, x1)
-        white = [(xa + 1, z0), (xb - 1, z0), (xb, z0 + 1), (xb, z1 - 1), (xb - 1, z1), (xa + 1, z1), (xa, z1 - 1), (xa, z0 + 1)]
-        out.append((np.array([at(x, z) for x, z in white]), "eye_white"))
-        p0, p1 = CX + sign * EYE_BOX["pupil_x"][0], CX + sign * EYE_BOX["pupil_x"][1]
-        pa, pb = min(p0, p1), max(p0, p1); q0, q1 = EYE_BOX["pupil_z"]
-        out.append((np.array([at(pa, q0, 0.02), at(pb, q0, 0.02), at(pb, q1, 0.02), at(pa, q1, 0.02)]), "eye_dark"))
-    return out
 
 
 # ---------------------------------------------------------------------------------------------------- checks ---

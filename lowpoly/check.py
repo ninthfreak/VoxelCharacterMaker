@@ -14,6 +14,9 @@
    the special shapes' settings and defaults are the game's; every starter outfit dresses both bodies; hanging cloth
    hangs to its hem when standing, and in every test pose nothing of the figure comes through it; straps lie on the
    chest with nothing coming through them.
+7. Faces (also from the game's tables): every eye polygon lies on its eye's flat patch; in every lid state the eyes
+   drawn here show what the game's own cells show; facial hair is found on every head, the same on both sides, in
+   the colours the game works out.
 """
 import json, os, shutil, sys
 import numpy as np
@@ -142,5 +145,75 @@ else:
                 expect(len(straps) > 0 and sides == {True, False} and rise == 0.0,
                        f"{said}: two straps ({len(straps)} polygons), with nothing of the chest coming through them")
 
-print("low-poly bodies, heads and clothing:", "all checks passed" if not failed else f"{len(failed)} FAILED")
+    # ---- faces: the eyes on every head, in every lid state, against the game's own cells
+    print("== faces ==")
+    import faces as fc
+    box = tables["eyes"]["box"]; EW, EH = int(box["w"]), int(box["h"])
+    flat = True
+    for bend_name in ("heads' own", "none"):
+        for eye_set in w.eye_sets:
+            for state in tables["eyes"]["order"] + [""]:
+                for style in ("eased", "cells"):
+                    bend = None if bend_name != "none" else 0.0
+                    for q in fc.eyes(tables, w, eye_set=eye_set, lids=state, style=style, bend=bend):
+                        p = q["pts"]; x = np.abs(p[:, 0] - lb.CX)
+                        on = np.allclose(p[:, 1], [hd.face_y(v, bend) - fc.LIFT for v in p[:, 0]], atol=1e-9)
+                        flat &= bool(on and x.min() >= 1.0 - 1e-6 and x.max() <= hd.FACE_HALF_WIDTH + 1e-6
+                                     and p[:, 2].min() >= hd.FACE_Z[0] - 1e-6 and p[:, 2].max() <= hd.FACE_Z[1] + 1e-6)
+    expect(flat, f"every eye polygon, in all {len(tables['eyes']['order'])} lid states and both ways of drawing, lies on its eye's flat patch and inside the eye box and brow row")
+    for eye_set, es in w.eye_sets.items():
+        wrong = 0; looked = 0; most = 0; least = 99
+        for state in tables["eyes"]["order"]:
+            count = 0
+            for i, eye in enumerate(fc.EYES):
+                numbers = tables["eyes"]["states"][state][i]
+                pieces = fc.eased(fc.drawing_of(es, eye), numbers, eye, EW, EH); count += len(pieces)
+                theirs = {(cc, r): role for cc, r, role in tables["eyes"]["applied"][eye_set][state][eye]}
+                for cc in range(EW):
+                    if numbers[4] and (numbers[4] * cc) % (EW - 1): continue     # a tilted lid's edge runs through these cells' centres
+                    for r in range(EH + 1):
+                        looked += 1
+                        if (cc, r) in theirs:
+                            wrong += fc.role_at(pieces, cc + 0.5, r + 0.5) != theirs[(cc, r)]
+                        else:                                         # not painted: at most the half nearer the eye is eased in
+                            out_x = cc + (0.2 if cc + 0.5 < EW / 2 else 0.8); out_r = r + (0.2 if r + 0.5 < EH / 2 else 0.8)
+                            wrong += fc.role_at(pieces, out_x, out_r) is not None
+                same = fc.cells(tables["eyes"]["applied"][eye_set][state][eye])
+                wrong += any(fc.role_at(same, cc + 0.5, r + 0.5) != role for (cc, r), role in theirs.items())
+            most = max(most, count); least = min(least, count)
+        expect(wrong == 0, f"eye set '{eye_set}': in every lid state the eyes drawn here show what the game's cells show ({looked} cells looked at); "
+                           f"{least} to {most} polygons for a pair of eyes")
+    tones = tables["skin_order"]
+    expect(sorted(tones) == sorted(tables["skin"]) and tables["default_skin"] in tones
+           and all(tuple(tables["skin"][t]["lid"]) != tuple(tables["skin"][t]["mid"]) for t in tones)
+           and all(set(v["stubble"]) == set(tones) for v in tables["hair"].values()),
+           f"the game's {len(tones)} skin tones: each has its own lid colour, and every hair colour gives a stubble for each")
+    theirs = {e["name"]: e for e in tables["specials"]["facial_hair"]}
+    expect(list(sp.FACIAL_HAIR) == theirs["style"]["options"] and sp.DEFAULTS["facial_hair"]["style"] == theirs["style"]["default"],
+           "facial hair: the game's styles and default")
+    heads_on = {n: lb.build("male", head=n) for n in hd.NAMES}
+    brown = w.palette[tables["default_brow_hair"]]                   # what "@hair" is on a bald head
+    for style in sp.FACIAL_HAIR:
+        ok = True; added = []
+        for n in hd.NAMES:
+            plain = ld.dress(heads_on[n], w, [], skin="tan", eyes={})
+            look = ld.dress(heads_on[n], w, [], skin="tan", eyes={}, features=[(style, "default")])
+            stubble = tuple(tables["hair"][tables["default_brow_hair"]]["stubble"]["tan"])
+            on_head = [q for q in look.polys if q["piece"] == "head"]
+            left = lambda q: q["pts"][:, 0].mean() > lb.CX
+            recoloured = [q for q in on_head if q["rgb"] == stubble]; raised = [q for q in on_head if q["rgb"] == brown]
+            even = sum(map(left, recoloured)) * 2 == len(recoloured) and sum(map(left, raised)) * 2 == len(raised)
+            ok &= not look.notes and even and (len(recoloured) > 0) == (style != "chinstrap") and (len(raised) > 0) == (style != "stubble")
+            ok &= all(np.isfinite(q["pts"]).all() for q in look.polys)
+            ok &= all(q["pts"][:, 2].max() <= sp.SIDEBURN_TOP + 1e-6 for q in recoloured)
+            added.append(len(look.polys) - len(plain.polys))
+            # with hair on, beard, stubble and brows follow it
+            crop = ld.dress(heads_on[n], w, [], skin="tan", eyes={}, features=[("short_crop", "black"), (style, "default")])
+            want = tuple(tables["hair"]["hair_black"]["stubble"]["tan"]) if style != "chinstrap" else w.palette["hair_black"]
+            ok &= any(q["rgb"] == want for q in crop.polys if q["piece"] == "head" and q["pts"][:, 2].max() <= sp.JAW_TOP + 1.5)
+            ok &= any(q["rgb"] == tuple(tables["hair"]["hair_black"]["brow"]) for q in crop.polys if q["piece"] == "face")
+        expect(ok, f"facial hair '{style}': on all five heads, the same on both sides, in the colours the game works out from hair and skin; "
+                   f"it adds {min(added)} to {max(added)} polygons")
+
+print("low-poly bodies, heads, clothing and faces:", "all checks passed" if not failed else f"{len(failed)} FAILED")
 sys.exit(1 if failed else 0)

@@ -5,6 +5,7 @@
   python3 lowpoly/sheets.py regions   the bodies the clothing system uses: their regions, then starter outfits
   python3 lowpoly/sheets.py joints    the comparison behind the joints decision: rigid pieces, or one bending skin
   python3 lowpoly/sheets.py heads     the five heads as rounded forms, with the face treated two ways
+  python3 lowpoly/sheets.py faces     the eye options (lid states, skin tones, eye and brow colours) and facial hair
   python3 lowpoly/sheets.py shapes    the special shapes built so far (skirt, cape, straps), standing, with their settings
   python3 lowpoly/sheets.py moving    the same clothes in the game's test poses
   python3 lowpoly/sheets.py all
@@ -18,7 +19,7 @@ import copy, os, sys, time
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import json
-import clay, rings as ring_tools, body as lb, dress as ld, picture as mr, pose as ps, heads as hd, game
+import clay, rings as ring_tools, body as lb, dress as ld, picture as mr, pose as ps, heads as hd, faces as fc, game
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -136,13 +137,17 @@ def wardrobe_path():
     return game.wardrobe_path()
 
 
-def figure(b, w, worn, pose=None):
-    """A dressed figure in a pose, ready to draw, with the stand-in eyes on its head. Returns (prepared, the look)."""
-    look = ld.dress(b, w, worn)
-    pose = pose or {}
-    A, t = ps.transforms(pose, b["pivots"])["head"]
-    eyes = [(p @ A.T + t, w.palette[c]) for p, c in hd.eye_preview()]
-    return mr.prepare_coloured({"all": ps.posed(b, look, pose), "unlit:eyes": eyes}), look
+def figure(b, w, worn, pose=None, **who):
+    """A dressed figure in a pose, ready to draw. who: what dress() takes beyond the clothes (skin, features, eyes,
+    brow); the standard eyes, neutral, unless it says otherwise. Returns (prepared, the look)."""
+    who.setdefault("eyes", {})
+    look = ld.dress(b, w, worn, **who)
+    return mr.prepare_coloured(look.groups(pose)), look
+
+
+def open_eyes(w, bend=None):
+    """The standard eye as it is drawn, with no lids and no brow, for pictures of bare heads."""
+    return [(q["pts"], q["rgb"]) for q in fc.eyes(game.tables(), w, lids="", bend=bend)]
 
 
 def with_settings(w, item_id, **settings):
@@ -321,8 +326,7 @@ def sheet_heads():
         for n in hd.NAMES:
             polys = hd.build(n, bend); ok, text = hd.check(n, polys, bend)
             assert ok, text
-            eyes = [(p, w.palette[c]) for p, c in hd.eye_preview(bend)]
-            made[(n, bend)] = mr.prepare_coloured({"head": [(r["pts"], ld.SKIN) for r in polys], "unlit:eyes": eyes})
+            made[(n, bend)] = mr.prepare_coloured({"head": [(r["pts"], ld.SKIN) for r in polys], "unlit:eyes": open_eyes(w, bend)})
     count = len(hd.build("round"))
     shot = lambda bend, yaw, pitch, fr=frame, mode="facet", names=hd.NAMES: [mr.render(made[(n, bend)], yaw, pitch, mode=mode, **fr) for n in names]
     rows = []
@@ -349,8 +353,7 @@ def sheet_heads():
         try:
             for n, sex in (("round", "female"), ("strong", "male")):
                 body = lb.build(sex, head=n)
-                eyes = [(p, w.palette[c]) for p, c in hd.eye_preview(bend)]
-                prep = mr.prepare_coloured({"all": [(r["pts"], ld.SKIN) for r in body["polys"]], "unlit:eyes": eyes})
+                prep = mr.prepare_coloured({"all": [(r["pts"], ld.SKIN) for r in body["polys"]], "unlit:eyes": open_eyes(w, bend)})
                 tl += [mr.render(prep, 0, 12, scale=13.0, width=22.0), mr.render(prep, 35, 15, scale=13.0, width=22.0)]
                 lab += [f"{tag}: {n}, {sex}", "turned"]
         finally:
@@ -359,6 +362,73 @@ def sheet_heads():
     rows.append(("8. B from behind, with the polygon edges drawn", "the same layout of polygons on all five heads, with an edge on every head region",
                  band(shot(b, 145, 15, mode="lines"), hd.NAMES)))
     save_sheet(rows, "heads.png")
+
+
+def sheet_faces():
+    """The eye options and the facial hair options, on the low-poly heads."""
+    w = ld.Wardrobe(wardrobe_path()); tables = game.tables()
+    standard = w.eye_sets["standard"]                                # eye colour is a colourway: make two more, as the editor would
+    for name in ("blue", "amber"): standard["colourways"][name] = dict(standard["colourways"]["default"], pupil="eye_" + name)
+    crop = w.features["short_crop"][1]
+    for name in ("fair", "grey"): crop["colourways"][name] = {"hair": "hair_" + name}
+    big = dict(scale=20.0, width=22.0, z_range=(24.5, 43.5)); mid = dict(scale=18.0, width=22.0, z_range=(24.5, 43.5))
+    bodies = {}; notes = set()
+
+    def tile(yaw, pitch, head="round", sex="female", frame=big, worn=(), **who):
+        if (sex, head) not in bodies: bodies[(sex, head)] = lb.build(sex, head=head)
+        prep, look = figure(bodies[(sex, head)], w, list(worn), **who)
+        notes.update(look.notes)
+        return mr.render(prep, yaw, pitch, **frame)
+
+    order = tables["eyes"]["order"]; label = lambda s: s.replace("_", " ")
+    pair = [len(fc.eyes(tables, w, lids=s)) for s in order]
+    rows = [("1. The ten lid states", f"the game's own ten. The standard eye, with a lid state over it: upper lid, lower lid, pupil, tilt. {min(pair)} to {max(pair)} polygons for a pair of eyes.",
+             band([tile(0, 8, eyes=dict(lids=s)) for s in order[:5]], [label(s) for s in order[:5]])),
+            ("", "", band([tile(0, 8, eyes=dict(lids=s)) for s in order[5:]], [label(s) for s in order[5:]]))]
+    some = ["neutral", "unimpressed", "angry", "sad", "wink"]
+    rows.append(("2. Turned", "each eye lies flat on its own patch of the head, so the far eye narrows as the head turns",
+                 band([tile(35, 12, eyes=dict(lids=s)) for s in some], [label(s) for s in some])))
+    tones = tables["skin_order"]; heads = ["round", "boxy", "oval", "strong", "heart", "round"]
+    rows.append(("3. The six skin tones", "the game's six, lightest first. The lid is the skin half a shade darker, on every tone (shown: unimpressed, so that the lid can be seen). One head of each shape.",
+                 band([tile(0, 8, head=h, frame=mid, skin=tone, eyes=dict(lids="unimpressed")) for tone, h in zip(tones, heads)],
+                      [f"{tone} skin, {h} head" for tone, h in zip(tones, heads)])))
+    plan = [("default", "default", "dark eyes, brown hair"), ("blue", "black", "blue eyes, black hair"), ("amber", "auburn", "amber eyes, auburn hair"),
+            ("default", "fair", "dark eyes, fair hair"), ("blue", "grey", "blue eyes, grey hair"), ("default", None, "bald: brows of dark brown")]
+    rows.append(("4. Eye colour, and brows that follow the hair", "eye colour is a colourway of the eye set. The brow is the hair's colour one shade darker. "
+                 "The hair is the wardrobe's short crop, put on by the ordinary region rules; hair itself is not rebuilt yet.",
+                 band([tile(0, 8, frame=mid, eyes=dict(colourway=eye), features=[("short_crop", hair)] if hair else []) for eye, hair, _ in plan], [p[2] for p in plan])))
+    both = []
+    for s in ("neutral", "angry", "sad"):
+        both += [tile(0, 8, frame=mid, eyes=dict(lids=s)), tile(0, 8, frame=mid, eyes=dict(lids=s, style="cells"))]
+    rows.append(("5. Straight edges, or square steps", "left of each pair, as built: a one-cell step in the eye's outline is a diagonal and a tilted lid is one slope. "
+                 "Right: every cell a square, exactly the voxel face's cells.",
+                 band(both, ["neutral", "neutral, in cells", "angry", "angry, in cells", "sad", "sad, in cells"], gap_after=(1, 3))))
+    styles = [("stubble", "stubble"), ("chinstrap", "chinstrap"), ("full_beard", "full beard")]
+    man = dict(head="strong", sex="male", frame=mid, skin="light")
+    tl = []; lab = []
+    for style, name in styles:
+        tl += [tile(0, 8, features=[("short_crop", "default"), (style, "default")], **man), tile(40, 10, features=[("short_crop", "default"), (style, "default")], **man)]
+        lab += [name, "turned"]
+    rows.append(("6. Facial hair: stubble, chinstrap, full beard", "stubble recolours the jaw, the underside of the chin and a sideburn in front of each ear. "
+                 "A chinstrap is hair standing off the jaw's lower edge and up each sideburn. A full beard is both.", band(tl, lab, gap_after=(1, 3))))
+    plan = [("stubble", "deep", "fair", "boxy", "stubble: deep skin, fair hair"), ("stubble", "pale", "black", "oval", "stubble: pale skin, black hair"),
+            ("chinstrap", "tan", "black", "round", "chinstrap: tan skin, black hair"), ("full_beard", "medium", "auburn", "heart", "full beard: medium, auburn"),
+            ("full_beard", "pale", "grey", "strong", "full beard: pale, grey"), ("full_beard", "brown", None, "round", "full beard, bald: dark brown")]
+    rows.append(("7. Facial hair follows the character", "a beard takes the hair's colour (dark brown on a bald head). Stubble is worked out from the skin and the hair, and is always darker than the skin.",
+                 band([tile(35, 12, head=h, sex="male", frame=mid, skin=skin, features=([("short_crop", hair)] if hair else []) + [(style, "default")])
+                       for style, skin, hair, h, _ in plan], [p[4] for p in plan])))
+    full = dict(scale=13.0, width=24.0, z_range=(-0.5, 43.0))
+    cast = [("female", "round", w.outfit("everyday"), dict(skin="light", features=[("short_crop", "auburn")], eyes=dict(colourway="blue")), "everyday"),
+            ("male", "strong", w.outfit("overalls"), dict(skin="tan", features=[("short_crop", "black"), ("full_beard", "default")], eyes=dict(lids="unimpressed")), "overalls, full beard"),
+            ("female", "heart", w.outfit("dress"), dict(skin="brown", features=[("short_crop", "black")], eyes=dict(lids="sad")), "dress, sad"),
+            ("male", "boxy", w.outfit("travelling"), dict(skin="pale", features=[("short_crop", "grey"), ("stubble", "default")], eyes=dict(lids="angry", colourway="amber")), "cloak, stubble, angry")]
+    tl = []; lab = []
+    for sex, h, worn, who, name in cast:
+        tl += [tile(0, 12, head=h, sex=sex, frame=full, worn=worn, **who), tile(35, 15, head=h, sex=sex, frame=full, worn=worn, **who)]
+        lab += [name, "turned"]
+    rows.append(("8. Whole characters", "body, head, skin tone, eyes, hair, facial hair and an outfit together", band(tl, lab, gap_after=(1, 3, 5))))
+    for n in sorted(notes): print("  note:", n)
+    save_sheet(rows, "faces.png")
 
 
 def _shown(w):
@@ -474,7 +544,7 @@ def sheet_moving():
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
     jobs = dict(look=sheet_look, male=sheet_male, regions=sheet_regions, joints=sheet_joints, heads=sheet_heads,
-                shapes=sheet_shapes, moving=sheet_moving)
+                faces=sheet_faces, shapes=sheet_shapes, moving=sheet_moving)
     if which != "all" and which not in jobs:
         sys.exit(__doc__)
     for name in (jobs if which == "all" else [which]):

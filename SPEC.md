@@ -31,15 +31,21 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
   skinning). Rigid pieces with rounded ends were built and compared, and rejected for the body
   (`lowpoly/renders/joints_rigid_or_bend.png`). **Clothing may need to be different** from the body at the joints;
   what is built for that so far is below, and it is not settled.
+- **Heads are rounded forms**, like the bodies. The first low-poly rebuild, blocks with bevelled edges, was too
+  blocky.
+- **The face: each eye lies on its own flat patch**, the two patches turned 15 degrees outward and meeting down the
+  middle of the face, so that the front of the head is round too (`lowpoly/renders/heads.png`, "B"). This replaces
+  section 5's single face plane. The eye box itself is unchanged: 5 wide, 6 tall, a brow row above, the same on
+  every head.
 
 **Where this stands:** `lowpoly/README.md`. In short: the feminine and masculine average bodies exist, cut so that
 their polygons follow the region map of section 3.4, with the shares and pivots that make them bend; ordinary garments
 from the wardrobe file go onto them and bend with them. The five heads of section 4 are rebuilt as rounded low-poly
-forms (the owner found the first, block-like rebuild too blocky) that keep what section 4 says every head shares (size,
-face plane, eye box, ears). Three of section 7.4's special
-shapes are rebuilt (straps, skirt, cape), so all seven starter outfits dress both bodies; the hood, facial hair, drawn
-shapes and hair are not. All of that is built in Python so far. Nothing in `core/`, `runtime/` or `editor/` builds
-polygons yet; the Godot project still runs the voxel system.
+forms that keep what section 4 says every head shares (size, eye box, ears). The faces of section 5 are rebuilt on
+them: eye sets and their colourways, the ten lid states, lids, brows and the six skin tones. Four of section 7.4's
+special shapes are rebuilt (straps, skirt, cape, facial hair), so all seven starter outfits dress both bodies; the
+hood, drawn shapes (the long beard among them) and hair are not. All of that is built in Python so far. Nothing in
+`core/`, `runtime/` or `editor/` builds polygons yet; the Godot project still runs the voxel system.
 
 **How to read the rest of this document.** Sections 1 to 13 describe the voxel system as designed and built. They
 stay the reference for everything the low-poly version keeps and has not yet rebuilt: the part hierarchy and pivots
@@ -76,6 +82,22 @@ different from 7.4:
   the edge of the chest's top row); from there they run straight to the front of the waist.
 - A cape hangs from the shoulder line and drapes over the back; it does not react to the arms.
 
+**Faces and facial hair as polygons** (`lowpoly/faces.py`, `lowpoly/specials.py`). The options are section 5's and
+5.1's, unchanged, and are read from the game each time: the eye sets and colourways in the wardrobe file, the ten lid
+states with their five numbers for each eye, the lid colour from the skin tone, the brow and stubble colours from the
+hair. What is different:
+
+- **The eye is drawn with straight edges** ("eased"): a one-cell step in the outline of the drawn eye becomes a
+  diagonal, and a tilted lid is one sloped edge with the brow as a bar, one unit thick, along it. Drawing it in
+  square cells, exactly as the voxel face has them, is also built. **Which of the two is the owner's to choose**
+  (`lowpoly/renders/faces.png`, row 5). A check holds the eased eye equal to the game's cells at the middle of every
+  cell, apart from the columns where a tilted lid's edge runs through the middle of the cells.
+- White, pupil and line keep their own colour whatever the light (section 5); lid and brow are lit as skin.
+- **Facial hair claims the head's own polygons** instead of adding cells: stubble recolours the jaw below the eyes,
+  the underside of the chin and a sideburn in front of each ear; a chinstrap lifts the bottom of the jaw and the
+  sideburns by one step of bulk; a full beard is both. The ordinary garment rules then recolour or lift them.
+- Ears stay skin under hair.
+
 **Three places where a region now follows the body instead of a level line** (calls made while cutting the bodies;
 they are easy to change):
 
@@ -84,11 +106,10 @@ they are easy to change):
 2. Front / back: split along the side seam, within half a unit of the depth centre.
 3. The arm's top and the foot's top stand a little past their bands' heights and belong to "shoulder" and "foot".
 
-**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): whether the face stays one flat
-plane (section 5: "the face plane") or becomes one flat patch for each eye, the two turned a little apart, so that the
-front of the head can be round too (`lowpoly/renders/heads.png` shows both; the heads are committed with the flat
-plane); whether hanging cloth stays laid afresh for every pose, hard pieces and sleeves at the joints, the polygon budget, flat or smooth shading, how far one
-step of bulk stands off the body, what becomes of edge style, and the final shape of the masculine clay.
+**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): whether the eyes are drawn with
+straight edges or in square steps; whether hanging cloth stays laid afresh for every pose; hard pieces and sleeves at
+the joints; the polygon budget; flat or smooth shading; how far one step of bulk stands off the body; what becomes of
+edge style; and the final shape of the masculine clay.
 
 ---
 

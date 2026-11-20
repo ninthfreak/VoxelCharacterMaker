@@ -107,6 +107,15 @@ def posed(body, look, pose):
     return [(pts, q["rgb"]) for q, pts in bent] + [(pts, cloth.colours[role]) for cloth, made in cloths for pts, role in made]
 
 
+def posed_groups(body, look, pose):
+    """The same, as picture.prepare_coloured takes it: the parts of the face that are drawn in their own colour,
+    untouched by the light (eye white, pupil), apart from everything that is lit."""
+    bent, cloths = laid(body, look, pose)
+    lit = [(pts, q["rgb"]) for q, pts in bent if not q.get("unlit")]
+    lit += [(pts, cloth.colours[role]) for cloth, made in cloths for pts, role in made]
+    return {"all": lit, "unlit:face": [(pts, q["rgb"]) for q, pts in bent if q.get("unlit")]}
+
+
 # --------------------------------------------------------------------------------------------------- rigid ---
 
 def _loops(edges):
