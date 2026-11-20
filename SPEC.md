@@ -37,9 +37,15 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
   middle of the face, so that the front of the head is round too (`lowpoly/renders/heads.png`, "B"). This replaces
   section 5's single face plane. The eye box itself is unchanged: 5 wide, 6 tall, a brow row above, the same on
   every head.
-- **The eyes are rounded ovals, slightly smaller than the voxel eyes, and the face has a small mouth.** The oval
-  replaces section 5's drawing in cells; the lid states, lids, brows and colours of section 5 stay. How much smaller
-  the eyes are, and the mouth's shapes, are not settled yet (`lowpoly/renders/faces.png`).
+- **The eyes are rounded ovals** at 0.9 of the voxel eye's size (4.5 wide, 5.4 tall), with their middle at the middle
+  of the flat part of the face. The oval replaces section 5's drawing in cells; the lid states and colours of
+  section 5 stay.
+- **Lashes and eyebrows are two things.** Section 5's one thick bar on the eyelid, which is lashes and eyebrow at
+  once and overhangs the eye, came from voxel art. On the low-poly face a thin lash line runs along the top edge of
+  the open eye and never leaves it, and each eye has an eyebrow of its own above it.
+- **The face has a small mouth**, low on the flat part of the face, with room left for a moustache above it and a
+  beard under and round it. Its shapes are a first pass, and the beard and moustache are not designed yet
+  (`lowpoly/renders/faces.png`).
 
 **Where this stands:** `lowpoly/README.md`. In short: the feminine and masculine average bodies exist, cut so that
 their polygons follow the region map of section 3.4, with the shares and pivots that make them bend; ordinary garments
@@ -92,15 +98,22 @@ hair. What is different:
 
 - **The eye is a rounded oval**, not a drawing in cells. It fills the box the eye set's drawing fills, and its
   pupil is an oval over the drawing's pupil cells. A lid cuts the oval straight across (on a slope, when it is
-  tilted), and the brow is a bar, one row thick, along the upper lid's edge. The whole eye box, brow row and all, is
-  put on the head at 0.9 of its voxel size, hanging from the same top line. A check holds every lid state equal to
-  the game's cells at the middle of every cell, apart from the columns where a tilted lid's edge runs through the
-  middle of the cells. (The first port drew the cells themselves, with straight or square edges; the owner turned
-  that down for ovals: `lowpoly/renders/faces_first_port.png`.)
-- **A small mouth**, which the voxel faces do not have, sits in the room the smaller eyes leave, between their lower
-  halves: a short line, straight, curved up or curved down, or a small open oval, in the skin's colour darkened.
-  Built as a first pass for the owner to judge. Which mouth goes with which lid state is for the game to say.
-- White and pupil keep their own colour whatever the light (section 5); lid, brow and mouth are lit as skin.
+  tilted). The eye box is put on the head at 0.9 of its voxel size, its middle at height 33, the middle of the flat
+  part of the face. A check holds the lids and the pupil, in every lid state, to where the game's cells have them
+  (at the middle of every cell, apart from the columns where a tilted lid's edge runs through the middle of the
+  cells). (The first port drew the cells themselves, with straight or square edges; the owner turned that down for
+  ovals: `lowpoly/renders/faces_first_port.png`.)
+- **The lash line** is the top edge of the open eye, drawn dark and thin from corner to corner, never outside the
+  eye. It takes the eye set's "line" colour. When the lids meet, it is the line of the closed eye.
+- **The eyebrow** is a shape of its own above the eye, in the brow colour the hair gives. It is moved by the same
+  five numbers as the lids, so section 5's ten lid states still give ten faces without new data: it rises a little
+  for a wide open eye, comes down a little for a lowered lid, and takes about half of the lid's tilt.
+- **A small mouth**, which the voxel faces do not have, sits low on the flat part of the face (height 29.4): a
+  short line, straight, with its corners turned up or turned down, or a small open oval, in the skin's colour
+  darkened. Built as a first pass for the owner to judge. Which mouth goes with which lid state is for the game to
+  say.
+- White, pupil and lash line keep their own colour whatever the light (section 5); lid, eyebrow and mouth are lit
+  as skin.
 - **Facial hair claims the head's own polygons** instead of adding cells: stubble recolours the jaw below the eyes,
   the underside of the chin and a sideburn in front of each ear; a chinstrap lifts the bottom of the jaw and the
   sideburns by one step of bulk; a full beard is both. The ordinary garment rules then recolour or lift them.
@@ -114,10 +127,10 @@ they are easy to change):
 2. Front / back: split along the side seam, within half a unit of the depth centre.
 3. The arm's top and the foot's top stand a little past their bands' heights and belong to "shoulder" and "foot".
 
-**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): how much smaller than the voxel
-eyes the eyes are; the mouth's size, place and shapes; whether hanging cloth stays laid afresh for every pose; hard
-pieces and sleeves at the joints; the polygon budget; flat or smooth shading; how far one step of bulk stands off the
-body; what becomes of edge style; and the final shape of the masculine clay.
+**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): the beard and moustache that the
+new face has room for; the mouth's shapes; whether hanging cloth stays laid afresh for every pose; hard pieces and
+sleeves at the joints; the polygon budget; flat or smooth shading; how far one step of bulk stands off the body; what
+becomes of edge style; and the final shape of the masculine clay.
 
 ---
 

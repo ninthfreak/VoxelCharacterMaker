@@ -1,26 +1,32 @@
-"""Faces: the eyes, with their lids and brows, and a small mouth, as flat polygons on a head's two face patches.
+"""Faces: the eyes with their lids and lashes, the eyebrows and a small mouth, as flat polygons on a head's two face
+patches.
 
 WHAT is shown comes from the game, not from here (game.py), as on the voxel faces (SPEC 5):
 
   an eye set     the open eye, drawn once per eye in the eye box's cells, from the wardrobe file. What is taken from
                  the drawing is how much of the box it fills and where its pupil sits.
-  a colourway    which palette colour each of its roles takes (white, pupil): eye colour is a colourway
+  a colourway    which palette colour each of its roles takes (white, pupil, line): eye colour is a colourway, and
+                 the lash line takes the "line" colour
   a lid state    per eye: how far the upper lid has come down, how far the lower lid has come up, where the pupil
                  looks, and the tilt of the upper lid. The ten named states are the game's.
   lid colour     from the skin tone; brow colour from the hair. Both are the game's own numbers.
 
-HOW it is drawn is the low-poly figure's own (owner, 2026-11: rounded ovals, slightly smaller, room for a mouth):
+HOW it is drawn is the low-poly figure's own (owner, 2026-11):
 
   the eye     a rounded oval filling the box the drawing fills, with an oval pupil over the drawing's pupil cells.
-              A lid cuts the oval straight across (on a slope when it is tilted), and the brow is a bar along the
-              upper lid's edge, as on the voxel face.
-  its size    the whole eye box, brow row and all, is put on the head slightly smaller than the voxel one (EYE_SIZE)
-              and hangs from the same top line, which leaves room under and between the eyes for
-  the mouth   a short line, curved up or down, or a small open oval. The voxel faces have no mouth; this one is new.
+              A lid cuts the oval straight across (on a slope when it is tilted).
+  the lashes  a thin line along the top edge of the open eye, from corner to corner, never outside the eye. (The
+              voxel face has one thick bar there that is lashes and eyebrow at once, and overhangs the eye.)
+  the brow    a bar of its own above the eye. It rises for a wide open eye, comes down for a lowered lid, and takes
+              part of the lid's tilt, so the ten lid states still give ten faces.
+  its place   the eye box goes on the head slightly smaller than the voxel one (EYE_SIZE), its middle at the middle
+              of the flat part of the face. That leaves room above for the brow and below for
+  the mouth   a short line, curved up or down, or a small open oval, low on the flat part of the face, with room
+              between it and the eyes for a moustache. The voxel faces have no mouth; this one is new.
 
-The polygons of one eye do not overlap: they tile it, so they can all lie at one small height off the face. White and
-pupil are drawn in their own colour, untouched by the light (as the voxel face has them); lid, brow and mouth are lit
-like the skin they are part of.
+The polygons of a face do not overlap: they tile it, so they can all lie at one small height off the head. White,
+pupil and lash line are drawn in their own colour, untouched by the light (as the voxel face has them); lid, brow and
+mouth are lit like the skin they are part of.
 """
 import numpy as np
 import body as lb, heads as hd
@@ -29,20 +35,30 @@ CX = lb.CX
 LIFT = 0.04                      # how far the face's polygons stand off the face
 EYES = ("left", "right")         # SCREEN left and right, as the game names them: "left" is the figure's own right eye
 
-EYE_SIZE = 0.9                   # the eye box on the head, against the game's (5 wide, 6 tall, a brow row above)
+EYE_SIZE = 0.9                   # the eye box on the head, against the game's (5 wide, 6 tall): slightly smaller (owner)
+EYE_MIDDLE = 0.5 * (hd.BELT[0] + hd.BELT[1])     # the height of the eye's middle: half way up the flat part of the face (owner)
 ROUND = 2.0                      # the eye's outline: 2 is an ellipse, more is fuller toward the corners of its box
 SIDES = 20                       # corners of the eye's outline
 PUPIL_GROW = (1.3, 1.15)         # the pupil's oval against the box of the drawing's pupil cells: wider, taller
 PUPIL_SIDES = 12
-BROW_RISE = 0.5                  # how far above its row a tilted brow's high end may stand, in rows
+# The numbers below are in the eye box's own cells and rows, so they shrink with the eye.
+LASH = 0.34                      # the lash line's thickness at the middle of the eye
+LASH_FLARE = 0.35                # it is this much thicker at the eye's outer end, and as much thinner at its inner end
+BROW_REACH = (0.3, 4.9)          # the brow from end to end, counted from the eye's outer edge
+BROW_GAP = 0.4                   # its lower edge above the top of the eye, at rest
+BROW_THICK = (0.36, 0.62)        # at its outer end, at its inner end
+BROW_MOVE = 0.3                  # it rises this far for a wide open eye, and comes down this far for a lid half way down or more
+BROW_TILT = 0.55                 # how much of the upper lid's tilt it takes; it hangs from its higher end
+BROW_PEAK = 0.35                 # where along it, from its outer end, its peak is
+BROW_ARCH = 0.3                  # how far its outer end falls from the peak (0 for a straight bar)
 
-MOUTH_Z = 29.7                   # the height of the middle of the mouth
+MOUTH_Z = 29.4                   # the height of a straight mouth
 MOUTH_WIDE = 2.0                 # a line mouth, corner to corner
 MOUTH_THICK = 0.3
 MOUTH_STEPS = 6                  # pieces in a curved line (an even number: the mouth is cut where the two patches meet)
 MOUTH_SHADE = (0.62, 0.45, 0.48)     # the mouth's colour is the skin's, darkened and a little toward red
-# name: a line with how far its corners turn up (down, if negative); or an open oval, wide and tall
-MOUTHS = {"neutral": ("line", 0.0), "smile": ("line", 0.5), "frown": ("line", -0.45), "open": ("oval", (1.1, 0.9))}
+# name: a line with how far its corners turn up (down, if negative) against its middle; or an open oval, wide and tall
+MOUTHS = {"neutral": ("line", 0.0), "smile": ("line", 0.5), "frown": ("line", -0.45), "open": ("oval", (1.1, 0.8))}
 
 
 # ------------------------------------------------------------------------------------------- flat geometry ---
@@ -178,38 +194,57 @@ def shape_of(drawing):
 
 
 def drawn(shape, state, eye, w, h):
-    """One eye as flat pieces [(polygon, role)], roles white, pupil, lid, brow. shape: its ovals (shape_of).
-    state: the game's five numbers for this eye: upper lid rows, lower lid rows, pupil dx in screen terms, pupil dy,
-    tilt of the upper lid."""
+    """One eye as flat pieces [(polygon, role)], roles white, pupil, line (the lashes), lid. shape: its ovals
+    (shape_of). state: the game's five numbers for this eye: upper lid rows, lower lid rows, pupil dx in screen
+    terms, pupil dy, tilt of the upper lid."""
     upper, lower, dx, dy, tilt = (float(v) for v in state)
     ox, oy, oa, ob = shape["outline"]; px, py, pa, pb = shape["pupil"]
     outline = oval(ox, oy, oa, ob, SIDES, ROUND)
     pupil = oval(px + (dx if eye != "right" else -dx), py + dy, pa, pb, PUPIL_SIDES) if pa > 0 and pb > 0 else None
-    raw = lambda x: upper + tilt * (x - 0.5) / (w - 1)              # the lid's depth: the game's steps, as one slope
-    depth = lambda x: float(np.clip(raw(x), -BROW_RISE, h))         # past the top of the eye the brow carries on straight, a little way
-    cuts = {0.0, float(w)}
-    if tilt:
-        for level in (-BROW_RISE, float(h)):                        # where the slope runs out above or below the box
-            x = 0.5 + (level - upper) * (w - 1) / tilt
-            if 1e-6 < x < w - 1e-6: cuts.add(float(x))
-    cuts = sorted(cuts)
-    pieces = []
-    for xa, xb in zip(cuts[:-1], cuts[1:]):
-        slab = [(xa, -1.0), (xb, -1.0), (xb, h + 3.0), (xa, h + 3.0)]
-        lid_b = ((xa, h - depth(xa)), (xb, h - depth(xb)))          # the lid's edge, which is also the bottom of the brow
-        lid_t = ((xa, lid_b[0][1] + 1.0), (xb, lid_b[1][1] + 1.0))
-        low = ((xa, lower), (xb, lower))
-        pieces.append((_clip(_clip(slab, *lid_b, True), *lid_t, False), "brow"))       # the full width of the box
-        part = _clip(_clip(outline, (xa, 0.0), (xa, 1.0), False), (xb, 0.0), (xb, 1.0), True)
-        pieces.append((_clip(part, *lid_t, True), "lid"))                              # the upper lid, above the brow
-        pieces.append((_clip(_clip(part, *low, False), *lid_b, False), "lid"))         # the lower lid
-        seen = _clip(_clip(part, *low, True), *lid_b, False)                           # the eye between the lids
-        if pupil is None:
-            pieces.append((seen, "white"))
-        else:
-            around, inside = _apart(seen, pupil)
-            pieces += [(p, "white") for p in around] + [(inside, "pupil")]
+    edge = lambda x: h - (upper + tilt * (x - 0.5) / (w - 1))       # the upper lid's edge: the game's steps, as one slope
+    lid = ((0.0, edge(0.0)), (float(w), edge(float(w))))
+    low = ((0.0, lower), (float(w), lower))
+    pieces = [(_clip(outline, *lid, True), "lid")]                   # the upper lid
+    under = _clip(outline, *lid, False)                              # all of the eye under the upper lid's edge
+    # the lashes: the top of that, from corner to corner. Cut by sliding the shape down its own thickness of lash.
+    thick = lambda x: LASH * (1.0 + LASH_FLARE * (1.0 - 2.0 * x / w))
+    lashes, rest = _apart(under, [(x, r - thick(x)) for x, r in under])
+    pieces += [(p, "line") for p in lashes]
+    pieces.append((_clip(rest, *low, False), "lid"))                 # the lower lid
+    seen = _clip(rest, *low, True)                                   # the eye between the lids
+    if pupil is None:
+        pieces.append((seen, "white"))
+    else:
+        around, inside = _apart(seen, pupil)
+        pieces += [(p, "white") for p in around] + [(inside, "pupil")]
     return merge(pieces)
+
+
+def brow_of(state, w, h):
+    """An eyebrow as flat polygons, in the eye's box: an inner part and an outer part that falls away from its peak.
+    It rides above the eye: up a little for a wide open eye, down a little for a lowered lid, and tilted as the lid
+    is tilted, though less, hanging from its higher end."""
+    upper, _, _, _, tilt = (float(v) for v in state)
+    x0, x1 = BROW_REACH; xp = x0 + BROW_PEAK * (x1 - x0)
+    base = h + BROW_GAP + BROW_MOVE * (1.0 - min(max(upper, 0.0), 2.0))
+    slope = BROW_TILT * tilt / (w - 1)                              # rows down for each cell toward the nose
+    drop = lambda x: slope * (x - x0) if slope > 0 else slope * (x - x1)      # nothing at the higher end
+    low = lambda x: base - drop(x) - (BROW_ARCH * (xp - x) / (xp - x0) if x < xp else 0.0)
+    thick = lambda x: BROW_THICK[0] + (BROW_THICK[1] - BROW_THICK[0]) * (x - x0) / (x1 - x0)
+    part = lambda xa, xb: [(xa, low(xa)), (xb, low(xb)), (xb, low(xb) + thick(xb)), (xa, low(xa) + thick(xa))]
+    return [part(x0, xp), part(xp, x1)] if BROW_ARCH else [part(x0, x1)]
+
+
+def with_brow(pieces, brow):
+    """The eye's pieces with the brow added. Where the brow lies over the eye it is cut out of what is under it."""
+    for part in brow:
+        out = []
+        for poly, role in pieces:
+            around, inside = _apart(poly, part)
+            if len(inside) >= 3 and _area(inside) > 1e-9: out += [(p, role) for p in around]
+            else: out.append((poly, role))
+        pieces = out
+    return merge(pieces) + [(part, "brow") for part in brow]
 
 
 # --------------------------------------------------------------------------------------------- on the head ---
@@ -227,12 +262,12 @@ def _on_face(polys, bend, lift):
 
 
 def place(pieces, eye, box, bend=None, lift=LIFT, size=None):
-    """Flat pieces of one eye onto its patch of the head: [(polygon in 3D, role)]. The box keeps its top line and
-    its middle across; size is how big it is against the game's box."""
+    """Flat pieces of one eye onto its patch of the head: [(polygon in 3D, role)]. The eye box keeps the game's
+    place across the face; its middle is at EYE_MIDDLE; size is how big it is against the game's box."""
     size = EYE_SIZE if size is None else size
     w, h = float(box["w"]), float(box["h"])
     middle = abs(float(box["x0"]) - CX) - 0.5 * w                   # the middle of the eye, from the face's centre line
-    top = float(box["z0"]) + h
+    top = EYE_MIDDLE + 0.5 * h * size
     flat = []
     for poly, _ in pieces:
         off = [middle + (0.5 * w - x) * size for x, _ in poly]
@@ -242,7 +277,7 @@ def place(pieces, eye, box, bend=None, lift=LIFT, size=None):
 
 def eyes(tables, wardrobe, eye_set="standard", colourway="default", lids=None, skin=None, hair=None, brow=None,
          bend=None, size=None):
-    """Both eyes on a head: [dict(pts, rgb, role, unlit)].
+    """Both eyes with their brows on a head: [dict(pts, rgb, role, unlit)].
     lids: a lid state's name (the game's default if None), or "" for the eye wide open with no brow.
     skin: a skin tone's name. hair: the palette name of the hair colour the brow follows (the game's default brow
     hair if None). brow: a colour to use for the brow instead."""
@@ -257,8 +292,9 @@ def eyes(tables, wardrobe, eye_set="standard", colourway="default", lids=None, s
     flat = set(t["flat_roles"])
     out = []
     for i, eye in enumerate(EYES):
-        pieces = drawn(shape_of(drawing_of(es, eye)), t["states"][lids][i] if lids else [0, 0, 0, 0, 0], eye, w, h)
-        if lids == "": pieces = [(p, role) for p, role in pieces if role != "brow"]
+        state = t["states"][lids][i] if lids else [0, 0, 0, 0, 0]
+        pieces = drawn(shape_of(drawing_of(es, eye)), state, eye, w, h)
+        if lids != "": pieces = with_brow(pieces, brow_of(state, w, h))
         for pts, role in place(pieces, eye, box, bend, size=size):
             out.append(dict(pts=pts, rgb=colour[role], role=role, unlit=role in flat))
     return out
@@ -267,15 +303,18 @@ def eyes(tables, wardrobe, eye_set="standard", colourway="default", lids=None, s
 # ----------------------------------------------------------------------------------------------- the mouth ---
 
 def mouth_shape(state="neutral"):
-    """A mouth as flat polygons [(x from the face's centre line, height)], cut where the two patches meet."""
+    """A mouth as flat polygons [(x from the face's centre line, height)], cut where the two patches meet. Nothing of
+    it is lower than a straight mouth's lower edge, since the flat part of the face ends just under that."""
     kind, v = MOUTHS[state]
+    t = 0.5 * MOUTH_THICK
     if kind == "oval":
-        whole = oval(0.0, MOUTH_Z, 0.5 * v[0], 0.5 * v[1], 12)
+        whole = oval(0.0, MOUTH_Z - t + 0.5 * v[1], 0.5 * v[0], 0.5 * v[1], 12)
         return [_tidy(_clip(whole, (0.0, 0.0), (0.0, 1.0), above)) for above in (True, False)]
     n = MOUTH_STEPS if v else 2
     us = [MOUTH_WIDE * (k / n - 0.5) for k in range(n + 1)]
-    zs = [MOUTH_Z + v * ((2.0 * u / MOUTH_WIDE) ** 2 - 1.0 / 3.0) for u in us]       # its corners turn up by v against its middle
-    t = 0.5 * MOUTH_THICK
+    bend = lambda u: (2.0 * u / MOUTH_WIDE) ** 2                     # 0 at the middle of the mouth, 1 at its corners
+    # a smile turns its corners up from the line; a frown stands on its corners and lifts its middle
+    zs = [MOUTH_Z + (v * bend(u) if v >= 0 else -v * (1.0 - bend(u))) for u in us]
     return [[(us[k], zs[k] - t), (us[k + 1], zs[k + 1] - t), (us[k + 1], zs[k + 1] + t), (us[k], zs[k] + t)] for k in range(n)]
 
 

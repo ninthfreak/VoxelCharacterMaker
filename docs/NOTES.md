@@ -786,6 +786,63 @@ leaves room for a small mouth.** The sheet of 4l is kept as
 - **Not done:** mouths in the game's data and in the editor, and a rule
   for which mouth goes with which lid state.
 
+## 4n. The face laid out again: lashes, eyebrows, and room for facial hair (owner's direction)
+
+Shown the oval eyes of 4m, the owner chose size B (0.9) and asked for four
+things: the eyes a little higher, vertically centred; the mouth a tiny bit
+lower, to make proper room for a beard and a moustache; the thick line on
+the eyelid made thin, to read as lashes, and kept inside the eye; and
+eyebrows added. The owner named the cause: the thick bar, and its double
+duty as lashes and eyebrow, are artifacts of voxel art.
+
+- **"Vertically centred" was read as: centred on the flat part of the
+  face** (difficulty low; confidence medium that this is what was meant).
+  The flat part runs from height 29 to 37, so the eye's middle went from
+  32.3 to 33. Centred on the whole head (34) was the other reading. It
+  would put the top of the eye at 36.7, with no flat room left for an
+  eyebrow under the hairline at 37, so it was not built. Said plainly to
+  the owner so that it can be corrected.
+- **The mouth is as low as the head allows.** It went from 29.7 to 29.4.
+  Its lowest point is now a quarter of a unit above the bottom of the flat
+  part of the face. Lower needs the heads changed (a taller flat part, so a
+  shorter jaw), which the owner has not asked for. To fit, a smile now
+  turns its corners up from the line instead of hanging under it, and a
+  frown stands on its corners.
+- **The lash line is "the top edge of the open eye"** (difficulty low to
+  medium; confidence medium on the look). One rule covers every lid state:
+  take everything of the eye under the upper lid's edge, slide a copy of it
+  down by the lash's thickness, and what the copy leaves uncovered is the
+  lash line. Under a lowered lid that is a thin band along the lid, with
+  thin tails down the sides to the eye's corners; on a wide open eye it is
+  a crescent round the top of the oval; when the lids meet it is the line
+  of the closed eye. It cannot leave the eye, because it is cut from it.
+  It is a little thicker toward the outer corner, which is what makes a
+  line read as lashes. Its colour is the eye set's "line" colour, a role
+  the wardrobe's eye sets already had and the standard eye never used.
+- **Eyebrows had to be given a way to move.** On the voxel face the brow
+  is the lid's edge, so the lid states move it for free. A brow of its own
+  that followed the lid one for one would end up in the middle of a closed
+  eye. So it follows only a little: up 0.3 of a row for a wide open eye,
+  down 0.3 once the lid is half way down, and with 0.55 of the lid's tilt,
+  hanging from its higher end so that it never climbs into the hairline.
+  The numbers were chosen by eye. No new data: the game's ten states are
+  untouched, and a check still holds the lids and the pupil to the game's
+  cells.
+- **Dropped before drawing it: a brow tilted as much as the lid.** Worked
+  through for "sad", it lands on the lid's own edge, which is where the old
+  bar was.
+- **Tried and kept: a low arch and a taper.** A straight thin bar read as a
+  second lash line. Thicker toward the nose, with the outer third falling
+  away, reads as an eyebrow.
+- **The cost.** A pair of eyes with brows is now 10 to 50 polygons, 52 to
+  132 triangles: about a tenth of a dressed figure. Most are slivers, of the
+  white round the pupil and of the lash line round the top of the eye,
+  which is the price of the rule that a face's polygons tile and lie at
+  one height. For Godot, a small texture or a shader on the two face
+  patches would draw the same face for nothing; worth weighing there.
+- **Not done, on purpose:** the beard and moustache. The face now has the
+  room; what they should be is to be talked through with the owner first.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed
