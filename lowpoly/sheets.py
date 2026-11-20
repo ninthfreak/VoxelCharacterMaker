@@ -5,18 +5,20 @@
   python3 lowpoly/sheets.py regions   the bodies the clothing system uses: their regions, then starter outfits
   python3 lowpoly/sheets.py joints    the comparison behind the joints decision: rigid pieces, or one bending skin
   python3 lowpoly/sheets.py heads     the five heads, beside the voxel heads they follow
+  python3 lowpoly/sheets.py shapes    the special shapes built so far (skirt, cape, straps), standing, with their settings
+  python3 lowpoly/sheets.py moving    the same clothes in the game's test poses
   python3 lowpoly/sheets.py all
 
 Sheets are written to lowpoly/renders/. The clay is drawn by ray marching (about 40 s a view), so those pictures are
-kept in lowpoly/_work/ and reused. "regions" needs the project's starter wardrobe as JSON
-(lowpoly/_work/starter_wardrobe.json); if it is missing it is written first with dump_wardrobe.gd, which needs Godot
+kept in lowpoly/_work/ and reused. Anything dressed needs the game's starter wardrobe and test poses (game.py); if
+they are not in lowpoly/_work/ they are written first with dump_wardrobe.gd, which needs Godot
 (GODOT=/path/to/godot, or `godot` on PATH).
 """
-import os, shutil, subprocess, sys, time
+import copy, os, sys, time
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import json
-import clay, rings as ring_tools, body as lb, dress as ld, picture as mr, pose as ps, heads as hd
+import clay, rings as ring_tools, body as lb, dress as ld, picture as mr, pose as ps, heads as hd, game
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -131,14 +133,25 @@ def region_paint():
 
 
 def wardrobe_path():
-    path = os.path.join(WORK, "starter_wardrobe.json")
-    if not os.path.exists(path):
-        godot = os.environ.get("GODOT") or shutil.which("godot")
-        if not godot:
-            sys.exit("needs lowpoly/_work/starter_wardrobe.json. Write it with dump_wardrobe.gd (see its first lines), or set GODOT=/path/to/godot")
-        os.makedirs(WORK, exist_ok=True)
-        subprocess.run([godot, "--headless", "--path", ROOT, "--script", os.path.join(HERE, "dump_wardrobe.gd"), "--", "--out", path], check=True)
-    return path
+    return game.wardrobe_path()
+
+
+def figure(b, w, worn, pose=None):
+    """A dressed figure in a pose, ready to draw, with the stand-in eyes on its head. Returns (prepared, the look)."""
+    look = ld.dress(b, w, worn)
+    pose = pose or {}
+    A, t = ps.transforms(pose, b["pivots"])["head"]
+    eyes = [(p @ A.T + t, w.palette[c]) for p, c in hd.eye_preview()]
+    return mr.prepare_coloured({"all": ps.posed(b, look, pose), "unlit:eyes": eyes}), look
+
+
+def with_settings(w, item_id, **settings):
+    """A copy of a wardrobe item with some of its special shape's settings changed. Returns the copy's id."""
+    item = copy.deepcopy(w.items[item_id])
+    item["specials"][0]["params"].update(settings)
+    new = item_id + " " + " ".join(f"{k}={v}" for k, v in sorted(settings.items()))
+    w.items[new] = item
+    return new
 
 
 # ------------------------------------------------------------------------------------------------- sheets ---
@@ -225,8 +238,7 @@ def sheet_regions():
     n = lb.counts(bodies["female"], head=False); nh = lb.counts(bodies["female"])[0] - n[0]
     tl = []; lab = []
     for sex in ("female", "male"):
-        groups, _ = ld.dress(bodies[sex], w, [], paint=region_paint())
-        prep = mr.prepare_coloured(groups)
+        prep = mr.prepare_coloured(ld.dress(bodies[sex], w, [], paint=region_paint()).groups())
         front = mr.render(prep, 0, 0, scale=S, mode="lines", z_range=ZR)
         tl += [labelled(front, S, ZR) if sex == "female" else front] + [mr.render(prep, y, 0, scale=S, mode="lines", z_range=ZR) for y in (90, 180)]
         lab += [f"{sex}: front", f"{sex}: side", f"{sex}: back"]
@@ -245,8 +257,8 @@ def sheet_regions():
     for title, sub, worn in looks:
         tl = []; lab = []
         for sex in ("female", "male"):
-            groups, notes = ld.dress(bodies[sex], w, worn)
-            prep = mr.prepare_coloured(groups)
+            look = ld.dress(bodies[sex], w, worn); notes = look.notes
+            prep = mr.prepare_coloured(look.groups())
             tl += [mr.render(prep, y, p, scale=S, z_range=ZR) for y, p in ((0, 12), (35, 15), (180, 12))]
             lab += [f"{sex}: front", f"{sex}: turned", f"{sex}: back"]
         if notes: print(" ", title, "|", "; ".join(notes))
@@ -262,7 +274,7 @@ def sheet_joints(sex="female"):
     # the robe top's own colours are near-black, which hides its folds on this background: show it in teal and bone
     w.items["robe_top"]["colourways"]["shown"] = {"cloth": "teal", "trim": "bone"}
     worn = [("boots", "default"), ("trousers", "default"), ("robe_top", "shown")]
-    looks = {"bare": ld.dress(b, w, [], detail=True)[0], "dressed": ld.dress(b, w, worn, detail=True)[0]}
+    looks = {"bare": ld.dress(b, w, []).polys, "dressed": ld.dress(b, w, worn).polys}
     made = {}; added = {}
     for look, polys in looks.items():
         for pname, pose in (("walk", ps.WALK), ("big", ps.BIG)):
@@ -339,9 +351,120 @@ def sheet_heads():
     save_sheet(rows, "heads.png")
 
 
+def _shown(w):
+    """Colourways for pictures: the robe and the cloak are near-black in their own colours, which hides every fold on
+    this background, so they are also shown in green."""
+    for item in ("robe_top", "robe_skirt"):
+        if "moss" not in w.items[item]["colourways"]: w.items[item]["colourways"]["moss"] = {"cloth": "moss", "trim": "ochre", "hem": "ochre"}
+    w.items["cloak"]["colourways"]["shown"] = {"cloth": "moss", "hem": "ochre", "lining": "rust"}
+    return dict(robe=[("boots", "default"), ("trousers", "default"), ("robe_top", "moss"), ("robe_skirt", "moss")],
+                travelling=[("boots", "default"), ("trousers", "default"), ("tunic", "rust"), ("cloak", "shown")])
+
+
+def sheet_shapes():
+    w = ld.Wardrobe(wardrobe_path()); shown = _shown(w)
+    bodies = {sex: lb.build(sex) for sex in ("female", "male")}
+    full = dict(scale=13.0, width=24.0, z_range=(-0.5, 43.0))
+    legs = dict(scale=15.0, width=22.0, z_range=(-0.5, 19.0))
+    notes = set()
+
+    def tiles(worn, sex, views, frame, mode="facet"):
+        prep, look = figure(bodies[sex], w, worn)
+        notes.update(look.notes)
+        return [mr.render(prep, y, p, mode=mode, **frame) for y, p in views]
+
+    rows = []
+    three = [(0, 12), (35, 15), (180, 12)]; names = ["front", "turned", "back"]
+    tl = tiles(w.outfit("dress"), "female", three, full) + tiles(w.outfit("dress"), "male", three, full)
+    rows.append(("1. Skirt: the dress outfit (bodice, skirt, boots)", "the skirt hangs from the waist line, over the hips, to its hem. The item's own regions make the waistband.",
+                 band(tl, [f"female: {n}" for n in names] + [f"male: {n}" for n in names], gap_after=(2,))))
+
+    top = [("boots", "default"), ("bodice", "default")]
+    skirt = lambda **kw: top + [(with_settings(w, "skirt", **kw), "default")]
+    plan = [("to knee", dict(length="to_knee")), ("to shin", dict(length="to_shin")), ("to ankle", dict(length="to_ankle")),
+            ("flare 0", dict(length="to_shin", flare=0)), ("flare 1", dict(length="to_shin", flare=1)), ("flare 3", dict(length="to_shin", flare=3))]
+    tl = [tiles(skirt(**kw), "female", [(0, 12)], legs)[0] for _, kw in plan]
+    rows.append(("2. Skirt settings: length and flare", "the same settings as the voxel skirt, with the same names. Length is a band of the body, so it means the same on every body.",
+                 band(tl, [n for n, _ in plan], gap_after=(2,))))
+    plan = [("hem slant 4, high on its left", dict(length="to_shin", slant=4), (0, 12)), ("wrap, open on its left", dict(length="to_ankle", opening="wrap"), (0, 12)),
+            ("wrap, open on its right", dict(length="to_ankle", opening="wrap", side="right"), (0, 12)), ("wrap with slant 4", dict(length="to_ankle", opening="wrap", slant=4), (35, 15)),
+            ("open front", dict(length="to_ankle", opening="front"), (0, 12)), ("open front, turned", dict(length="to_ankle", opening="front"), (35, 15))]
+    tl = [tiles(skirt(**kw), "female", [view], legs)[0] for _, kw, view in plan]
+    rows.append(("3. Skirt settings: slanted hem, wrap, open front", "the hem trim follows the hem. A wrap is cut from one hip to just past the middle at the hem; an open front opens from the hips down.",
+                 band(tl, [n for n, _, _ in plan], gap_after=(0, 3))))
+    plan = [("four panels: front", dict(length="to_shin"), (0, 12)), ("four panels: turned", dict(length="to_shin"), (35, 15)),
+            ("two panels: front", dict(length="to_shin", panels="two"), (0, 12)), ("two panels: turned", dict(length="to_shin", panels="two"), (35, 15)),
+            ("two panels: side", dict(length="to_shin", panels="two"), (90, 12)), ("no waistband, no hem trim", dict(length="to_shin", waistband=False, hem_trim=False), (0, 12))]
+    worn = lambda kw: ([("boots", "default"), ("shirt", "default")] if "waistband" in kw else top) + [(with_settings(w, "skirt", **kw), "default")]
+    tl = [tiles(worn(kw), "female", [view], legs)[0] for _, kw, view in plan]
+    rows.append(("4. Skirt settings: panels, waistband, hem trim", "four panels is one cloth all round. Two panels is a front cloth and a back cloth with the sides open. The last is worn with the shirt, which stops above the waist.",
+                 band(tl, [n for n, _, _ in plan], gap_after=(1, 4))))
+
+    two = [(0, 12), (35, 15)]
+    tl = tiles(w.outfit("toga"), "female", two, full) + tiles(w.outfit("toga"), "male", two, full) + tiles(shown["robe"], "female", two, full) + tiles(shown["robe"], "male", two, full)
+    rows.append(("5. The toga and robe outfits", "toga: one-shoulder top and wrap skirt. Robe: robe top and open-fronted skirt over trousers, shown in green (its own colours are near-black).",
+                 band(tl, ["toga, female: front", "turned", "toga, male: front", "turned", "robe, female: front", "turned", "robe, male: front", "turned"], gap_after=(1, 3, 5))))
+
+    chest = dict(scale=20.0, width=17.0, z_range=(12.0, 27.5))
+    tl = tiles(w.outfit("shirt and suspenders"), "female", three, full) + tiles(w.outfit("overalls"), "male", three, full)
+    tl += tiles(w.outfit("shirt and suspenders"), "female", [(35, 15)], chest) + tiles(w.outfit("overalls"), "male", [(145, 15)], chest)
+    rows.append(("6. Straps: 'shirt and suspenders', and 'overalls'", "each strap is a flat band lying on the chest: over the shoulder beside the neck, then straight to the front of the waist. The skin at the waist is the wardrobe's: neither the shirt nor the trousers covers that row.",
+                 band(tl, ["suspenders, female: front", "turned", "back", "overalls, male: front", "turned", "back", "close: turned", "close: from behind"], gap_after=(2, 5))))
+
+    back = [(0, 12), (90, 12), (145, 15), (180, 12)]
+    tl = tiles(w.outfit("travelling"), "female", [(145, 15)], full) + tiles(shown["travelling"], "female", back, full) + tiles(shown["travelling"], "male", back[1:], full)
+    rows.append(("7. Cape: the travelling outfit (the cloak; its hood is not built yet)", "the cape hangs from the shoulder line, over the back. First picture: its own colours. The rest: shown in green so that it can be seen.",
+                 band(tl, ["own colours: from behind", "female: front", "side", "from behind", "back", "male: side", "from behind", "back"], gap_after=(0, 4))))
+    cape = lambda **kw: shown["travelling"][:3] + [(with_settings(w, "cloak", **kw), "shown")]
+    upper = dict(scale=13.0, width=24.0, z_range=(-0.5, 28.0))
+    plan = [("to waist", dict(length="to_waist")), ("to knee", dict(length="to_knee")), ("to ankle", dict(length="to_ankle")),
+            ("narrow", dict(width="narrow")), ("wide", dict(width="wide")), ("flare 0", dict(flare=0)), ("flare 3", dict(flare=3))]
+    tl = [tiles(cape(**kw), "female", [(180, 12)], upper)[0] for _, kw in plan]
+    rows.append(("8. Cape settings: length, width, flare", "seen from the back. Width is against the shoulders: narrower, the same, or wider by one unit each side.",
+                 band(tl, [n for n, _ in plan], gap_after=(2, 4))))
+    for n in sorted(notes): print("  note:", n)
+    save_sheet(rows, "special_shapes.png")
+
+
+def sheet_moving():
+    w = ld.Wardrobe(wardrobe_path()); shown = _shown(w)
+    poses = {name: ps.from_game(v["parts"]) for name, v in game.tables()["poses"].items()}
+    bodies = {sex: lb.build(sex) for sex in ("female", "male")}
+    frame = dict(scale=13.0, width=30.0, z_range=(-0.5, 43.0))
+
+    def tiles(worn, sex, pose, views):
+        prep, _ = figure(bodies[sex], w, worn, poses[pose])
+        return [mr.render(prep, y, p, **frame) for y, p in views]
+
+    cast = [("dress", w.outfit("dress"), "female"), ("toga", w.outfit("toga"), "male"), ("robe", shown["robe"], "female"), ("cloak", shown["travelling"], "male")]
+    rows = []
+    for num, pose, title, sub in (("1", "mid_stride", "Mid-stride", "the forward knee pushes the front of the cloth out and the back heel pushes the back out; nowhere else does it move"),
+                                  ("2", "sitting", "Sitting", "the cloth lies over the lap and knees, then hangs from them. There is no seat in the picture: the pose only bends the legs.")):
+        tl = []; lab = []
+        for name, worn, sex in cast:
+            tl += tiles(worn, sex, pose, [(90, 12), (35, 15)]); lab += [f"{name}, {sex}: side", "turned"]
+        rows.append((f"{num}. {title} (the game's test pose)", sub, band(tl, lab, gap_after=(1, 3, 5))))
+    tl = tiles(w.outfit("overalls"), "male", "arms_raised", [(0, 12), (145, 15)]) + tiles(w.outfit("shirt and suspenders"), "female", "reaching", [(35, 15)])
+    tl += tiles(shown["travelling"], "female", "arms_raised", [(145, 15)]) + tiles(shown["travelling"], "male", "reaching", [(145, 15), (90, 12)])
+    tl += tiles(w.outfit("dress"), "female", "t_pose", [(0, 12)])
+    rows.append(("3. Arms raised, reaching, T-pose", "straps are fixed to the chest and turn with it. A cape hangs from the shoulder line whatever the arms do. A skirt does not move for the arms.",
+                 band(tl, ["overalls: arms raised", "from behind", "suspenders: reaching", "cloak: arms raised", "cloak: reaching", "side", "dress: T-pose"], gap_after=(2, 5))))
+    close = dict(scale=22.0, width=22.0, z_range=(0.0, 17.0))
+    tl = []; lab = []
+    for name, worn, sex, pose, view in (("dress, mid-stride", w.outfit("dress"), "female", "mid_stride", (90, 8)), ("dress, mid-stride, from behind", w.outfit("dress"), "female", "mid_stride", (150, 15)),
+                                        ("dress, sitting", w.outfit("dress"), "female", "sitting", (60, 15)), ("robe, sitting", shown["robe"], "female", "sitting", (20, 15)),
+                                        ("toga, mid-stride", w.outfit("toga"), "male", "mid_stride", (35, 15))):
+        prep, _ = figure(bodies[sex], w, worn, poses[pose])
+        tl.append(mr.render(prep, view[0], view[1], mode="lines", **close)); lab.append(name)
+    rows.append(("4. Close up, with the polygon edges drawn", "each cloth is a few columns of points; the rows of points slide to wherever the cloth bends",
+                 band(tl, lab)))
+    save_sheet(rows, "special_shapes_moving.png")
+
+
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
-    jobs = dict(look=sheet_look, male=sheet_male, regions=sheet_regions, joints=sheet_joints, heads=sheet_heads)
+    jobs = dict(look=sheet_look, male=sheet_male, regions=sheet_regions, joints=sheet_joints, heads=sheet_heads,
+                shapes=sheet_shapes, moving=sheet_moving)
     if which != "all" and which not in jobs:
         sys.exit(__doc__)
     for name in (jobs if which == "all" else [which]):

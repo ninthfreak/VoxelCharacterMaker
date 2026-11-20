@@ -21,15 +21,6 @@ if command -v python3 >/dev/null 2>&1; then
   python3 tools/verify_assets.py
 fi
 
-# The low-poly bodies (lowpoly/) are rebuilt and checked too, where numpy is
-# installed to build them. Without it this step is skipped, not failed.
-if command -v python3 >/dev/null 2>&1 && python3 -c "import numpy" >/dev/null 2>&1; then
-  echo "== checking the low-poly bodies and heads =="
-  python3 lowpoly/check.py
-else
-  echo "== low-poly bodies: skipped (python3 with numpy not found) =="
-fi
-
 # Global class names (class_name) live in .godot/global_script_class_cache.cfg,
 # which only an import pass writes. A fresh clone has no .godot at all, and
 # adding a script with a new class_name leaves the cache stale.
@@ -52,6 +43,16 @@ if [ "$NEEDS_IMPORT" = "1" ]; then
   # that adds no class, the file keeps its old time, stays "older than a
   # script", and every later run would import again. Mark it current.
   [ -f "$CACHE" ] && touch "$CACHE"
+fi
+
+# The low-poly bodies, heads and clothing (lowpoly/) are rebuilt and checked too, where numpy is installed to build
+# them. Without it this step is skipped, not failed. It runs after the import above because its clothing checks
+# ask Godot for the game's starter wardrobe and test poses, which needs the script cache.
+if command -v python3 >/dev/null 2>&1 && python3 -c "import numpy" >/dev/null 2>&1; then
+  echo "== checking the low-poly bodies, heads and clothing =="
+  GODOT="$GODOT_BIN" python3 lowpoly/check.py
+else
+  echo "== low-poly: skipped (python3 with numpy not found) =="
 fi
 
 echo

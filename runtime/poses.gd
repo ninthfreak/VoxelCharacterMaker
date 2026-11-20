@@ -17,6 +17,10 @@ extends RefCounted
 ##
 ## Those mirrored signs are why the values below are written out per side
 ## instead of being generated: a sign error is obvious when you can read both.
+##
+## An elbow bends the forearm FORWARD (positive X); a knee bends the shin back
+## (negative X). The forearms were once written negative, like the shins, which
+## bent the elbows backward; at voxel size it did not show.
 
 const REST := "rest"
 const ARMS_RAISED := "arms_raised"
@@ -67,9 +71,9 @@ static func get_pose(pose: String) -> Dictionary:
 				"thigh_R": Vector3(-22, 0, 0),
 				"shin_R": Vector3(-35, 0, 0),
 				"upper_arm_L": Vector3(-24, 0, -4),
-				"forearm_L": Vector3(-18, 0, 0),
+				"forearm_L": Vector3(18, 0, 0),
 				"upper_arm_R": Vector3(26, 0, 4),
-				"forearm_R": Vector3(-30, 0, 0),
+				"forearm_R": Vector3(30, 0, 0),
 				"chest": Vector3(0, -5, 0),
 				"head": Vector3(0, 5, 0),
 			}
@@ -82,8 +86,8 @@ static func get_pose(pose: String) -> Dictionary:
 				"shin_R": Vector3(-88, 0, 0),
 				"upper_arm_L": Vector3(10, 0, -8),
 				"upper_arm_R": Vector3(10, 0, 8),
-				"forearm_L": Vector3(-55, 0, 0),
-				"forearm_R": Vector3(-55, 0, 0),
+				"forearm_L": Vector3(55, 0, 0),
+				"forearm_R": Vector3(55, 0, 0),
 				"chest": Vector3(-6, 0, 0),
 			}
 		REACHING:

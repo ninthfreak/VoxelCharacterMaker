@@ -4,16 +4,19 @@ The body is one skin that bends (owner's decision): each corner follows one part
 says (body.py: joints), and moves by the blend of their movements. That is plain blended skinning, which is what
 Godot's Skeleton3D does.
 
-Clothing is not settled. Two behaviours exist here:
+Clothing moves in one of three ways:
 
-  bend    a lifted garment follows the corners it was lifted from, so it bends with the body (posed_bend)
+  bend    a garment lifted off the body follows the corners it was lifted from, and a shape that lies on the body
+          (straps) follows the part it lies on. Both bend with the body.
+  hang    a skirt or a cape is hanging cloth: it is laid afresh for every pose (hang.py).
   rigid   every part's share of a garment is a closed piece that turns as a whole, with a rounded end on each open
           loop so that bent joints overlap instead of gaping (posed_rigid). It was compared with the bending skin for
           the body and lost (renders/joints_rigid_or_bend.png); it is kept because some clothing, such as hard
-          pieces, may need to stay rigid.
+          pieces, may need to stay rigid. Nothing uses it yet.
 """
 import numpy as np
 import body as lb
+import hang
 
 CX, CY = lb.CX, lb.CY
 ORDER = ["pelvis", "chest", "head", "upper_arm_L", "upper_arm_R", "forearm_L", "forearm_R", "thigh_L", "thigh_R", "shin_L", "shin_R"]
@@ -43,7 +46,8 @@ def transforms(pose, pivots):
         p = pose.get(part, {}); piv = np.array(pivots[part], float)
         hangs = part not in ("chest", "head", "pelvis")              # limbs hang below their pivot
         side_sign = -1.0 if part.endswith("_L") else 1.0
-        R = _rz(p.get("turn", 0.0)) @ _ry(side_sign * p.get("side", 0.0)) @ _rx((-1.0 if hangs else 1.0) * p.get("fwd", 0.0))
+        # the game's order (Godot turns a part about its Y, then X, then Z): turn, then forward, then sideways
+        R = _rz(p.get("turn", 0.0)) @ _rx((-1.0 if hangs else 1.0) * p.get("fwd", 0.0)) @ _ry(side_sign * p.get("side", 0.0))
         t = piv - R @ piv
         parent = lb.PARENT[part]
         if parent is None:
@@ -54,19 +58,53 @@ def transforms(pose, pivots):
     return out
 
 
+def from_game(parts):
+    """A pose as the game writes it (runtime/poses.gd: degrees about Godot's X, Y and Z for each part), in the terms
+    used here. Godot's X swings a hanging limb forward and leans an upright part back; its Z moves a hanging limb to
+    the figure's right."""
+    out = {}
+    for part, (x, y, z) in parts.items():
+        hangs = part not in ("chest", "head", "pelvis")
+        out[part] = {"fwd": x if hangs else -x, "turn": y, "side": -z if part.endswith("_L") else z}
+    return out
+
+
 # ------------------------------------------------------------------------------------------------- bending ---
 
+def _bent(q, T):
+    return np.array([sum(share * (T[part][0] @ v + T[part][1]) for part, share in w.items()) for v, w in zip(q["pts"], q["shares"])])
+
+
 def posed_bend(body, polys, pose):
-    """polys: dress(..., detail=True). Returns [(polygon, rgb)] with every corner moved by its shares."""
-    T = transforms(pose, body["pivots"]); shares = body["shares"]
-    out = []
-    for q in polys:
-        pts = []
-        for v, s in zip(q["pts"], q["src"]):
-            w = shares[lb.share_key(q["piece"], s)]
-            pts.append(sum(share * (T[part][0] @ v + T[part][1]) for part, share in w.items()))
-        out.append((np.array(pts), q["rgb"]))
-    return out
+    """polys: dicts with pts and shares (a Look's polys). Returns [(polygon, rgb)] with every corner moved by its
+    shares."""
+    T = transforms(pose, body["pivots"])
+    return [(_bent(q, T), q["rgb"]) for q in polys]
+
+
+def laid(body, look, pose):
+    """A dressed figure (dress.Look) in a pose, in its two kinds: the polygons that bend, each as (its record, its
+    posed corners), and each hanging cloth as (the cloth, its polygons [(polygon, role)]). A cloth is laid over the
+    posed figure and over the cloths before it."""
+    T = transforms(pose, body["pivots"])
+    bent = [(q, _bent(q, T)) for q in look.polys]
+    under = [(q, pts, q["pts"][:, 2]) for q, pts in bent]
+    cloths = []
+    for cloth in look.cloths:
+        sel = [(pts, z0) for q, pts, z0 in under if cloth.over(q)]
+        P = np.concatenate([a for a, _ in sel]) if sel else np.zeros((0, 3))
+        Z0 = np.concatenate([b for _, b in sel]) if sel else np.zeros(0)
+        made = hang.lay(cloth, T, P, Z0)
+        cloths.append((cloth, made))
+        tag = dict(piece="cloth:" + cloth.name, band=None, hidden=False)
+        under += [(tag, pts, np.full(len(pts), -1.0)) for pts, _ in made]
+    return bent, cloths
+
+
+def posed(body, look, pose):
+    """A dressed figure in a pose, to draw: [(polygon, rgb)]."""
+    bent, cloths = laid(body, look, pose)
+    return [(pts, q["rgb"]) for q, pts in bent] + [(pts, cloth.colours[role]) for cloth, made in cloths for pts, role in made]
 
 
 # --------------------------------------------------------------------------------------------------- rigid ---

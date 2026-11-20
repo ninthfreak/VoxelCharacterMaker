@@ -1,7 +1,7 @@
 """Garments from the project's wardrobe file onto a region-tagged low-poly body.
 
 It reads the project's own wardrobe JSON (palette, items with coverage = {region key: {role, bulk}}, mirror flag, draw
-order, colourways, outfits) and applies the parametric rules of SPEC 7.3 to polygons instead of voxels:
+order, colourways, special shapes, outfits) and applies the parametric rules of SPEC 7.3 to polygons instead of voxels:
 
   1  bulk 0 recolours the body's own polygons; bulk N lifts them N units off the body
   2  growth is sideways, so a covered band next to a bare one makes a level hem step
@@ -9,7 +9,9 @@ order, colourways, outfits) and applies the parametric rules of SPEC 7.3 to poly
   4  arms, feet and head are separate pieces, so their bulk may overlap the torso's
   6  where worn items claim the same region, the larger bulk wins, then the higher draw order
   8  nothing on a leg or foot grows toward the other leg
-Not done here: rule 7 (soft or hard edge style) and every special shape (skirt, cape, hood, straps...).
+Special shapes (specials.py): straps, skirt and cape are built; a skirt or a cape is hanging cloth (hang.py) and is
+placed after everything else that is worn. Not done here: rule 7 (soft or hard edge style), and the other special
+shapes (hood, facial hair, drawn shapes).
 
 The project keeps garment logic in exactly one place, and that place is core/ (GDScript), which today only knows
 voxels. When the Godot side builds polygons these rules move there, and this file goes or shrinks to a cross-check.
@@ -17,6 +19,7 @@ voxels. When the Godot side builds polygons these rules move there, and this fil
 import json
 import numpy as np
 import body as lb
+import specials
 
 SKIN = (236, 178, 134)        # the project's default skin tone ("light", mid shade)
 BULK_UNIT = 1.0               # how far one step of bulk stands off the body, in voxels
@@ -33,6 +36,9 @@ class Wardrobe:
         assert d["format"] == "voxel_wardrobe"
         self.palette = {k: hex_rgb(v) for k, v in d["palette"].items()}
         self.items = d["items"]; self.outfits = d["outfits"]
+
+    def outfit(self, name):
+        return [(e["item"], e["colourway"]) for e in self.outfits[name]]
 
 
 def resolve(item):
@@ -56,22 +62,94 @@ def _normal(p):
     return n
 
 
-def dress(body, wardrobe, worn, skin=SKIN, paint=None, detail=False):
+class Fit:
+    """The figure as dressed, for a special shape to measure."""
+
+    def __init__(self, body, polys, surface):
+        self.body = body; self._polys = polys; self._surface = surface
+
+    def heights(self, bands):
+        """The heights of the body's rings in those bands, bottom to top."""
+        return sorted({round(float(v[2]), 4) for r in self.body["polys"] if r["piece"] == "skin" and not r["hidden"] and r["band"] in bands for v in r["pts"]})
+
+    def ring(self, z):
+        """The body's own corners at a ring height, in order: the front centre, then round by the figure's left."""
+        seen = {}
+        for r in self.body["polys"]:
+            if r["piece"] != "skin" or r["hidden"]: continue
+            for v in r["pts"]:
+                if abs(v[2] - z) < 1e-6: seen[tuple(np.round(v, 4))] = v
+        pts = list(seen.values())
+        c = np.mean(pts, axis=0)
+        order = list(np.argsort([np.arctan2(p[0] - c[0], -(p[1] - c[1])) % (2 * np.pi) for p in pts]))
+        front = min((i for i in order if abs(pts[i][0] - lb.CX) < 1e-6), key=lambda i: pts[i][1], default=order[0])
+        at = order.index(front)
+        return [pts[i] for i in order[at:] + order[:at]]
+
+    def at(self, v, piece="skin"):
+        """Where one of the body's corners is once the figure is dressed."""
+        return self._surface(piece, v)
+
+    def shares(self, v, piece="skin"):
+        return self.body["shares"][lb.share_key(piece, v)]
+
+    def points(self, over):
+        """Every corner of the dressed figure that a hanging cloth hangs over, and its height (standing)."""
+        sel = [q["pts"] for q in self._polys if over(q)]
+        P = np.concatenate(sel) if sel else np.zeros((0, 3))
+        return P, P[:, 2].copy()
+
+    def triangles(self, over):
+        """The dressed surface of the polygons that `over` picks, as triangles."""
+        tris = []
+        for q in self._polys:
+            if not over(q): continue
+            p = q["pts"]
+            tris += [p[[0, i, i + 1]] for i in range(1, len(p) - 1)]
+        return np.array(tris) if tris else np.zeros((0, 3, 3))
+
+    def rest(self):
+        return {part: (np.eye(3), np.zeros(3)) for part in lb.PARENT}
+
+
+class Look:
+    """A dressed figure: what dress() returns.
+    polys   the body and everything that bends with it: dicts with pts, rgb, shares (for every corner, the parts it
+            follows), part, piece, band, hidden
+    cloths  hanging cloth (hang.Cloth), laid afresh for every pose
+    notes   what was asked for and could not be built"""
+
+    def __init__(self, body, polys, cloths, notes):
+        self.body = body; self.polys = polys; self.cloths = cloths; self.notes = notes
+
+    def standing(self):
+        import pose
+        return pose.posed(self.body, self, {})
+
+    def groups(self):
+        return {"all": self.standing()}
+
+
+def dress(body, wardrobe, worn, skin=SKIN, paint=None):
     """worn: [(item id, colourway)]. paint: optional {region key: rgb} to colour bare regions (for the region map).
-    Returns ({group: [(polygon, rgb)]}, [notes]).
-    detail=True returns a flat list of dicts instead of the groups, for posing: each has pts, rgb, the rigid part it
-    belongs to, its piece, and src: for every corner, the body corner it came from (itself, unless it was lifted)."""
+    Returns a Look."""
     polys = body["polys"]; notes = []
-    layers = []
+    layers = []; shapes = []
+    known = set(lb.all_region_keys())
     for item_id, cw in worn:
         it = wardrobe.items[item_id]
-        layers.append(dict(cov=resolve(it), order=int(it["draw_order"]),
-                           colours={role: wardrobe.palette[name] for role, name in it["colourways"][cw].items()}))
+        colours = {role: wardrobe.palette[name] for role, name in it["colourways"][cw].items() if name in wardrobe.palette}
+        cov = resolve(it)
         for sp in it.get("specials", []):
-            notes.append(f"{item_id}: special shape '{sp['type']}' not built")
+            kind = sp["type"]
+            if kind not in specials.BUILT:
+                notes.append(f"{item_id}: special shape '{kind}' not built"); continue
+            cov = {**specials.coverage(kind, sp.get("params", {})), **cov}       # the item's own regions come first
+            shapes.append((kind in specials.HANGS, int(it["draw_order"]), len(shapes), item_id, kind, sp.get("params", {}), colours))
+        layers.append(dict(cov=cov, order=int(it["draw_order"]), colours=colours))
         if it.get("edge_style", "soft") != "soft":
             notes.append(f"{item_id}: edge style '{it['edge_style']}' ignored")
-        unknown = [k for k in it["coverage"] if k not in set(lb.all_region_keys())]
+        unknown = [k for k in it["coverage"] if k not in known]
         if unknown: notes.append(f"{item_id}: regions not on this body: {unknown}")
     win = []
     for r in polys:
@@ -84,15 +162,19 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, detail=False):
                         best = (bulk, L["order"], L["colours"][role])
         win.append(best)
 
-    # per piece: weld corners, corner normals from the visible polygons, and who is across each edge
+    # per piece: weld corners, corner normals from the visible polygons, who is across each edge, and the most
+    # bulk worn at each corner
     key = lambda piece, v: (piece, tuple(np.round(v, 4)))
-    acc = {}; across = {}
+    acc = {}; across = {}; most = {}
     for i, r in enumerate(polys):
         p = r["pts"]
         if not r["hidden"]:
             n = _normal(p)
             for v in p:
-                acc[key(r["piece"], v)] = acc.get(key(r["piece"], v), np.zeros(3)) + n
+                k = key(r["piece"], v)
+                acc[k] = acc.get(k, np.zeros(3)) + n
+                b = win[i][0] if win[i] is not None else 0
+                if k not in most or b > most[k][0]: most[k] = (b, i)
         for a in range(len(p)):
             e = frozenset((key(r["piece"], p[a]), key(r["piece"], p[(a + 1) % len(p)])))
             across.setdefault(e, []).append(i)
@@ -110,11 +192,16 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, detail=False):
             d[0] = max(d[0], 0.0) if r["side"] == "L" else min(d[0], 0.0)
         return v + d
 
-    groups = {}; flat = []
+    def surface(piece, v):
+        bulk, i = most.get(key(piece, v), (0, None))
+        return np.array(v, float) if i is None else moved(polys[i], v, bulk)
+
+    out = []
+    shares_of = lambda r, src: [body["shares"][lb.share_key(r["piece"], s)] for s in src]
 
     def put(r, pts, rgb, src):
-        groups.setdefault(r["piece"], []).append((pts, rgb))
-        flat.append(dict(pts=pts, rgb=rgb, src=src, part=r["part"], piece=r["piece"], hidden=r["hidden"]))
+        out.append(dict(pts=np.asarray(pts, float), rgb=rgb, src=src, shares=shares_of(r, src), part=r["part"], piece=r["piece"],
+                        band=r["band"], hidden=r["hidden"]))
 
     for i, r in enumerate(polys):
         w = win[i]
@@ -136,4 +223,25 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, detail=False):
             hem = [moved(r, va, bulk), moved(r, vb, bulk), moved(q, vb, m), moved(q, va, m)]
             if max(np.linalg.norm(hem[0] - hem[3]), np.linalg.norm(hem[1] - hem[2])) > 1e-6:
                 put(r, np.array(hem), rgb, np.array([va, vb, vb, va]))
-    return (flat if detail else groups), notes
+
+    # special shapes: those that lie on the figure first, then hanging cloth in draw order, each hanging over
+    # everything before it
+    fit = Fit(body, out, surface)
+    cloths = []
+    import hang
+    for hangs, _, _, item_id, kind, params, colours in sorted(shapes, key=lambda s: s[:3]):
+        if not hangs:
+            made, more = specials.BUILT[kind](fit, params, colours, name=item_id)
+            for q in made:
+                out.append(dict(pts=q["pts"], rgb=q["rgb"], src=None, shares=q["shares"], part="chest", piece="shape:" + kind,
+                                band=None, hidden=False))
+        else:
+            cloth, more = specials.BUILT[kind](fit, params, colours, name=item_id)
+            if cloth is not None:
+                cloths.append(cloth)
+                P, Z0 = fit.points(cloth.over)                        # laid standing, so the next cloth hangs over it
+                for pts, _ in hang.lay(cloth, fit.rest(), P, Z0):
+                    fit._polys = fit._polys + [dict(pts=pts, piece="cloth:" + cloth.name, band=None, hidden=False)]
+        notes += more
+    look = Look(body, out, cloths, notes)
+    return look

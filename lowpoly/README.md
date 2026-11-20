@@ -1,8 +1,8 @@
 # Low-poly characters
 
 The characters are low-poly (owner's decision, `SPEC.md` section 0). This folder holds what exists of them so far:
-the bodies, and the Python that makes, dresses, poses and checks them. Nothing in `core/`, `runtime/` or `editor/`
-builds polygons yet; the Godot project still runs the earlier voxel system.
+the bodies and heads, and the Python that makes, dresses, poses and checks them. Nothing in `core/`, `runtime/` or
+`editor/` builds polygons yet; the Godot project still runs the earlier voxel system.
 
 Godot ignores this folder (`.gdignore`), so nothing here is imported into the project.
 
@@ -11,7 +11,8 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 - **Style:** low-poly, at about the level of detail of Final Fantasy VII.
 - **Bodies are cut from smooth clay models** on the clothing regions (method below).
 - **Joints: the body is one skin that bends.** Rigid pieces were built, compared and rejected for the body
-  (`renders/joints_rigid_or_bend.png`). Clothing may need to be different from the body at the joints; open.
+  (`renders/joints_rigid_or_bend.png`). Clothing may need to be different from the body at the joints; see "How
+  clothing moves" below for what is built, and "Not decided yet" for what is the owner's to judge.
 
 ## Where it stands
 
@@ -22,9 +23,9 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Region map on the bodies (32 a side, same bands and heights as the voxel bodies) | done, checked |
 | Joints: one bending skin over the same 11 parts | done: every corner's shares and every pivot are in the body files; posed in Python |
 | Ordinary garments from the wardrobe file (regions, roles, bulk, mirror, layering) | built in Python, shown on both bodies; they bend with the body |
-| Clothing that should not bend with the body (hard pieces, hanging cloth) | not settled |
-| Special shapes (skirt, cape, hood, straps, facial hair, anchored shapes) | not started |
-| Edge style (soft / hard) | not carried over |
+| Special shapes: straps, skirt, cape | built, with every setting the voxel ones have; all seven starter outfits dress both bodies (`renders/special_shapes.png`, `renders/special_shapes_moving.png`) |
+| Special shapes: hood, facial hair, drawn (anchored) shapes; hair | not started. The cloak is worn without its hood |
+| Edge style (soft / hard) | not carried over. The boots ask for "hard" and are built soft |
 | Heads | all five rebuilt: round, boxy, oval, strong, heart. 116 polygons each, same layout; any head goes on any body |
 | Faces (eyes, lids, brows) | not rebuilt. Every head keeps the flat face and the eye boxes they need; the open eye is placed as flat polygons for pictures only |
 | The other six bodies (slim, heavy and short, each sex) | not started; each needs a clay |
@@ -61,6 +62,22 @@ follow the ideas and proportions of the voxel heads without tracing them, and sh
 fit any of them: the size (16 tall, 14 deep, 16 wide, the oval 14), a flat face over both eye boxes and the brow row,
 the ears level with the eyes, and one layout of polygons with an edge on every head region.
 
+## How clothing moves
+
+Three ways, by what the clothing is:
+
+- **It bends with the body.** A garment made of regions is the body's own polygons, recoloured or lifted off the
+  body, and each corner keeps following what it was lifted from. Straps lie on the chest and follow it.
+- **It hangs.** A skirt or a cape is hanging cloth (`hang.py`): a few columns of cloth, each fixed at its top (a skirt
+  to the waist line, a cape to the shoulder line) and each a fixed length. For any pose, every column is a taut line
+  from its top over whatever of the figure sticks out under it, then straight down, leaning out by the garment's
+  flare. Nothing is simulated and nothing is remembered between poses, so standing still is one more pose. This is
+  what makes a skirt fit the hips, let the forward knee push its front out, and lie over a lap.
+- **It stays rigid.** Nothing does yet. `pose.posed_rigid` is kept for hard pieces, if they come to need it.
+
+The voxel system turned hanging cloth by rule instead: each panel by 0.8 of a thigh's swing. That rule is not used
+here; see "Not decided yet", 1.
+
 ## Files
 
 | File | What it is |
@@ -69,19 +86,24 @@ the ears level with the eyes, and one layout of polygons with an edge on every h
 | `rings.py` | cutting a clay into rings; also the first two cuts ("A" and "B") that the look was approved from |
 | `body.py` | the bodies: regions, parts, joints; writes `bodies/*.json` and `*.obj` |
 | `dress.py` | garments from the wardrobe file onto a body (see the note below) |
+| `specials.py` | the special shapes built so far: straps, skirt, cape, with the voxel generators' settings |
+| `hang.py` | hanging cloth: how a skirt or a cape is laid over the figure in a pose |
 | `heads.py` | the five heads; writes `heads/*.json` and `*.obj` |
-| `pose.py` | posing: the bending skin, and the rigid-piece alternative kept for clothing that must not bend |
+| `pose.py` | posing: the bending skin, hanging cloth, the game's poses in this folder's terms, and the rigid-piece alternative |
 | `picture.py` | pictures of polygon meshes: flat shade, smooth shade, edges drawn |
 | `sheets.py` | builds the review sheets in `renders/` |
-| `check.py` | checks the band table, the geometry, the regions, and that the body files match a rebuild |
-| `dump_wardrobe.gd` | writes the project's starter wardrobe as JSON, for `dress.py` |
+| `check.py` | checks the band table, the geometry, the regions, the files, and the clothing in every test pose |
+| `game.py` | fetches what is taken from the game: the starter wardrobe, the test poses, the special shapes' settings |
+| `dump_wardrobe.gd` | run by `game.py` in Godot: writes those as JSON into `_work/` |
 | `bodies/` | the body files: corners and their shares, polygons with region and part, pivots, the band table. Generated; do not hand-edit |
 | `heads/` | the head files: corners, polygons with their region, the eye box, the seven sections that define the shape. Generated |
 | `renders/` | the sheets each decision was made from |
 
-`dress.py` holds the garment rules for polygons in Python. The project keeps that logic in exactly one place, and
-that place is `core/` (GDScript), which today only knows voxels. When the Godot side builds polygons the rules move
-there, and `dress.py` goes or shrinks to a cross-check.
+`dress.py`, `specials.py` and `hang.py` hold the clothing rules for polygons in Python. The project keeps that logic
+in exactly one place, and that place is `core/` (GDScript), which today only knows voxels. When the Godot side builds
+polygons the rules move there, and these files go or shrink to a cross-check. Nothing here copies the game's tables:
+the wardrobe, the poses and the special shapes' settings are read from the game each time, and a check holds the
+defaults equal.
 
 ## Running it
 
@@ -103,21 +125,30 @@ python3 lowpoly/heads.py
 GODOT=/path/to/godot python3 lowpoly/sheets.py all
 ```
 
-`check.py` also runs as part of `tests/run.sh` when numpy is installed. `sheets.py` takes `look`, `male`, `regions`,
-`joints`, `heads` or `all`; the clay pictures take about 40 seconds a view and are kept in `lowpoly/_work/` for the next run.
+`check.py` also runs as part of `tests/run.sh` when numpy is installed. Its clothing checks, and every sheet with
+clothes on it, ask Godot for the game's wardrobe and poses: set `GODOT=/path/to/godot` (or have `godot` on PATH).
+Without Godot, `check.py` skips the clothing and says so.
+
+`sheets.py` takes `look`, `male`, `regions`, `joints`, `heads`, `shapes`, `moving` or `all`; the clay pictures take
+about 40 seconds a view and are kept in `lowpoly/_work/` for the next run.
 
 ## Not decided yet
 
 All of these are the owner's to settle. Recommendations are recommendations.
 
-1. **Clothing at the joints.** Cloth lifted off the body bends with it, and that is built. The owner expects some
-   clothing to need something different. Candidates: hard pieces fixed to one part so they never bend (which could
-   be what the "hard" edge style comes to mean), and hanging cloth such as skirts and capes, which does not follow
-   the legs at all.
+1. **How hanging cloth moves.** Built: it is laid afresh for every pose ("How clothing moves" above). That was a
+   call made while building, in place of the voxel rule (each panel turned by 0.8 of a thigh's swing), because a
+   panel that turns cannot cover a lap when sitting and lifts its whole hem in every stride. It costs something on
+   the Godot side: a skirt or cape becomes a small mesh whose points are worked out whenever the pose changes (about
+   50 points a cloth), instead of a few bones turned by rule. Recommendation: keep it. The old rule could be rebuilt
+   for polygons if the owner prefers it.
+   Still open under the same heading: hard pieces fixed to one part so that they never bend (which could be what the
+   "hard" edge style comes to mean), and sleeves at the shoulder.
 2. **Polygon budget.** A body is 344 polygons with an edge on every region boundary, and a head 116: 460 for the
-   figure. The first two cuts were 273 ("A", no region edges, a plain block for a head) and 603 ("B"); work since
-   has used A. For scale: the 1997 Final Fantasy VII battle
-   model of Cloud is put at about 900 polygons for the whole character.
+   figure. Dressed in a starter outfit a figure is 500 to 540: a skirt adds about 40, a cape 20, a pair of straps
+   about 36, and every band that is lifted off the body adds a ring of hem polygons. The first two cuts of the body
+   were 273 ("A", no region edges, a plain block for a head) and 603 ("B"); work since has used A. For scale: the
+   1997 Final Fantasy VII battle model of Cloud is put at about 900 polygons for the whole character.
 3. **Flat or smooth shading.** It changes the look more than the polygon count does. The voxel system's baked
    light/mid/dark does not carry over as it is, and the owner dislikes baked shading on 3D objects.
 4. **How far one step of bulk stands off the body.** One old voxel (4.2 cm) now; it reads puffy on sleeves. One number
@@ -126,6 +157,19 @@ All of these are the owner's to settle. Recommendations are recommendations.
    go.
 6. **The masculine clay** is a first pass: shoulder width (about 20% wider than the feminine), the amount of chest
    muscle, the slight belly and arm thickness are the parts most open to change.
+7. **Calls made in the special shapes** that differ from the voxel ones; each is easy to change:
+   - a skirt hangs from the waist line, not from below the hips (a lap needs the cloth to lift off the hips);
+   - "four panels" is one cloth all round; "two panels" is a front cloth and a back cloth with the sides open (the
+     voxel four were separate slabs that parted at the corners when they swung);
+   - an open front starts as a point at the hips and widens to the hem, instead of starting two units wide;
+   - straps run from the shoulder straight to the front of the waist. The voxel rule, a plumb line from the shoulder,
+     ends on the flank of these rounder bodies;
+   - a strap is a flat band standing 0.12 units off what it lies on, with no thickness of its own;
+   - a cape hangs from the shoulder line whatever the arms do. An arm swung far back goes through its edge.
+
+Known weak spots of the clothing built so far: hands hang close to the hips, so a skirt with much flare meets them;
+a bulky boot touches a shin-length hem and pushes it out a little; the wardrobe's shirt and trousers leave the waist
+row bare between them (the voxel figure has the same strip of skin).
 
 Known weak spots of the bending skin, at this polygon count: a sharp bend loses a little volume on the inside of the
 joint, and the inner thigh stretches flat on a very high step. The shoulder is a ball, so a raised sleeve cuts into

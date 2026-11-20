@@ -587,6 +587,65 @@ the upper chest is a quarter of it. So:
   front corners can only be rounded outside the eye boxes. The body files
   no longer carry a head; any head goes on any body.
 
+## 4j. Special shapes as polygons: straps, skirt, cape
+
+The first three of the special shapes (`SPEC.md` 7.4) are rebuilt for the
+low-poly figures, in `lowpoly/specials.py` and `lowpoly/hang.py`. Each takes
+the voxel generator's settings under the same names, and a check holds the
+defaults equal to the game's own table. Hood, hair, beards and drawn shapes
+are still to come.
+
+- **Hanging cloth is laid afresh for every pose** (difficulty medium;
+  confidence high that it works in Python, medium on the Godot work, which is
+  not started). A skirt or a cape is a few columns of cloth, each fixed at its
+  top and of fixed length. For a pose, each column is a taut line from its
+  top over whatever of the figure sticks out under it, then straight down.
+  Nothing is simulated and nothing is carried from one pose to the next.
+  **This replaces the voxel panels' rule** (each panel turned by 0.8 of a
+  thigh's swing). It is a call made while building, and the owner's to keep
+  or throw out. The reason: a panel hinged where the skirt is fixed cannot
+  cover a lap when sitting, and a panel hinged at the hip joint (the voxel
+  way) lifts the whole hem in every stride and pokes out past the knees like
+  a tray when sitting. The taut line gives the fit over the hips when
+  standing, the knee pushing the front out, the heel pushing the back out and
+  the lap, from one rule. In Godot it means a cloth is a small mesh whose
+  points are worked out when the pose changes (about 50 points), not bones.
+- **Tried first and dropped: measuring along each column's own facing.** The
+  cloth between two columns is a flat face, and a knee or a toe that stands
+  behind a face, between its two columns, came straight through it. Each
+  column now minds its two faces.
+- **Tried and dropped: arms pushing a cape.** A raised arm carried the cape's
+  edge up with it and the cape turned into a funnel. A cape now hangs from
+  the shoulder line whatever the arms do; an arm swung far back goes through
+  its edge.
+- **A flare bug.** Flare was first measured from where the cloth leaves the
+  figure. Bulky boots touch a shin-length hem, so "where it leaves the
+  figure" became the boots, and the front of the skirt lost its flare while
+  the back kept it. Flare is now an even widening below the hips.
+- **Straps took three tries** (difficulty medium; confidence medium on the
+  look, which is the owner's to judge). (1) A thick band with walls, on a
+  plumb line from the shoulder: a blob seen from the side, 64 polygons, and
+  no room for it at the masculine waist. (2) A band of true width following
+  the surface: thin and uneven from the front. (3) Kept: a flat band one unit
+  wide seen from the front, folded over the chest's corners, standing just
+  clear of the chest (how far is measured, so nothing comes through it), and
+  running from the shoulder straight to the front of the waist. A plumb line
+  from the shoulder, the voxel rule, ends on the flank of these rounder
+  bodies.
+- **Other calls that differ from the voxel shapes.** The skirt hangs from the
+  waist line, not from below the hips, because a lap needs the cloth to lift
+  off the hips. "Four panels" is one cloth all round and "two panels" is a
+  front and a back cloth with the sides open; the voxel four were separate
+  slabs that parted at the corners. An open front starts as a point at the
+  hips instead of two units wide.
+- **A slip in the game's test poses, fixed.** Mid-stride and sitting had the
+  forearms written negative, like the shins, which bends the elbows backward.
+  It did not show at voxel size. `runtime/poses.gd` is corrected.
+- **Found in the wardrobe, not changed.** The shirt stops above the waist row
+  and the trousers start below it, so "shirt and suspenders" shows a strip of
+  skin at the waist. The voxel figure has the same strip. A skirt hides it
+  with its waistband; trousers have none.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed
@@ -601,10 +660,10 @@ Carried from `SPEC.md` section 13, plus what building raised:
    for why faces might want finer bands.
 2. **Authoring canvas size.** The spec recommends 32 × 32 × 48; nothing here
    assumes a canvas yet, because the reference box is not used as a clip.
-3. **Cloth panels: rules or physics?** Currently rule-driven, with the front
-   panel following the more forward thigh at 80 per cent of its swing
-   (`Poses.PANEL_FOLLOW`). The number is a guess that looked reasonable on
-   paper; it wants eyes on it.
+3. **Cloth panels: rules or physics?** In the voxel system: rule-driven, with
+   the front panel following the more forward thigh at 80 per cent of its
+   swing (`Poses.PANEL_FOLLOW`). For low-poly a third way is built and
+   waiting for the owner's judgement: cloth laid afresh for every pose (4j).
 4. **Re-voxelised animation.** Not implemented; it is a rendering choice that
    does not change the data, exactly as the spec says.
 5. **Eye colour** now lives in eye-set colourways (4b). Which colourway a

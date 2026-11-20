@@ -30,14 +30,15 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
 - **Joints: the body is one skin that bends.** Each corner follows one part, or several in a fixed share (blended
   skinning). Rigid pieces with rounded ends were built and compared, and rejected for the body
   (`lowpoly/renders/joints_rigid_or_bend.png`). **Clothing may need to be different** from the body at the joints;
-  that is not settled.
+  what is built for that so far is below, and it is not settled.
 
 **Where this stands:** `lowpoly/README.md`. In short: the feminine and masculine average bodies exist, cut so that
 their polygons follow the region map of section 3.4, with the shares and pivots that make them bend; ordinary garments
 from the wardrobe file go onto them and bend with them. The five heads of section 4 are rebuilt as low-poly forms
-that keep what section 4 says every head shares (size, face plane, eye box, ears). All of that is built in Python so
-far. Nothing in `core/`,
-`runtime/` or `editor/` builds polygons yet; the Godot project still runs the voxel system.
+that keep what section 4 says every head shares (size, face plane, eye box, ears). Three of section 7.4's special
+shapes are rebuilt (straps, skirt, cape), so all seven starter outfits dress both bodies; the hood, facial hair, drawn
+shapes and hair are not. All of that is built in Python so far. Nothing in `core/`, `runtime/` or `editor/` builds
+polygons yet; the Godot project still runs the voxel system.
 
 **How to read the rest of this document.** Sections 1 to 13 describe the voxel system as designed and built. They
 stay the reference for everything the low-poly version keeps and has not yet rebuilt: the part hierarchy and pivots
@@ -56,6 +57,24 @@ hinge joints (neck, waist, elbow, knee) sit in their one-row trim bands: the ban
 ball: the arm is a separate piece turning about the centre of its shoulder. Section 3.2's pivot table is the voxel
 bodies'; the low-poly pivots are in each body file.
 
+**Special shapes as polygons** (straps, skirt, cape; `lowpoly/specials.py`). Each takes the settings section 7.4
+gives it, under the same names and with the same defaults (a check holds them equal to the game's table). What is
+different from 7.4:
+
+- **Hanging cloth is laid afresh for every pose** (`lowpoly/hang.py`), instead of being cut into rigid panels that a
+  driver rule turns. A skirt or a cape is a few columns of cloth, each fixed at its top and of fixed length; for a
+  pose, each column is a taut line from its top over whatever of the figure sticks out under it, then straight down,
+  leaning out by the garment's flare. Nothing is simulated or remembered between poses. So 7.4's panels, pivots,
+  drivers and the 0.8 "follow" do not apply to the low-poly figures. **This was a call made while building and is the
+  owner's to keep or throw out**; the reasons are in `docs/NOTES.md` 4j.
+- A skirt hangs from the waist line (the top of the hips band), over the hips. Its waistband is still the waist band
+  covered as a garment would cover it.
+- "Four panels" is one cloth all round; "two panels" is a front cloth and a back cloth with the sides open.
+- An open front starts as a point at the hips and widens to the hem.
+- Straps are flat bands on the chest. Over the shoulder they sit where 7.4 puts them (halfway between the neck and
+  the edge of the chest's top row); from there they run straight to the front of the waist.
+- A cape hangs from the shoulder line and drapes over the back; it does not react to the arms.
+
 **Three places where a region now follows the body instead of a level line** (calls made while cutting the bodies;
 they are easy to change):
 
@@ -64,9 +83,9 @@ they are easy to change):
 2. Front / back: split along the side seam, within half a unit of the depth centre.
 3. The arm's top and the foot's top stand a little past their bands' heights and belong to "shoulder" and "foot".
 
-**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): how clothing behaves at the joints,
-the polygon budget, flat or smooth shading, how far one step of bulk stands off the body, what becomes of edge style,
-and the final shape of the masculine clay.
+**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): whether hanging cloth stays laid
+afresh for every pose, hard pieces and sleeves at the joints, the polygon budget, flat or smooth shading, how far one
+step of bulk stands off the body, what becomes of edge style, and the final shape of the masculine clay.
 
 ---
 

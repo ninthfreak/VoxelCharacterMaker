@@ -85,7 +85,9 @@ def render(prep, yaw_deg=0.0, pitch_deg=0.0, scale=15.0, width=26.0, z_range=(-0
     zbuf = np.full((H, W), np.inf); shade = np.zeros((H, W)); hit = np.zeros((H, W), bool); tid = np.zeros((H, W), np.int64)
     T = prep["tris"]
     sx, sy, sz = screen(T.reshape(-1, 3)); sx = sx.reshape(-1, 3); sy = sy.reshape(-1, 3); sz = sz.reshape(-1, 3)
-    flat_i = lit(prep["flat"]); smooth_i = lit(prep["smooth"].reshape(-1, 3)).reshape(-1, 3)
+    # lit from the side the viewer sees: a sheet of cloth (a cape, the inside of a skirt) is seen from both sides
+    seen = np.where((prep["flat"] @ fwd)[:, None] > 0, -1.0, 1.0)
+    flat_i = lit(prep["flat"] * seen); smooth_i = lit((prep["smooth"] * seen[:, None, :]).reshape(-1, 3)).reshape(-1, 3)
     if "unlit" in prep:                                            # eyes: their own colour, as the project draws them
         flat_i = np.where(prep["unlit"], 1.0, flat_i); smooth_i = np.where(prep["unlit"][:, None], 1.0, smooth_i)
     for t in range(T.shape[0]):
