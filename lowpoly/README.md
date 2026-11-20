@@ -33,7 +33,7 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 
 | Area | State |
 |---|---|
-| Clay bodies (the smooth forms the bodies are cut from) | feminine average (approved), masculine average (first pass, "decent") |
+| Clay bodies (the smooth forms the bodies are cut from) | feminine average (approved), masculine average (first pass, "decent"); slim, heavy and short of each sex as a first pass for the owner to judge, made from the averages (`renders/bodies_builds_clay.png`) |
 | Bodies cut on the clothing regions | those two; 344 polygons (710 triangles) each without a head, same layout of polygons |
 | Region map on the bodies (32 a side, same bands and heights as the voxel bodies) | done, checked |
 | Joints: one bending skin over the same 11 parts | done: every corner's shares and every pivot are in the body files; posed in Python |
@@ -46,11 +46,17 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Heads | all five (round, boxy, oval, strong, heart) as rounded forms: 114 polygons each, same layout; any head goes on any body (`renders/heads.png`) |
 | Faces: eyes, lids, lashes, eyebrows, skin tones | built: oval eyes from the wardrobe's eye sets and their colourways, the game's ten lid states, lids from the skin tone, a thin lash line, eyebrows from the hair, all six skin tones (`renders/faces.png`) |
 | The mouth | a first pass: a short line, straight or curved, or a small open oval. New here; the voxel faces have none |
-| The other six bodies (slim, heavy and short, each sex) | not started; each needs a clay |
+| The other six bodies (slim, heavy and short, each sex) | clays only (above). Not cut yet: slim and heavy can be cut as the averages were; the short bodies first need heights of their own (see "Not decided yet") |
 | Building polygons in Godot (assembler, editor, runtime) | not started |
 
 ## How a body is made
 
+0. **Builds** (`clay.py`). Slim, heavy and short are made from each sex's average clay (`derive`, `squash`), so a
+   change to an average carries over. Slim and heavy keep every height and change widths and girths
+   (`BUILD_FACTORS`); heavy is more mass everywhere and its belly never comes forward of the chest. Short is made
+   broader, then shorter: each band of height keeps a share of its height (`SHORT_KEEPS`), most lost from the shins
+   and thighs, less from the torso, none from the feet, and the same head sits on the shorter neck: 36 tall instead
+   of 42.
 1. **Clay** (`clay.py`). A body is a handful of rounded volumes blended into one smooth form. Its unit is the old
    voxel (24 to the metre), so heights are the old rows: 42 tall, mirror plane at x = 12, front toward -y.
 2. **Rings** (`rings.py`). Rings of a few points are placed on the clay at chosen heights and joined into four-sided
@@ -236,7 +242,7 @@ with clothes or eyes on it, ask Godot for the game's wardrobe and tables: set `G
 on PATH). Without Godot, `check.py` skips the clothing and the faces and says so. With it, the check takes about a
 minute and a half.
 
-`sheets.py` takes `look`, `male`, `regions`, `joints`, `heads`, `faces`, `beards`, `shapes`, `moving` or `all`; the clay
+`sheets.py` takes `look`, `male`, `builds`, `regions`, `joints`, `heads`, `faces`, `beards`, `shapes`, `moving` or `all`; the clay
 pictures take about 40 seconds a view and are kept in `lowpoly/_work/` for the next run.
 
 ## Not decided yet
@@ -268,6 +274,14 @@ All of these are the owner's to settle. Recommendations are recommendations.
    go.
 6. **The masculine clay** is a first pass: shoulder width (about 20% wider than the feminine), the amount of chest
    muscle, the slight belly and arm thickness are the parts most open to change.
+   **The slim, heavy and short clays** are a first pass too (`renders/bodies_builds_clay.png`): how far apart the
+   builds are (the voxel bodies' builds were hard to tell apart once dressed), and the short bodies' proportions.
+   **The short bodies need heights of their own.** Every body so far shares one band table, and so does every voxel
+   body (`SPEC.md` 3.3: identical row boundaries). Garments are made of regions, so they fit any heights; what
+   needs work is everything that uses a height directly: the band table becomes each body's own, the head is set
+   on the body's neck instead of at fixed heights (faces and facial hair move with it), and the skirt, cape and
+   straps read their heights from the body. The other way, a short body made by scaling an average down whole, is
+   simpler but shrinks the head too, so it reads as a child rather than a dwarf.
 7. **Facial hair** is built as the owner described it: four parts and one length. Calls made while building, each
    easy to change:
    - **"cheeks"** is the name given here to the part between the sideburns and the goatee;
@@ -275,9 +289,10 @@ All of these are the owner's to settle. Recommendations are recommendations.
      see-through rendering would look the same here, because the stubble lies on the skin itself;
    - **the lengths**: four (stubble, short, medium, long), with medium half a step out and long a whole step
      (`LENGTHS`). More lengths are one line each;
-   - **every part grows by the same amount**, as the owner asked: one length for everything. A moustache or
-     sideburns on their own at long length stand off the face as much as a full beard does, which reads chunky
-     (`renders/facial_hair.png`, row 4). Letting them grow less than the beard would keep one setting;
+   - **every part grows by the same amount** for now. The owner has decided (2026-11) that a character keeps one
+     length setting, but that it should not mean the same length on every part: a moustache or sideburns grown out
+     a whole step stand off the face as much as a full beard does, which reads chunky (`renders/facial_hair.png`,
+     row 4). Marked for later;
    - **the game's three items** are read as parts and a length: stubble as every part at stubble, chinstrap as the
      Amish parts at medium (its narrow strap is not a part any more), full beard as every part at medium;
    - **turned down for the voxel face and back now** (`SPEC.md` 5.1): the goatee and the moustache are parts, and a

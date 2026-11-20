@@ -2,6 +2,7 @@
 
   python3 lowpoly/sheets.py look      the first cut: the feminine average at two polygon budgets, beside its clay
   python3 lowpoly/sheets.py male      the masculine average (budget A), beside its clay and the feminine one
+  python3 lowpoly/sheets.py builds    the eight bodies as clay: slim, average, heavy and short, each sex
   python3 lowpoly/sheets.py regions   the bodies the clothing system uses: their regions, then starter outfits
   python3 lowpoly/sheets.py joints    the comparison behind the joints decision: rigid pieces, or one bending skin
   python3 lowpoly/sheets.py heads     the five heads as rounded forms, with the face treated two ways
@@ -87,6 +88,64 @@ def clay_tiles(sex, kind):
             print(f"  drew the {sex} clay, {kind} view {i} ({time.time() - t0:.0f} s)", flush=True)
         out.append(np.array(Image.open(path).convert("RGB")))
     return out
+
+
+BUILDS = ["slim", "average", "heavy", "short"]
+BUILD_VIEWS = [("front", 0, 0), ("turned", 35, 10), ("side", 90, 0)]
+
+
+def _draw_clay(job):
+    sex, build, yaw, pitch, path = job
+    model = clay.BODIES[(sex, build)]
+    big = clay.render(lambda p: clay.body(p, model), yaw, pitch, scale=24, width=30.0)
+    im = Image.fromarray(big); im.resize((im.width // 2, im.height // 2), Image.BOX).save(path)
+
+
+def build_tiles(sex, build):
+    """The clay of one build in BUILD_VIEWS, drawn once and kept in lowpoly/_work/ (redrawn when the clay changes)."""
+    import hashlib, multiprocessing
+    os.makedirs(WORK, exist_ok=True)
+    jobs = []
+    for b in BUILDS:
+        tag = hashlib.sha1(repr(clay.BODIES[(sex, b)]).encode()).hexdigest()[:10]
+        for name, y, p in BUILD_VIEWS:
+            jobs.append((sex, b, y, p, os.path.join(WORK, f"build_{sex}_{b}_{name}_{tag}.png")))
+    missing = [j for j in jobs if not os.path.exists(j[4])]
+    if missing:
+        t0 = time.time()
+        with multiprocessing.Pool(min(4, len(missing))) as pool: pool.map(_draw_clay, missing)
+        print(f"  drew {len(missing)} clay views ({time.time() - t0:.0f} s)", flush=True)
+    return [np.array(Image.open(j[4]).convert("RGB")) for j in jobs if j[1] == build]
+
+
+def widths(model):
+    """The torso's width at the chest, the waist and the hips, and the figure's height: what the eye compares."""
+    sdf = lambda p: clay.body(p, model, parts="torso")
+    def across(name):
+        c, _ = model[name]; z = c[2]; y = 12.0 + c[1]
+        lo, hi = 0.0, 15.0
+        for _ in range(40):
+            mid = 0.5 * (lo + hi)
+            if sdf(np.array([[12.0 + mid, y, z]]))[0] < 0: lo = mid
+            else: hi = mid
+        return 2 * lo
+    top = model["head"][0][2] + model["head"][1][2]
+    return across("ribcage"), across("abdomen"), across("pelvis"), top
+
+
+def sheet_builds():
+    """The eight bodies as clay: slim, average, heavy and short, for each sex. The six new ones are a first pass."""
+    rows = []
+    for k, (sex, title) in enumerate((("female", "Feminine"), ("male", "Masculine"))):
+        tiles = {b: build_tiles(sex, b) for b in BUILDS}
+        size = {b: widths(clay.BODIES[(sex, b)]) for b in BUILDS}
+        notes = ["the average is the body built so far. Slim, heavy and short are made from it: a first pass, nothing cut yet.",
+                 "torso widths, chest / waist / hips: " + ";  ".join(f"{b} {size[b][0]:.1f} / {size[b][1]:.1f} / {size[b][2]:.1f}" for b in BUILDS),
+                 "heavy is more mass everywhere, with no belly in front of the chest. Short is broader, then shorter; the head is the same."]
+        for i, (name, _, _) in enumerate(BUILD_VIEWS):
+            rows.append((f"{k + 1}. {title} bodies" if i == 0 else "", notes[i],
+                         band([tiles[b][i] for b in BUILDS], [f"{b}, {size[b][3]:.0f} tall" if i == 0 else f"{b}: {name}" for b in BUILDS])))
+    save_sheet(rows, "bodies_builds_clay.png")
 
 
 def first_cut(sex, spec):
@@ -624,7 +683,7 @@ def sheet_moving():
 
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
-    jobs = dict(look=sheet_look, male=sheet_male, regions=sheet_regions, joints=sheet_joints, heads=sheet_heads,
+    jobs = dict(look=sheet_look, male=sheet_male, builds=sheet_builds, regions=sheet_regions, joints=sheet_joints, heads=sheet_heads,
                 faces=sheet_faces, beards=sheet_beards, shapes=sheet_shapes, moving=sheet_moving)
     if which != "all" and which not in jobs:
         sys.exit(__doc__)

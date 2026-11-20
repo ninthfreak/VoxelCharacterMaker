@@ -26,7 +26,9 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
   voxelised.
 - **Editor:** it no longer edits bodies. It is for making clothing and items only.
 - **Bodies come from smooth "clay" models**, cut into polygons by script. The feminine average clay is the approved
-  starting point; the masculine average is a first pass the owner called decent.
+  starting point; the masculine average is a first pass the owner called decent. Slim, heavy and short clays of each
+  sex are made from the averages, as a first pass (`lowpoly/renders/bodies_builds_clay.png`). The short bodies,
+  36 tall with the same head, cannot share the others' band heights; see `lowpoly/README.md`.
 - **Joints: the body is one skin that bends.** Each corner follows one part, or several in a fixed share (blended
   skinning). Rigid pieces with rounded ends were built and compared, and rejected for the body
   (`lowpoly/renders/joints_rigid_or_bend.png`). **Clothing may need to be different** from the body at the joints;

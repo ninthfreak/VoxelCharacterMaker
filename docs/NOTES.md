@@ -942,7 +942,9 @@ shapes, the separate moustache slot, the fade) are gone.
   is on alone.
 - **One length for all parts has a cost**: a moustache or sideburns on
   their own, grown out a whole step, stand off the face as much as a full
-  beard does, and read chunky. Kept as asked; noted for the owner.
+  beard does, and read chunky. Put to the owner, who decided: one length
+  setting per character, but not one length for every part. Marked for
+  later; the parts still grow alike.
 - **The game's three items** are read as parts and a length (stubble:
   every part at stubble; chinstrap: all but the moustache at medium, as
   the narrow strap is not a part; full beard: every part at medium). The
@@ -950,6 +952,44 @@ shapes, the separate moustache slot, the fade) are gone.
   facial hair is ported to Godot.
 - **Cost.** A full beard adds about 22 polygons (66 triangles) flush and
   about 56 (134 triangles) grown out, on a bald head; less with hair on.
+
+## 4q. Slim, heavy and short bodies: the clays (owner's request)
+
+The owner asked for work on the heavy, thin and short bodies. Shown first
+as clay, before anything is cut, as the averages were.
+
+- **Made from the averages, not drawn anew** (difficulty low; confidence
+  medium on the look). `clay.derive` changes a clay's widths and girths by
+  factors: chest, waist, hips, depth, arms, legs, bust, neck, feet, seat.
+  The arms hang from the wider or narrower shoulders, and the legs stand
+  a little wider with the hips. The factors follow the voxel builds (SPEC
+  3.3): slim about 0.85 of the average's widths, heavy about 1.2. Whether
+  to set them further apart is open: the voxel builds were hard to tell
+  apart once dressed (4f). A check of the clays: on all eight, the arms hang clear of
+  the torso (heavy masculine comes within 0.08 units at the forearm, as the
+  voxel heavy's forearm did at the hip) and the legs stay apart.
+- **Heavy is more mass everywhere, not obesity** (SPEC 3.3, rejected twice
+  as a belly or a rear). The belly's front is held behind the chest's
+  front by construction, and the seat grows little.
+- **The short body is for dwarfs: broader, then shorter.** `clay.squash`
+  moves the bands of height: the shins and thighs keep 60 to 65 per cent
+  of their height, the torso 75 to 90, the feet all of it. The head is the
+  same head on the shorter neck. 42 tall becomes 36.
+- **Tried and dropped: squashing the rounded volumes fully.** A thigh, a
+  knee and a calf squashed to 60 per cent of their height turned into a
+  stack of bulges. Each volume now takes only part of the squash in its own
+  height (`SQUASH_SHAPE`), so that the volumes overlap and blend.
+- **What the short bodies need before they can be cut** (difficulty
+  medium; confidence medium). Every body, voxel and low-poly, shares one
+  band table, and several things use its heights directly: the head and
+  everything on it (26 to 42), and the skirt, cape and straps. The band
+  table has to become each body's own, the head has to be set on the
+  body's neck, and those shapes read their heights from the body. Garments
+  themselves are made of regions and need no change. In the game this
+  changes SPEC 3.3's rule that all bodies share their row boundaries.
+- **The other way, rejected for now:** scaling an average body down whole.
+  Nothing would need changing, but the head would shrink with it, and a
+  small figure with the chibi head reads as a child, not a dwarf.
 
 ## 5. Still open, for the owner
 

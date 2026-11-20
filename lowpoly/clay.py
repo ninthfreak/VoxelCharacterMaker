@@ -94,7 +94,100 @@ MASC_AVERAGE = dict(
     foot=((3.0, -1.35, 1.1), (1.9, 3.6, 1.5)),
 )
 
+# ------------------------------------------------------------------ the other builds ---
+# Slim, heavy and short are made from each sex's average clay, so that a change to the average carries over. First
+# pass, for the owner to judge (2026-11); nothing is cut from them yet.
+#
+#   slim, heavy   the same heights; widths and girths change (factors against the average). Heavy is more mass
+#                 everywhere, not obesity: the belly never comes forward of the chest, and the seat grows little
+#                 (SPEC 3.3: a protruding belly or rear was tried and rejected twice).
+#   short         for dwarfs: broader than average, then shorter. Every band of height keeps its place in the order,
+#                 but the shins and thighs lose the most, the torso less, and the feet nothing. The head is the same
+#                 head, set on the shorter neck. 42 tall becomes 36.
+
+import copy
+
+BUILD_FACTORS = {
+    ("female", "slim"): dict(chest=0.86, waist=0.85, hips=0.86, depth=0.92, arm=0.85, leg=0.85, bust=0.8, neck=0.92, feet=0.95, seat=0.85),
+    ("female", "heavy"): dict(chest=1.18, waist=1.25, hips=1.18, depth=1.2, arm=1.25, leg=1.25, bust=1.25, neck=1.12, feet=1.08, seat=1.1),
+    ("female", "short"): dict(chest=1.1, waist=1.15, hips=1.1, depth=1.12, arm=1.2, leg=1.2, bust=1.1, neck=1.12, feet=1.12, seat=1.05),
+    ("male", "slim"): dict(chest=0.85, waist=0.9, hips=0.92, depth=0.85, arm=0.82, leg=0.85, neck=0.9, feet=0.95),
+    ("male", "heavy"): dict(chest=1.17, waist=1.3, hips=1.25, depth=1.2, arm=1.3, leg=1.3, neck=1.15, feet=1.08),
+    ("male", "short"): dict(chest=1.12, waist=1.2, hips=1.15, depth=1.15, arm=1.25, leg=1.25, neck=1.2, feet=1.12),
+}
+# the bands of height from the floor to the top of the neck, and how much of its height each keeps on a short body
+BAND_HEIGHTS = [("foot", 0, 2), ("ankle", 2, 3), ("shin", 3, 6), ("knee", 6, 7), ("lower_thigh", 7, 9), ("upper_thigh", 9, 11),
+                ("hips", 11, 14), ("waist", 14, 15), ("belly", 15, 17), ("lower_chest", 17, 20), ("upper_chest", 20, 24),
+                ("collar", 24, 25), ("neck", 25, 26)]
+SHORT_KEEPS = dict(foot=1.0, ankle=0.8, shin=0.6, knee=0.8, lower_thigh=0.6, upper_thigh=0.65, hips=0.8, waist=0.9, belly=0.75,
+                   lower_chest=0.75, upper_chest=0.8, collar=0.9, neck=0.9)
+SQUASH_SHAPE = 0.5          # how much of the squash a rounded volume takes in its own height; less keeps it longer, so that it blends
+
+
+def derive(base, chest=1.0, waist=1.0, hips=1.0, depth=1.0, arm=1.0, leg=1.0, bust=1.0, neck=1.0, feet=1.0, seat=1.0):
+    """Another build from an average clay: widths and girths changed by these factors, heights kept."""
+    m = copy.deepcopy(base)
+
+    def put(name, c=None, r=None):
+        oc, orr = m[name]
+        m[name] = (tuple(c) if c is not None else oc, tuple(r) if r is not None else orr)
+
+    c, r = m["ribcage"]; front0 = c[1] - r[1]
+    put("ribcage", r=(r[0] * chest, r[1] * depth, r[2]))
+    rc, rr = m["ribcage"]; front = rc[1] - rr[1]                    # the chest's front, where it is now
+    c, r = m["shoulders"]; wider = r[0] * (chest - 1.0)             # how much further out the shoulders reach
+    put("shoulders", r=(r[0] * chest, r[1] * depth, r[2]))
+    c, r = m["trapezius"]; put("trapezius", r=(r[0] * (1.0 + 0.6 * (chest - 1.0)), r[1] * depth, r[2]))
+    c, r = m["abdomen"]; belly = (r[0] * waist, r[1] * depth, r[2])
+    cy = max(c[1], front + 0.35 + belly[1])                         # the belly never comes forward of the chest
+    put("abdomen", c=(c[0], cy, c[2]), r=belly)
+    c, r = m["pelvis"]; hip = r[0] * (hips - 1.0)
+    put("pelvis", r=(r[0] * hips, r[1] * depth, r[2]))
+    c, r = m["glute"]; put("glute", c=(c[0] * hips, c[1] * (1.0 + 0.6 * (depth - 1.0)), c[2]), r=(r[0] * hips, r[1] * seat, r[2]))
+    for name in ("breast", "breast_slope"):
+        c, r = m[name]; put(name, c=(c[0] * chest, c[1] + front - front0, c[2]), r=(r[0] * bust, r[1] * bust, r[2] * (1.0 + 0.5 * (bust - 1.0))))
+    a, b, ra, rb = m["neck"]; m["neck"] = (a, b, ra * neck, rb * neck)
+    c, r = m["deltoid"]; m["deltoid"] = ((c[0] + wider, c[1], c[2]), r * arm)
+    for name in ("upper_arm", "forearm", "hand"):                   # the arms hang from the wider shoulders
+        c, r = m[name]; put(name, c=(c[0] + wider, c[1], c[2]), r=(r[0] * arm, r[1] * arm, r[2]))
+    for name in ("thigh", "calf"):                                  # the legs stand a little wider with the hips
+        c, r = m[name]; put(name, c=(c[0] + 0.55 * hip, c[1], c[2]), r=(r[0] * leg, r[1] * leg, r[2]))
+    for name in ("heel", "foot"):
+        c, r = m[name]; put(name, c=(c[0] + 0.55 * hip, c[1], c[2]), r=(r[0] * feet, r[1] * feet, r[2]))
+    return m
+
+
+def short_heights(keeps=SHORT_KEEPS):
+    """[(band, bottom, top)] for a short body: each band of BAND_HEIGHTS keeps that much of its height."""
+    out = []; z = 0.0
+    for name, z0, z1 in BAND_HEIGHTS:
+        out.append((name, z, z + (z1 - z0) * keeps[name])); z += (z1 - z0) * keeps[name]
+    return out
+
+
+def squash(base, heights):
+    """The same body with its bands of height moved to heights (as short_heights gives), straight in between. The
+    head keeps its size and sits on the neck."""
+    old = [0.0] + [z1 for _, _, z1 in BAND_HEIGHTS]; new = [0.0] + [z1 for _, _, z1 in heights]
+    f = lambda z: float(np.interp(z, old, new)) if z <= old[-1] else new[-1] + (z - old[-1])
+    slope = lambda z: (f(z + 0.25) - f(z - 0.25)) / 0.5
+    m = copy.deepcopy(base)
+    for name, v in m.items():
+        if name == "neck":
+            a, b, ra, rb = v; m[name] = ((a[0], a[1], f(a[2])), (b[0], b[1], f(b[2])), ra, rb)
+        elif name == "head":
+            c, half, r = v; m[name] = ((c[0], c[1], c[2] - old[-1] + new[-1]), half, r)
+        elif name == "deltoid":
+            c, r = v; m[name] = ((c[0], c[1], f(c[2])), r)
+        else:
+            c, r = v; m[name] = ((c[0], c[1], f(c[2])), (r[0], r[1], r[2] * slope(c[2]) ** SQUASH_SHAPE))
+    return m
+
+
 BODIES = {("female", "average"): FEM_AVERAGE, ("male", "average"): MASC_AVERAGE}
+for (_sex, _build), _f in BUILD_FACTORS.items():
+    _m = derive(BODIES[(_sex, "average")], **_f)
+    BODIES[(_sex, _build)] = squash(_m, short_heights()) if _build == "short" else _m
 
 
 def body(p, m=FEM_AVERAGE, parts=None):
