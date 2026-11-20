@@ -51,13 +51,14 @@ def prepare(parts):
 
 
 def prepare_coloured(groups):
-    """groups: {name: [(polygon array, (r, g, b))]} -> as prepare(), plus one colour per triangle."""
+    """groups: {name: [(polygon array, (r, g, b))]} -> as prepare(), plus one colour per triangle.
+    A group whose name starts with "unlit:" is drawn in its own colour, untouched by the light."""
     prep = prepare({k: [p for p, _ in v] for k, v in groups.items()})
-    cols = []
-    for v in groups.values():
+    cols = []; unlit = []
+    for name, v in groups.items():
         for p, c in v:
-            cols += [c] * (len(p) - 2)
-    prep["colour"] = np.array(cols, float)
+            cols += [c] * (len(p) - 2); unlit += [name.startswith("unlit:")] * (len(p) - 2)
+    prep["colour"] = np.array(cols, float); prep["unlit"] = np.array(unlit, bool)
     return prep
 
 
@@ -85,6 +86,8 @@ def render(prep, yaw_deg=0.0, pitch_deg=0.0, scale=15.0, width=26.0, z_range=(-0
     T = prep["tris"]
     sx, sy, sz = screen(T.reshape(-1, 3)); sx = sx.reshape(-1, 3); sy = sy.reshape(-1, 3); sz = sz.reshape(-1, 3)
     flat_i = lit(prep["flat"]); smooth_i = lit(prep["smooth"].reshape(-1, 3)).reshape(-1, 3)
+    if "unlit" in prep:                                            # eyes: their own colour, as the project draws them
+        flat_i = np.where(prep["unlit"], 1.0, flat_i); smooth_i = np.where(prep["unlit"][:, None], 1.0, smooth_i)
     for t in range(T.shape[0]):
         x, y, z = sx[t], sy[t], sz[t]
         x0 = max(int(np.floor(x.min())), 0); x1 = min(int(np.ceil(x.max())) + 1, W)

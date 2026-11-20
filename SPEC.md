@@ -34,7 +34,9 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
 
 **Where this stands:** `lowpoly/README.md`. In short: the feminine and masculine average bodies exist, cut so that
 their polygons follow the region map of section 3.4, with the shares and pivots that make them bend; ordinary garments
-from the wardrobe file go onto them and bend with them. All of that is built in Python so far. Nothing in `core/`,
+from the wardrobe file go onto them and bend with them. The five heads of section 4 are rebuilt as low-poly forms
+that keep what section 4 says every head shares (size, face plane, eye box, ears). All of that is built in Python so
+far. Nothing in `core/`,
 `runtime/` or `editor/` builds polygons yet; the Godot project still runs the voxel system.
 
 **How to read the rest of this document.** Sections 1 to 13 describe the voxel system as designed and built. They

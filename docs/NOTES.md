@@ -577,6 +577,15 @@ the upper chest is a quarter of it. So:
   no new edges. Shares and pivots are in the body files (format version 2).
 - **Not an experiment.** The owner corrected the framing: low-poly is the
   project. It is built as product work and committed as it goes.
+- **Heads** (difficulty low; confidence medium on the look, which is the
+  owner's to judge). The five voxel heads are rebuilt as low-poly forms,
+  following their ideas and proportions without tracing them. Each is seven
+  rounded-rectangle sections; all five share one layout of polygons. What
+  section 4 of the spec says every head shares is kept and checked: the
+  size, a flat face over both eye boxes and the brow row, the ears. That
+  flat face is why none of the heads is round in plan at eye level: the
+  front corners can only be rounded outside the eye boxes. The body files
+  no longer carry a head; any head goes on any body.
 
 ## 5. Still open, for the owner
 

@@ -24,7 +24,7 @@ fi
 # The low-poly bodies (lowpoly/) are rebuilt and checked too, where numpy is
 # installed to build them. Without it this step is skipped, not failed.
 if command -v python3 >/dev/null 2>&1 && python3 -c "import numpy" >/dev/null 2>&1; then
-  echo "== checking the low-poly bodies =="
+  echo "== checking the low-poly bodies and heads =="
   python3 lowpoly/check.py
 else
   echo "== low-poly bodies: skipped (python3 with numpy not found) =="

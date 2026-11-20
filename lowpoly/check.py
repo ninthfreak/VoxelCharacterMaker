@@ -6,14 +6,16 @@
    regions present, every polygon inside its own band's heights apart from the documented exceptions.
 3. The joints: every corner has shares that add up to one, over known parts; standing still the bending skin is the
    body as built; in a big move nothing flies off.
-4. The body files in lowpoly/bodies/ are what a rebuild gives. They are generated, not hand-edited.
+4. The heads: closed, on their regions, the right size, the same layout of polygons on all five, and a flat face
+   wide and tall enough for both eye boxes and the brow row.
+5. The files in lowpoly/bodies/ and lowpoly/heads/ are what a rebuild gives. They are generated, not hand-edited.
 """
 import json, os, sys
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import body as lb, pose as ps
+import body as lb, pose as ps, heads as hd
 
 failed = []
 
@@ -35,7 +37,8 @@ for sex, build_name in lb.BODIES:
     print(text)
     expect(ok, "geometry and regions")
     n = lb.counts(b)
-    expect(n == lb.counts(lb.build("female")), f"same polygon count as the other bodies ({n[0]} polygons, {n[1]} triangles)")
+    n = lb.counts(b, head=False)
+    expect(n == lb.counts(lb.build("female"), head=False), f"same polygon count as the other bodies ({n[0]} polygons, {n[1]} triangles, without a head)")
     b = lb.build(sex, build_name)
     bare = [dict(pts=r["pts"], src=r["pts"], rgb=(0, 0, 0), part=r["part"], piece=r["piece"]) for r in b["polys"]]
     still = ps.posed_bend(b, bare, ps.REST)
@@ -54,5 +57,23 @@ for sex, build_name in lb.BODIES:
     rest = all(disk[k] == fresh[k] for k in fresh if k != "vertices")
     expect(close and rest, f"{os.path.relpath(path, HERE)} is what a rebuild gives")
 
-print("low-poly bodies:", "all checks passed" if not failed else f"{len(failed)} FAILED")
+print("== heads ==")
+layout = None
+for name in hd.NAMES:
+    polys = hd.build(name)
+    ok, text = hd.check(name, polys)
+    print(text)
+    expect(ok, f"{name}: geometry, regions, size, and a flat face for the eyes")
+    shape = [(len(r["pts"]), r["key"]) for r in polys]
+    layout = layout or shape
+    expect(shape == layout, f"{name}: the same layout of polygons and regions as the other heads")
+    path = hd.head_path(name)
+    if not os.path.exists(path):
+        expect(False, f"{os.path.relpath(path, HERE)} exists (run: python3 lowpoly/heads.py)")
+        continue
+    disk = json.load(open(path)); fresh = json.loads(json.dumps(hd.to_data(name, polys)))
+    close = np.array(disk["vertices"]).shape == np.array(fresh["vertices"]).shape and bool(np.allclose(np.array(disk["vertices"]), np.array(fresh["vertices"]), atol=2e-4))
+    expect(close and all(disk[k] == fresh[k] for k in fresh if k != "vertices"), f"{os.path.relpath(path, HERE)} is what a rebuild gives")
+
+print("low-poly bodies and heads:", "all checks passed" if not failed else f"{len(failed)} FAILED")
 sys.exit(1 if failed else 0)

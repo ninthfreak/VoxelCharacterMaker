@@ -18,14 +18,15 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Area | State |
 |---|---|
 | Clay bodies (the smooth forms the bodies are cut from) | feminine average (approved), masculine average (first pass, "decent") |
-| Bodies cut on the clothing regions | those two; 412 polygons (854 triangles) each, same layout of polygons |
+| Bodies cut on the clothing regions | those two; 344 polygons (710 triangles) each without a head, same layout of polygons |
 | Region map on the bodies (32 a side, same bands and heights as the voxel bodies) | done, checked |
 | Joints: one bending skin over the same 11 parts | done: every corner's shares and every pivot are in the body files; posed in Python |
 | Ordinary garments from the wardrobe file (regions, roles, bulk, mirror, layering) | built in Python, shown on both bodies; they bend with the body |
 | Clothing that should not bend with the body (hard pieces, hanging cloth) | not settled |
 | Special shapes (skirt, cape, hood, straps, facial hair, anchored shapes) | not started |
 | Edge style (soft / hard) | not carried over |
-| Heads and faces | a stand-in block that carries the head regions; no real head |
+| Heads | all five rebuilt: round, boxy, oval, strong, heart. 116 polygons each, same layout; any head goes on any body |
+| Faces (eyes, lids, brows) | not rebuilt. Every head keeps the flat face and the eye boxes they need; the open eye is placed as flat polygons for pictures only |
 | The other six bodies (slim, heavy and short, each sex) | not started; each needs a clay |
 | Building polygons in Godot (assembler, editor, runtime) | not started |
 
@@ -52,6 +53,14 @@ Three places where a region follows the body instead of a level line:
 - **Front / back:** split along the side seam (the widest point of each ring), within half a unit of the depth centre.
 - **Arm top and foot top:** they stand a little past their bands' heights and are tagged "shoulder" and "foot".
 
+## How a head is made
+
+A head is seven sections, top to bottom, each a rounded rectangle: half-width, depth in front of and behind the
+centre, and how round the front and back corners are (`heads.py`). Those numbers are the whole shape. The five heads
+follow the ideas and proportions of the voxel heads without tracing them, and share what lets faces, hair and hats
+fit any of them: the size (16 tall, 14 deep, 16 wide, the oval 14), a flat face over both eye boxes and the brow row,
+the ears level with the eyes, and one layout of polygons with an edge on every head region.
+
 ## Files
 
 | File | What it is |
@@ -60,12 +69,14 @@ Three places where a region follows the body instead of a level line:
 | `rings.py` | cutting a clay into rings; also the first two cuts ("A" and "B") that the look was approved from |
 | `body.py` | the bodies: regions, parts, joints; writes `bodies/*.json` and `*.obj` |
 | `dress.py` | garments from the wardrobe file onto a body (see the note below) |
+| `heads.py` | the five heads; writes `heads/*.json` and `*.obj` |
 | `pose.py` | posing: the bending skin, and the rigid-piece alternative kept for clothing that must not bend |
 | `picture.py` | pictures of polygon meshes: flat shade, smooth shade, edges drawn |
 | `sheets.py` | builds the review sheets in `renders/` |
 | `check.py` | checks the band table, the geometry, the regions, and that the body files match a rebuild |
 | `dump_wardrobe.gd` | writes the project's starter wardrobe as JSON, for `dress.py` |
 | `bodies/` | the body files: corners and their shares, polygons with region and part, pivots, the band table. Generated; do not hand-edit |
+| `heads/` | the head files: corners, polygons with their region, the eye box, the seven sections that define the shape. Generated |
 | `renders/` | the sheets each decision was made from |
 
 `dress.py` holds the garment rules for polygons in Python. The project keeps that logic in exactly one place, and
@@ -85,11 +96,15 @@ python3 lowpoly/body.py
 ```
 
 ```bash
+python3 lowpoly/heads.py
+```
+
+```bash
 GODOT=/path/to/godot python3 lowpoly/sheets.py all
 ```
 
 `check.py` also runs as part of `tests/run.sh` when numpy is installed. `sheets.py` takes `look`, `male`, `regions`,
-`joints` or `all`; the clay pictures take about 40 seconds a view and are kept in `lowpoly/_work/` for the next run.
+`joints`, `heads` or `all`; the clay pictures take about 40 seconds a view and are kept in `lowpoly/_work/` for the next run.
 
 ## Not decided yet
 
@@ -99,8 +114,9 @@ All of these are the owner's to settle. Recommendations are recommendations.
    clothing to need something different. Candidates: hard pieces fixed to one part so they never bend (which could
    be what the "hard" edge style comes to mean), and hanging cloth such as skirts and capes, which does not follow
    the legs at all.
-2. **Polygon budget.** The bodies are 412 polygons with an edge on every region boundary. The first two cuts were
-   273 ("A", no region edges) and 603 ("B"); work since has used A. For scale: the 1997 Final Fantasy VII battle
+2. **Polygon budget.** A body is 344 polygons with an edge on every region boundary, and a head 116: 460 for the
+   figure. The first two cuts were 273 ("A", no region edges, a plain block for a head) and 603 ("B"); work since
+   has used A. For scale: the 1997 Final Fantasy VII battle
    model of Cloud is put at about 900 polygons for the whole character.
 3. **Flat or smooth shading.** It changes the look more than the polygon count does. The voxel system's baked
    light/mid/dark does not carry over as it is, and the owner dislikes baked shading on 3D objects.

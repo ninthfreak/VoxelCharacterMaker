@@ -4,6 +4,7 @@
   python3 lowpoly/sheets.py male      the masculine average (budget A), beside its clay and the feminine one
   python3 lowpoly/sheets.py regions   the bodies the clothing system uses: their regions, then starter outfits
   python3 lowpoly/sheets.py joints    the comparison behind the joints decision: rigid pieces, or one bending skin
+  python3 lowpoly/sheets.py heads     the five heads, beside the voxel heads they follow
   python3 lowpoly/sheets.py all
 
 Sheets are written to lowpoly/renders/. The clay is drawn by ray marching (about 40 s a view), so those pictures are
@@ -14,7 +15,8 @@ kept in lowpoly/_work/ and reused. "regions" needs the project's starter wardrob
 import os, shutil, subprocess, sys, time
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-import clay, rings as ring_tools, body as lb, dress as ld, picture as mr, pose as ps
+import json
+import clay, rings as ring_tools, body as lb, dress as ld, picture as mr, pose as ps, heads as hd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -220,7 +222,7 @@ def sheet_regions():
         b = lb.build(sex); ok, text = lb.check(b)
         assert ok, f"{sex}:\n{text}"
         bodies[sex] = b
-    n = lb.counts(bodies["female"])
+    n = lb.counts(bodies["female"], head=False); nh = lb.counts(bodies["female"])[0] - n[0]
     tl = []; lab = []
     for sex in ("female", "male"):
         groups, _ = ld.dress(bodies[sex], w, [], paint=region_paint())
@@ -230,7 +232,7 @@ def sheet_regions():
         lab += [f"{sex}: front", f"{sex}: side", f"{sex}: back"]
     rows = [("1. The clothing regions, on both bodies",
              f"the same 32 regions a side as the voxel bodies, at the same heights. Bands alternate blue and orange; one-row trim bands are pale; back regions are darker. "
-             f"Every polygon is in exactly one region. Each body is {n[0]} polygons.",
+             f"Every polygon is in exactly one region. Each body is {n[0]} polygons, and its head {nh}.",
              band(tl, lab, gap_after=(2,)))]
     looks = [
         ("2. Tunic, trousers, boots (the 'everyday' outfit)", "the top stands one step off the body, with its collar and waist trims; the trousers are skin-tight with knee and ankle trims",
@@ -294,9 +296,52 @@ def sheet_joints(sex="female"):
     save_sheet(rows, "joints_rigid_or_bend.png")
 
 
+def voxel_head(name):
+    """One of the voxel heads (assets/head42_*.json) as square polygons, to draw beside its low-poly successor."""
+    cells = {tuple(v) for v in json.load(open(os.path.join(ROOT, "assets", f"head42_{name}.json")))["voxels"] if v[2] >= 26}
+    faces = []
+    corners = {(1, 0, 0): [(1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)], (-1, 0, 0): [(0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 1, 0)],
+               (0, 1, 0): [(0, 1, 0), (0, 1, 1), (1, 1, 1), (1, 1, 0)], (0, -1, 0): [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)],
+               (0, 0, 1): [(0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)], (0, 0, -1): [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)]}
+    for x, y, z in cells:
+        for d, quad in corners.items():
+            if (x + d[0], y + d[1], z + d[2]) not in cells:
+                faces.append((np.array([[x + a, y + b, z + c] for a, b, c in quad], float), ld.SKIN))
+    return faces
+
+
+def sheet_heads():
+    w = ld.Wardrobe(wardrobe_path())
+    frame = dict(scale=22.0, width=22.0, z_range=(24.5, 43.5))
+    heads = {n: hd.build(n) for n in hd.NAMES}
+    for n in hd.NAMES:
+        ok, text = hd.check(n, heads[n]); assert ok, text
+    count = len(heads["round"])
+    plain = {n: mr.prepare_coloured({"head": [(r["pts"], ld.SKIN) for r in heads[n]]}) for n in hd.NAMES}
+    eyes = [(p, w.palette[c]) for p, c in hd.eye_preview()]
+    faced = {n: mr.prepare_coloured({"head": [(r["pts"], ld.SKIN) for r in heads[n]], "unlit:eyes": eyes}) for n in hd.NAMES}
+    voxel = {n: mr.prepare_coloured({"head": voxel_head(n)}) for n in hd.NAMES}
+    rows = [("1. The voxel heads", "the five originals, for comparison", band([mr.render(voxel[n], 0, 12, **frame) for n in hd.NAMES], hd.NAMES)),
+            ("2. The new heads, front", f"{count} polygons each, and the same layout of polygons on all five. Same height, depth and widths as the originals.",
+             band([mr.render(plain[n], 0, 12, **frame) for n in hd.NAMES], hd.NAMES)),
+            ("3. Side", "the face is flat where the eyes go, on every head", band([mr.render(plain[n], 90, 12, **frame) for n in hd.NAMES], hd.NAMES)),
+            ("4. Turned", "", band([mr.render(plain[n], 35, 15, **frame) for n in hd.NAMES], hd.NAMES)),
+            ("5. Turned, from behind, with the polygon edges drawn", "", band([mr.render(plain[n], 145, 15, mode="lines", **frame) for n in hd.NAMES], hd.NAMES)),
+            ("6. With the standard open eye in place", "placement only: the eye boxes are where they were, the same size on every head. Lids, brows and colours are not rebuilt yet.",
+             band([mr.render(faced[n], 0, 12, **frame) for n in hd.NAMES] , hd.NAMES))]
+    tl = []; lab = []
+    for i, n in enumerate(hd.NAMES):
+        sex = "female" if i % 2 == 0 else "male"
+        b = lb.build(sex, head=n)
+        groups = {"all": [(r["pts"], ld.SKIN) for r in b["polys"]], "unlit:eyes": eyes}
+        tl.append(mr.render(mr.prepare_coloured(groups), 0, 12, scale=15.0)); lab.append(f"{n}, on the {sex} body")
+    rows.append(("7. On the bodies", "any head goes on any body", band(tl, lab)))
+    save_sheet(rows, "heads.png")
+
+
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
-    jobs = dict(look=sheet_look, male=sheet_male, regions=sheet_regions, joints=sheet_joints)
+    jobs = dict(look=sheet_look, male=sheet_male, regions=sheet_regions, joints=sheet_joints, heads=sheet_heads)
     if which != "all" and which not in jobs:
         sys.exit(__doc__)
     for name in (jobs if which == "all" else [which]):

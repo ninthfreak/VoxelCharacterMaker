@@ -40,7 +40,6 @@ LEG_COLS = [315, 20, 90, 160, 225, 270]
 ARM_COLS = [30, 90, 150, 210, 270, 330]
 FOOT_COLS = [325, 35, 90, 135, 225, 270]
 FOOT_Y = [-4.2, -2.8, -0.9, 1.0, 2.05]
-HEAD_ARC = [22.5, 67.5]
 
 # torso rings, top to bottom: (height, depth offset of the ring's centre). Heights that are band boundaries are fixed;
 # the others are shape rings inside a band (shoulder line, upper chest, under the chest, widest hip).
@@ -175,48 +174,6 @@ def build_foot():
     return out + [mirrored(r) for r in out]
 
 
-def build_head():
-    """The stand-in head, with edges on its region boundaries (heights 31 and 37, the centre line, the side seam)."""
-    c, half, r = ring_tools.M["head"]
-    c = np.array([CX + c[0], CY + c[1], c[2]]); hx, hy, hz = half
-    arcs = np.radians(HEAD_ARC)
-
-    def ring(z, rho):
-        ex, ey = (hx - r) + rho, (hy - r) + rho                      # half sizes of this ring
-        pts = [np.array([c[0], c[1] - ey, z])]                       # front centre, then round by the figure's left
-        for sx, sy, order in ((1, -1, -1), (1, 1, 1), (-1, 1, -1), (-1, -1, 1)):
-            corner = [np.array([c[0] + sx * ((hx - r) + rho * np.cos(b)), c[1] + sy * ((hy - r) + rho * np.sin(b)), z]) for b in arcs]
-            pts += corner if order > 0 else corner[::-1]
-            pts.append({(1, -1): np.array([c[0] + ex, c[1], z]), (1, 1): np.array([c[0], c[1] + ey, z]),
-                        (-1, 1): np.array([c[0] - ex, c[1], z]), (-1, -1): None}[(sx, sy)])
-        return [p for p in pts if p is not None]                     # 12 points
-
-    levels = [(c[2] + ((hz - r) + r * np.sin(a)), r * np.cos(a)) for a in arcs[::-1]] + [(37.0, r), (31.0, r)] + \
-             [(c[2] - ((hz - r) + r * np.sin(a)), r * np.cos(a)) for a in arcs]
-    rings = [ring(z, rho) for z, rho in levels]
-    fams = ("head",)
-    out = []
-
-    def tag(pts):
-        m = np.mean(pts, axis=0)
-        return ("L" if m[0] > CX else "R"), ("F" if m[1] < CY else "B")
-
-    for (za, _), (zb, _), a, b in zip(levels[:-1], levels[1:], rings[:-1], rings[1:]):
-        band = band_at(0.5 * (za + zb), fams)
-        band = "lower_head" if band == "neck" else band
-        for k in range(12):
-            quad = [a[k], a[(k + 1) % 12], b[(k + 1) % 12], b[k]]
-            side, face = tag(quad)
-            out.append(rec(quad, band, side, face, "head"))
-    for rg, band in ((rings[0], "crown"), (rings[-1], "lower_head")):   # caps, cut into four so none crosses a region line
-        mid = np.array([c[0], c[1], rg[0][2]])
-        for q in range(4):
-            quad = [mid] + [rg[(q * 3 + i) % 12] for i in range(4)]
-            side, face = tag(quad[1:])
-            out.append(rec(quad, band, side, face, "head"))
-    return [r for r in out if r is not None]
-
-
 # ------------------------------------------------------------------------------------------------- joints ---
 # The body is one skin that bends (owner's decision). Each corner follows one part, or more than one in a fixed
 # share, and moves by the blend of their movements: plain blended skinning, which Godot's Skeleton3D does.
@@ -282,19 +239,23 @@ def corner_shares(polys):
 
 
 SDF = dict(skin=lambda p: ring_tools.sdf_skin(p), arm_L=lambda p: ring_tools.sdf_arm(p), arm_R=lambda p: ring_tools.sdf_arm(p),
-           foot_L=lambda p: ring_tools.sdf_foot(p), foot_R=lambda p: ring_tools.sdf_foot(p), head=lambda p: ring_tools.sdf_head(p))
+           foot_L=lambda p: ring_tools.sdf_foot(p), foot_R=lambda p: ring_tools.sdf_foot(p))
 
 
-def build(sex, build="average"):
+def build(sex, build="average", head="round"):
+    """The body with one of the heads on it (heads.py). The body's own file leaves the head out."""
+    import heads as head_library
     spec = BODIES[(sex, build)]
     ring_tools.use(spec["model"])
     skin, info = build_skin(spec)
-    polys = skin + build_arm() + build_foot() + build_head()
+    polys = skin + build_arm() + build_foot()
     for r in polys:                                                  # wind every polygon outward
         n = ring_tools.normal(r["pts"]); c = r["pts"].mean(axis=0)
         d = SDF[r["piece"]](np.array([c + 0.25 * n, c - 0.25 * n]))
         if d[0] < d[1]:
             r["pts"] = r["pts"][::-1].copy()
+    polys += head_library.build(head)
+    info = dict(info, head=head)
     return dict(sex=sex, build=build, polys=polys, pivots=joint_pivots(spec["model"]), shares=corner_shares(polys), info=info)
 
 
@@ -320,8 +281,9 @@ def check(body):
                 n1 = np.cross(p[1] - p[0], p[2] - p[0]); n2 = np.cross(p[2] - p[0], p[3] - p[0])
                 m1 = np.cross(p[1] - p[0], p[3] - p[0]); m2 = np.cross(p[2] - p[1], p[3] - p[1])
                 bow += bool(n1 @ n2 < 0 or m1 @ m2 < 0)
-            d = SDF[piece](p.mean(axis=0)[None, :])[0]
-            deep += bool(d < -0.8 and not r["hidden"]); far += bool(d > 0.3)
+            if piece in SDF:                                         # the head is checked by heads.check
+                d = SDF[piece](p.mean(axis=0)[None, :])[0]
+                deep += bool(d < -0.8 and not r["hidden"]); far += bool(d > 0.3)
             for i in range(len(p)):
                 a = tuple(np.round(p[i], 4)); b = tuple(np.round(p[(i + 1) % len(p)], 4))
                 k = (a, b) if a < b else (b, a); edges[k] = edges.get(k, 0) + 1
@@ -344,7 +306,7 @@ def check(body):
     allowed = ("hips", "upper_thigh", "shoulder", "hand", "foot", "crown", "lower_head")
     bad = [s for s in stray if s[0].split(".")[0] not in allowed]
     ok &= not bad
-    lines.append(f"  polygons outside their band's heights: {len(stray)} by design (leg opening, arm and foot ends, head ends)" + (f" | UNEXPECTED: {bad}" if bad else ""))
+    lines.append(f"  polygons outside their band's heights: {len(stray)} by design (leg opening, arm and foot ends)" + (f" | UNEXPECTED: {bad}" if bad else ""))
     bad = [k for k, w in body["shares"].items() if abs(sum(w.values()) - 1.0) > 1e-9 or not set(w) <= set(PARENT) or len(w) > 4]
     blended = sum(1 for w in body["shares"].values() if len(w) > 1)
     ok &= not bad and set(body["pivots"]) == set(PARENT)
@@ -352,8 +314,8 @@ def check(body):
     return ok, "\n".join(lines)
 
 
-def counts(body):
-    polys = body["polys"]
+def counts(body, head=True):
+    polys = [r for r in body["polys"] if head or r["piece"] != "head"]
     return len(polys), sum(len(r["pts"]) - 2 for r in polys)
 
 
@@ -370,10 +332,11 @@ def to_data(body):
         return index[k]
 
     polys = [dict(v=[vid(r["piece"], v) for v in r["pts"]], region=r["key"], part=r["part"], piece=r["piece"], hidden=bool(r["hidden"]))
-             for r in body["polys"]]
+             for r in body["polys"] if r["piece"] != "head"]
     return {
-        "format": "lowpoly_body", "version": 2, "units_per_metre": 24, "facing": "-y", "mirror_plane_x": CX, "depth_centre_y": CY,
+        "format": "lowpoly_body", "version": 3, "units_per_metre": 24, "facing": "-y", "mirror_plane_x": CX, "depth_centre_y": CY,
         "sex": body["sex"], "build": body["build"],
+        "head": "from the head library (lowpoly/heads/head_*.json); it sits on the neck and follows the head part",
         "note": "Generated by lowpoly/body.py; regenerate rather than hand-edit. Heights are the old voxel rows. 'hidden' polygons are ends buried inside a neighbouring piece. 'shares' has one entry per corner: the parts that corner follows when the figure moves, and in what share.",
         "parts": {k: {"parent": PARENT[k], "pivot": [float(x) for x in body["pivots"][k]]} for k in PARENT},
         "regions": {k: {"z0": v[0], "z1": v[1] - 1, "part": v[2], "trim": v[3]} for k, v in BANDS.items()},
@@ -393,9 +356,10 @@ def write_obj(body, path):
     with open(path, "w") as fh:
         fh.write("# low-poly body, polygons grouped by clothing region. Metres. Y up, the figure faces +Z.\n")
         n = 1
-        for key in sorted({r["key"] for r in body["polys"]}):
+        mine = [r for r in body["polys"] if r["piece"] != "head"]
+        for key in sorted({r["key"] for r in mine}):
             fh.write(f"g {key}\n")
-            for r in body["polys"]:
+            for r in mine:
                 if r["key"] != key: continue
                 for v in r["pts"]:
                     fh.write(f"v {(v[0] - CX) / 24.0:.5f} {v[2] / 24.0:.5f} {-(v[1] - CY) / 24.0:.5f}\n")
@@ -410,6 +374,6 @@ if __name__ == "__main__":
     # python3 lowpoly/body.py : rebuild every body file in lowpoly/bodies/
     for sex, build_name in BODIES:
         b = build(sex, build_name); ok, text = check(b)
-        n = counts(b); print(f"{sex} {build_name}: {n[0]} polygons, {n[1]} triangles, check {'passed' if ok else 'FAILED'}"); print(text)
+        n = counts(b, head=False); print(f"{sex} {build_name}: {n[0]} polygons, {n[1]} triangles without a head, check {'passed' if ok else 'FAILED'}"); print(text)
         if not ok: sys.exit(1)
         write_json(b, body_path(sex, build_name)); write_obj(b, body_path(sex, build_name, "obj"))
