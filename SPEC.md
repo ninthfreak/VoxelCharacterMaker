@@ -26,9 +26,13 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
   voxelised.
 - **Editor:** it no longer edits bodies. It is for making clothing and items only.
 - **Bodies come from smooth "clay" models**, cut into polygons by script. The feminine average clay is the approved
-  starting point; the masculine average is a first pass the owner called decent. Slim, heavy and short clays of each
-  sex are made from the averages, as a first pass (`lowpoly/renders/bodies_builds_clay.png`). The short bodies,
-  36 tall with the same head, cannot share the others' band heights; see `lowpoly/README.md`.
+  starting point; the masculine average is a first pass the owner called decent.
+- **The other builds work off the average** (owner): they must be compatible enough with the average body that
+  every clothing rule still works. Slim, heavy and short of each sex are made from the average clays and cut the same
+  way, so all eight bodies have the same corners and polygons, regions and joints: each is the average body with its
+  corners moved (`lowpoly/renders/bodies_builds.png`; their shapes are a first pass). The short bodies, 36 tall with
+  the same head, have the same bands at their own, lower heights, so section 3.3's identical row boundaries hold for
+  the voxel bodies and the other low-poly builds, not for the short ones; see `lowpoly/README.md`.
 - **Joints: the body is one skin that bends.** Each corner follows one part, or several in a fixed share (blended
   skinning). Rigid pieces with rounded ends were built and compared, and rejected for the body
   (`lowpoly/renders/joints_rigid_or_bend.png`). **Clothing may need to be different** from the body at the joints;
@@ -240,8 +244,8 @@ rotation; forward/back swing is unaffected.
 
 ### 3.3 The six bodies
 
-All six share **identical row boundaries** (so one region map serves all) and the same head socket. Widths
-(chest / waist / hips) and depths:
+All six share **identical row boundaries** (so one region map serves all) and the same head socket. (The low-poly
+short bodies keep the same bands at lower heights: section 0.) Widths (chest / waist / hips) and depths:
 
 | body | chest/waist/hips | torso depth | arm w×d | thigh w×d | shin w×d | notes |
 |---|---|---|---|---|---|---|

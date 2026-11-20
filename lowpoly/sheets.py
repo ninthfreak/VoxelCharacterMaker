@@ -3,6 +3,7 @@
   python3 lowpoly/sheets.py look      the first cut: the feminine average at two polygon budgets, beside its clay
   python3 lowpoly/sheets.py male      the masculine average (budget A), beside its clay and the feminine one
   python3 lowpoly/sheets.py builds    the eight bodies as clay: slim, average, heavy and short, each sex
+  python3 lowpoly/sheets.py bodies    the eight low-poly bodies: bare, their regions, dressed, posed, as characters
   python3 lowpoly/sheets.py regions   the bodies the clothing system uses: their regions, then starter outfits
   python3 lowpoly/sheets.py joints    the comparison behind the joints decision: rigid pieces, or one bending skin
   python3 lowpoly/sheets.py heads     the five heads as rounded forms, with the face treated two ways
@@ -139,13 +140,77 @@ def sheet_builds():
     for k, (sex, title) in enumerate((("female", "Feminine"), ("male", "Masculine"))):
         tiles = {b: build_tiles(sex, b) for b in BUILDS}
         size = {b: widths(clay.BODIES[(sex, b)]) for b in BUILDS}
-        notes = ["the average is the body built so far. Slim, heavy and short are made from it: a first pass, nothing cut yet.",
+        notes = ["slim, heavy and short are made from the average clay; the low-poly bodies are cut from these (bodies_builds.png).",
                  "torso widths, chest / waist / hips: " + ";  ".join(f"{b} {size[b][0]:.1f} / {size[b][1]:.1f} / {size[b][2]:.1f}" for b in BUILDS),
                  "heavy is more mass everywhere, with no belly in front of the chest. Short is broader, then shorter; the head is the same."]
         for i, (name, _, _) in enumerate(BUILD_VIEWS):
             rows.append((f"{k + 1}. {title} bodies" if i == 0 else "", notes[i],
                          band([tiles[b][i] for b in BUILDS], [f"{b}, {size[b][3]:.0f} tall" if i == 0 else f"{b}: {name}" for b in BUILDS])))
     save_sheet(rows, "bodies_builds_clay.png")
+
+
+def sheet_bodies():
+    """The eight low-poly bodies: bare, their regions, dressed, posed, and as characters."""
+    w = ld.Wardrobe(wardrobe_path()); shown = _shown(w); tables = game.tables()
+    poses = {name: ps.from_game(v["parts"]) for name, v in tables["poses"].items()}
+    full = dict(scale=13.0, width=26.0, z_range=(-0.5, 43.0))
+    order = ["slim", "average", "heavy", "short"]
+    bodies = {}
+    for sex in ("female", "male"):
+        for b in order:
+            body = lb.build(sex, b); ok, text = lb.check(body)
+            assert ok, f"{sex} {b}:\n{text}"
+            bodies[(sex, b)] = body
+    data = lb.to_data(bodies[("female", "average")])
+    short = bodies[("female", "short")]["bands"]
+    rows = []
+    for k, (sex, title) in enumerate((("female", "Feminine"), ("male", "Masculine"))):
+        tl = []; lab = []
+        for b in order:
+            prep, _ = figure(bodies[(sex, b)], w, [])
+            for name, y, p in (("front", 0, 12), ("turned", 35, 15), ("side", 90, 12)):
+                tl.append(mr.render(prep, y, p, **full)); lab.append(f"{b}: {name}")
+        sub = (f"each is the average body with its corners moved: the same {len(data['vertices'])} corners and {len(data['polygons'])} polygons, "
+               f"the same regions and joints, on all eight bodies" if k == 0 else
+               f"short: the same bands, lower ({short['neck'][1]:.1f} to the top of the neck, against 26), and the same head on the shorter neck: 36 tall")
+        rows.append((f"{k + 1}. {title} bodies: slim, average, heavy, short", sub, band(tl, lab, gap_after=(2, 5, 8))))
+
+    tl = []; lab = []
+    for sex in ("female", "male"):
+        for b in order:
+            prep = mr.prepare_coloured(ld.dress(bodies[(sex, b)], w, [], paint=region_paint()).groups())
+            tl.append(mr.render(prep, 0, 0, mode="lines", **full)); lab.append(f"{sex} {b}")
+    rows.append(("3. The clothing regions on every body", "the same 32 regions a side on all eight; bands alternate blue and orange, one-row trim bands are pale. "
+                 "On the short bodies every band is lower.", band(tl, lab, gap_after=(3,))))
+
+    def dressed(sex, b, worn, yaw, pitch, pose=None, frame=full, **who):
+        prep, look = figure(bodies[(sex, b)], w, worn, pose, **who)
+        odd = [n for n in look.notes if "edge style" not in n and "'hood' not built" not in n]      # not built yet: see the README
+        assert not odd, f"{sex} {b}: {odd}"
+        return mr.render(prep, yaw, pitch, **frame)
+
+    tl = [dressed("female", b, w.outfit("dress"), 35, 15) for b in order] + [dressed("male", b, w.outfit("overalls"), 35, 15) for b in order]
+    rows.append(("4. The same outfits on every body", "nothing is set per body: every clothing rule reads the body's regions and heights. "
+                 "Feminine: the dress (bodice, skirt, boots). Masculine: the overalls (shirt, trousers, bib, straps).",
+                 band(tl, [f"dress, {b}" for b in order] + [f"overalls, {b}" for b in order], gap_after=(3,))))
+
+    tl = [dressed("female", b, w.outfit("dress"), 35, 15, poses["sitting"]) for b in order]
+    tl += [dressed("male", b, shown["travelling"], 145, 15, poses["mid_stride"]) for b in order]
+    rows.append(("5. In the game's test poses", "sitting in the dress: the skirt lies over the lap and falls at the knees. "
+                 "Striding in the travelling clothes, from behind: the cloak hangs from the shoulders.",
+                 band(tl, [f"sitting, {b}" for b in order] + [f"striding, {b}" for b in order], gap_after=(3,))))
+
+    beard = w.facial_hair(fh.PARTS, "long")
+    cast = [("male", w.outfit("overalls"), dict(skin="tan", features=[("short_crop", "auburn"), (beard, "default")], eyes=dict(colourway="amber"))),
+            ("female", shown["robe"], dict(skin="brown", features=[("short_crop", "black")], eyes=dict(colourway="blue"), mouth="smile"))]
+    tl = []; lab = []
+    for sex, worn, who in cast:
+        for b in ("average", "short"):
+            for yaw, pitch in ((0, 8), (35, 15)):
+                tl.append(dressed(sex, b, worn, yaw, pitch, **who)); lab.append(f"{sex} {b}: " + ("front" if yaw == 0 else "turned"))
+    rows.append(("6. Characters on the short bodies", "the face, the hair and the beard go with the head: on a short body they are the average's, 6 units lower. "
+                 "Masculine: overalls, a full long beard. Feminine: the robe (shown in green).", band(tl, lab, gap_after=(3,))))
+    save_sheet(rows, "bodies_builds.png")
 
 
 def first_cut(sex, spec):
@@ -683,7 +748,7 @@ def sheet_moving():
 
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
-    jobs = dict(look=sheet_look, male=sheet_male, builds=sheet_builds, regions=sheet_regions, joints=sheet_joints, heads=sheet_heads,
+    jobs = dict(look=sheet_look, male=sheet_male, builds=sheet_builds, bodies=sheet_bodies, regions=sheet_regions, joints=sheet_joints, heads=sheet_heads,
                 faces=sheet_faces, beards=sheet_beards, shapes=sheet_shapes, moving=sheet_moving)
     if which != "all" and which not in jobs:
         sys.exit(__doc__)

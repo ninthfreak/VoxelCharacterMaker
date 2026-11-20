@@ -23,7 +23,10 @@ import numpy as np
 
 CLEAR = 0.14            # each corner of the figure is taken to be this much further out and up, so cloth clears it
 MARGIN = 0.75           # a face also minds what stands this far past either of its two columns
-INNER = 3               # rows of points a column has between its top and its trim line; they sit on its bends
+INNER = 5               # rows of points a column has between its top and its trim line; they sit on its bends. Three
+                        # were too few for the heavy and short bodies sitting: a column lying over the lap put its rows
+                        # on the lap's edge while its neighbour hanging at the side spread its rows down its fall, and
+                        # the cloth between them cut across the thick thigh
 TRIM = 1.0              # how much of a column's lower end is in the hem colour
 
 
@@ -248,6 +251,11 @@ def lay(cloth, T, P, Z0):
                 n += np.cross(pts[i], pts[(i + 1) % len(pts)])
             if np.linalg.norm(n) < 1e-9: continue
             if n @ facing < 0: pts = pts[::-1].copy()
+            # A four-sided piece that is not flat is drawn as two triangles, split from its first corner to its third.
+            # Start it where that split folds outward, as cloth over a body does: folded inward, a piece lying over
+            # the lap on one side and hanging straight down on the other cuts across the outer side of the thigh.
+            if len(pts) == 4 and (0.5 * (pts[1] + pts[3]) - 0.5 * (pts[0] + pts[2])) @ facing > 1e-9:
+                pts = pts[[1, 2, 3, 0]]
             role = "hem" if (j == last and cloth.columns[a].trim and cloth.columns[b].trim) else "cloth"
             polys.append((pts, role))
     return polys

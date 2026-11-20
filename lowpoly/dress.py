@@ -80,6 +80,10 @@ class Fit:
     def __init__(self, body, polys, surface):
         self.body = body; self._polys = polys; self._surface = surface
 
+    def band(self, name):
+        """A band's bottom and top on this body (a short body's bands are lower than the average's)."""
+        return tuple(float(z) for z in self.body.get("bands", lb.BANDS)[name][:2])
+
     def heights(self, bands):
         """The heights of the body's rings in those bands, bottom to top."""
         return sorted({round(float(v[2]), 4) for r in self.body["polys"] if r["piece"] == "skin" and not r["hidden"] and r["band"] in bands for v in r["pts"]})
@@ -204,10 +208,11 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
         unknown = [k for k in it["coverage"] if k not in known]
         if unknown: notes.append(f"{item_id}: regions not on this body: {unknown}")
     head = body.get("info", {}).get("head")
+    head_dz = body.get("info", {}).get("head_dz", 0.0)              # the head sits lower on a short body
     for parts, length, colours, order, item_id in whiskers:         # facial hair claims the head's own polygons, before anything is lifted
         if head is None:
             notes.append(f"{item_id}: no head to grow it on"); continue
-        polys = facial_hair.on_head(polys, parts, length, colours, order, head, hair is not None, who=item_id)
+        polys = facial_hair.on_head(polys, parts, length, colours, order, head, hair is not None, who=item_id, dz=head_dz)
     win = []
     for r in polys:
         best = None
@@ -314,7 +319,8 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
         face = faces.eyes(game_tables(), wardrobe, skin=tone, hair=hair, brow=brow, **eyes) if eyes is not None else []
         hides = any("moustache" in parts and length != "stubble" for parts, length, _, _, _ in whiskers) and head is not None
         if mouth is not None: face += faces.lower_face(game_tables(), mouth, skin=tone, cover=facial_hair.cover() if hides else ())
-        for q in face:
-            out.append(dict(pts=q["pts"], rgb=q["rgb"], src=None, shares=[{"head": 1.0}] * len(q["pts"]), part="head", piece="face",
+        for q in face:                                               # made for the head library's heights: moved with the head
+            pts = q["pts"] + np.array([0.0, 0.0, head_dz]) if head_dz else q["pts"]
+            out.append(dict(pts=pts, rgb=q["rgb"], src=None, shares=[{"head": 1.0}] * len(q["pts"]), part="head", piece="face",
                             band=None, hidden=False, unlit=q["unlit"], role=q["role"], by=None))
     return Look(body, out, cloths, notes)

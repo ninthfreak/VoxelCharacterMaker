@@ -179,19 +179,24 @@ def _mirror_ring(half):
 
 
 SHOULDER_CUT = 4.9      # the torso stops here at shoulder height; the arm's shoulder covers the rest
+CUT_Z = 19.5            # ... above this height
+CROTCH_ZS = (7.0, 12.5) # where to look for the crotch
+KNEE_Z = 6.4            # a leg's ring is placed from the thigh above this height, from the calf below it
 
 
-def use(model):
-    """Cut from another clay body (same form as clay.FEM_AVERAGE)."""
-    global M, SHOULDER_CUT
+def use(model, at=lambda z: z):
+    """Cut from another clay body (same form as clay.FEM_AVERAGE). at: where a height on the average body is on this
+    one (clay.Heights; a short body's bands are lower)."""
+    global M, SHOULDER_CUT, CUT_Z, CROTCH_ZS, KNEE_Z
     M = model
     SHOULDER_CUT = model["deltoid"][0][0] - 0.95
+    CUT_Z = at(19.5); CROTCH_ZS = (at(7.0), at(12.5)); KNEE_Z = at(6.4)
 
 
 def sdf_torso_cut(p):
     """The skin with the pointed end of the shoulder girdle cut off square, where the arm piece takes over."""
     d = sdf_skin(p)
-    return np.where(p[:, 2] > 19.5, np.maximum(d, np.abs(p[:, 0] - CX) - SHOULDER_CUT), d)
+    return np.where(p[:, 2] > CUT_Z, np.maximum(d, np.abs(p[:, 0] - CX) - SHOULDER_CUT), d)
 
 
 def torso_ring(z, cols, yc=0.25):
@@ -210,7 +215,7 @@ def torso_ring(z, cols, yc=0.25):
 
 def crotch():
     """Lowest point of the body on the mirror plane: (y, z)."""
-    ys = np.linspace(CY - 3.0, CY + 4.0, 71); zs = np.arange(7.0, 12.5, 0.02)
+    ys = np.linspace(CY - 3.0, CY + 4.0, 71); zs = np.arange(CROTCH_ZS[0], CROTCH_ZS[1], 0.02)
     Y, Z = np.meshgrid(ys, zs, indexing="ij")
     d = sdf_skin(np.stack([np.full(Y.size, CX), Y.ravel(), Z.ravel()], axis=1)).reshape(Y.shape)
     low = np.where((d < 0).any(axis=1), zs[(d < 0).argmax(axis=1)], np.inf)
@@ -234,7 +239,7 @@ def hip_half_ring(z, cols, c_point=None):
 
 def leg_ring(z, cols):
     """Below the crotch: a free ring round one leg. cols are directions (0 = front, 90 = outer side)."""
-    q = M["thigh"][0] if z > 6.4 else M["calf"][0]
+    q = M["thigh"][0] if z > KNEE_Z else M["calf"][0]
     o = inside_centre(sdf_leg, (CX + q[0], CY + q[1]), z, 1.5)
     pts = outline(sdf_skin, o, half=True)
     return snap([support(pts, a) for a in cols], pts)

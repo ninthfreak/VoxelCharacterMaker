@@ -78,15 +78,15 @@ def _skirt_over(q):
 def skirt(fit, params, colours, name="skirt"):
     """Returns (hang.Cloth or None, notes)."""
     p = settings("skirt", params); notes = []
-    z_top = float(lb.BANDS["hips"][1])                               # the waist line: the cloth is fixed along it
-    z_hip = float(lb.BANDS["hips"][0])                               # below here an opening is open
+    z_top = fit.band("hips")[1]                                      # the waist line: the cloth is fixed along it
+    z_hip = fit.band("hips")[0]                                      # below here an opening is open
     ring = fit.ring(z_top); n = len(ring)
     xs = [v[0] - CX for v in ring]
     if n != 8 or abs(xs[0]) > 1e-6 or abs(xs[4]) > 1e-6 or int(np.argmax(xs)) != 2 or int(np.argmin(xs)) != 6:
         return None, [f"{name}: the waist is not the ring of eight points this expects"]
     F, AL, SL, BL, R, BR, SR, AR = range(8)                          # front, round by the figure's left, to the back and on
     W = [fit.at(v) for v in ring]; shares = [fit.shares(v) for v in ring]; d = outward(W)
-    hem_z = float(lb.BANDS[SKIRT_LENGTH.get(str(p["length"]), "knee")][0])
+    hem_z = fit.band(SKIRT_LENGTH.get(str(p["length"]), "knee"))[0]
     # flare: the hem is that much wider than the hips, all round, widening evenly below them
     flare = float(np.arctan2(float(np.clip(int(p["flare"]), 0, 3)), z_hip - hem_z))
     four = str(p["panels"]) == "four"
@@ -188,8 +188,8 @@ def _cape_over(q):
 def cape(fit, params, colours, name="cape"):
     """Returns (hang.Cloth or None, notes)."""
     p = settings("cape", params); notes = []
-    z_top = float(lb.BANDS["collar"][0])                             # the shoulder line, under the collar
-    hem_z = float(lb.BANDS[CAPE_LENGTH.get(str(p["length"]), "knee")][0])
+    z_top = fit.band("collar")[0]                                    # the shoulder line, under the collar
+    hem_z = fit.band(CAPE_LENGTH.get(str(p["length"]), "knee"))[0]
     if hem_z >= z_top:
         return None, [f"{name}: its hem is not below its shoulders"]
     ring = fit.ring(z_top); xs = [v[0] - CX for v in ring]
@@ -250,7 +250,7 @@ def straps(fit, params, colours, name="straps"):
     """Returns ([polygon dicts: pts, rgb, shares], notes)."""
     p = settings("straps", params)
     width = float(np.clip(int(p["width"]), 1, 2)); half = 0.5 * width
-    z0 = float(lb.BANDS["belly"][0]); z1 = float(lb.BANDS["collar"][0]); z2 = float(lb.BANDS["collar"][1])
+    z0 = fit.band("belly")[0]; z1, z2 = fit.band("collar")
     zs = [z for z in fit.heights(("belly", "lower_chest", "upper_chest")) if z0 - 1e-6 <= z <= z1 + 1e-6]      # up the chest
     bare = {z: fit.ring(z) for z in zs + [z2]}
     worn = {z: [fit.at(v) for v in bare[z]] for z in bare}

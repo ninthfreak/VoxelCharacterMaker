@@ -258,14 +258,16 @@ def areas(head, hair):
     return out
 
 
-def on_head(polys, parts, length, colours, order, head, hair, who=None):
+def on_head(polys, parts, length, colours, order, head, hair, who=None, dz=0.0):
     """The figure's polygons with facial hair marked on the head: a new list in which the polygons it covers carry a
     claim (bulk, draw order, colour, who), cut along its edge. parts: which of PARTS are on. colours: "hair" and
-    "stubble". head: the name of the head's shape. hair: whether hair is worn. who: the item, for dress.py to name."""
+    "stubble". head: the name of the head's shape. hair: whether hair is worn. who: the item, for dress.py to name.
+    dz: how far the head stands from the head library's heights (a short body's head sits lower)."""
     if not parts: return polys
     claim = (LENGTHS[length], order, colours["stubble" if length == "stubble" else "hair"], who)
+    up = np.array([0.0, 0.0, dz])
     for part, pick, planes in areas(head, hair):
-        if part in parts: polys = _carve(polys, pick, planes, claim)
+        if part in parts: polys = _carve(polys, pick, [(p + up, n) for p, n in planes] if dz else planes, claim)
     return conform(_merge(polys))
 
 

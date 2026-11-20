@@ -96,14 +96,14 @@ MASC_AVERAGE = dict(
 
 # ------------------------------------------------------------------ the other builds ---
 # Slim, heavy and short are made from each sex's average clay, so that a change to the average carries over. First
-# pass, for the owner to judge (2026-11); nothing is cut from them yet.
+# pass, for the owner to judge (2026-11). The low-poly bodies are cut from them (body.py).
 #
 #   slim, heavy   the same heights; widths and girths change (factors against the average). Heavy is more mass
 #                 everywhere, not obesity: the belly never comes forward of the chest, and the seat grows little
 #                 (SPEC 3.3: a protruding belly or rear was tried and rejected twice).
 #   short         for dwarfs: broader than average, then shorter. Every band of height keeps its place in the order,
-#                 but the shins and thighs lose the most, the torso less, and the feet nothing. The head is the same
-#                 head, set on the shorter neck. 42 tall becomes 36.
+#                 but the shins and lower thighs lose the most, the torso less, and the feet and the upper thighs
+#                 nothing. The head is the same head, set on the shorter neck. 42 tall becomes 36.
 
 import copy
 
@@ -119,7 +119,11 @@ BUILD_FACTORS = {
 BAND_HEIGHTS = [("foot", 0, 2), ("ankle", 2, 3), ("shin", 3, 6), ("knee", 6, 7), ("lower_thigh", 7, 9), ("upper_thigh", 9, 11),
                 ("hips", 11, 14), ("waist", 14, 15), ("belly", 15, 17), ("lower_chest", 17, 20), ("upper_chest", 20, 24),
                 ("collar", 24, 25), ("neck", 25, 26)]
-SHORT_KEEPS = dict(foot=1.0, ankle=0.8, shin=0.6, knee=0.8, lower_thigh=0.6, upper_thigh=0.65, hips=0.8, waist=0.9, belly=0.75,
+# The upper thigh keeps its height: it holds the leg opening, and the broad pelvis keeps most of its depth, so the
+# crotch is as far below the hips as on the average. The shins and the lower thighs give it up instead, which also
+# puts the knee where it is on the average: 57% of the way from the ankle up to the crotch. (First pass 2026-11 had
+# shin 0.6, lower thigh 0.6, upper thigh 0.65: the crotch fell below the thigh's ring, and the knee sat high.)
+SHORT_KEEPS = dict(foot=1.0, ankle=0.8, shin=0.47, knee=0.8, lower_thigh=0.45, upper_thigh=1.0, hips=0.8, waist=0.9, belly=0.75,
                    lower_chest=0.75, upper_chest=0.8, collar=0.9, neck=0.9)
 SQUASH_SHAPE = 0.5          # how much of the squash a rounded volume takes in its own height; less keeps it longer, so that it blends
 
@@ -165,11 +169,31 @@ def short_heights(keeps=SHORT_KEEPS):
     return out
 
 
+class Heights:
+    """Where a height on the average body is on another body: the same band, the same share of the way up it. On a
+    short body (heights from short_heights) every band is lower; straight in between; above the neck the distances
+    stay as they are, because the head keeps its size. With no heights, every height stays exactly where it is."""
+
+    def __init__(self, heights=None):
+        self.moved = heights is not None
+        self.old = [0.0] + [z1 for _, _, z1 in BAND_HEIGHTS]
+        self.new = [0.0] + [z1 for _, _, z1 in heights] if self.moved else list(self.old)
+
+    def __call__(self, z):
+        if not self.moved: return z
+        return float(np.interp(z, self.old, self.new)) if z <= self.old[-1] else self.new[-1] + (z - self.old[-1])
+
+    def back(self, z):
+        """The other way: where a height on this body is on the average."""
+        if not self.moved: return z
+        return float(np.interp(z, self.new, self.old)) if z <= self.new[-1] else self.old[-1] + (z - self.new[-1])
+
+
 def squash(base, heights):
     """The same body with its bands of height moved to heights (as short_heights gives), straight in between. The
     head keeps its size and sits on the neck."""
     old = [0.0] + [z1 for _, _, z1 in BAND_HEIGHTS]; new = [0.0] + [z1 for _, _, z1 in heights]
-    f = lambda z: float(np.interp(z, old, new)) if z <= old[-1] else new[-1] + (z - old[-1])
+    f = Heights(heights)
     slope = lambda z: (f(z + 0.25) - f(z - 0.25)) / 0.5
     m = copy.deepcopy(base)
     for name, v in m.items():
@@ -185,9 +209,11 @@ def squash(base, heights):
 
 
 BODIES = {("female", "average"): FEM_AVERAGE, ("male", "average"): MASC_AVERAGE}
+HEIGHTS = {}                # the builds whose bands are not at the average's heights: (sex, build) -> short_heights()
 for (_sex, _build), _f in BUILD_FACTORS.items():
     _m = derive(BODIES[(_sex, "average")], **_f)
-    BODIES[(_sex, _build)] = squash(_m, short_heights()) if _build == "short" else _m
+    if _build == "short": HEIGHTS[(_sex, _build)] = short_heights()
+    BODIES[(_sex, _build)] = squash(_m, HEIGHTS[(_sex, _build)]) if _build == "short" else _m
 
 
 def body(p, m=FEM_AVERAGE, parts=None):

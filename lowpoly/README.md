@@ -10,6 +10,9 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 
 - **Style:** low-poly, at about the level of detail of Final Fantasy VII.
 - **Bodies are cut from smooth clay models** on the clothing regions (method below).
+- **The other builds work off the average** (owner, 2026-11: they must be compatible enough with the average body
+  that every clothing rule still works). Slim, heavy and short are made from each sex's average clay and cut the same
+  way, so each is the average body with its corners moved.
 - **Joints: the body is one skin that bends.** Rigid pieces were built, compared and rejected for the body
   (`renders/joints_rigid_or_bend.png`). Clothing may need to be different from the body at the joints; see "How
   clothing moves" below for what is built, and "Not decided yet" for what is the owner's to judge.
@@ -33,12 +36,12 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 
 | Area | State |
 |---|---|
-| Clay bodies (the smooth forms the bodies are cut from) | feminine average (approved), masculine average (first pass, "decent"); slim, heavy and short of each sex as a first pass for the owner to judge, made from the averages (`renders/bodies_builds_clay.png`) |
-| Bodies cut on the clothing regions | those two; 344 polygons (710 triangles) each without a head, same layout of polygons |
-| Region map on the bodies (32 a side, same bands and heights as the voxel bodies) | done, checked |
+| Clay bodies (the smooth forms the bodies are cut from) | feminine average (approved), masculine average (first pass, "decent"); slim, heavy and short of each sex, made from the averages: a first pass for the owner to judge (`renders/bodies_builds_clay.png`) |
+| Bodies cut on the clothing regions | all eight: slim, average, heavy and short, each sex (`renders/bodies_builds.png`). 344 polygons (710 triangles) each without a head, and the same corners and polygons on all eight: each is the feminine average with its corners moved |
+| Region map on the bodies (32 a side, the same bands as the voxel bodies) | done, checked. At the voxel bodies' heights on every body but the short ones, which have the same bands lower |
 | Joints: one bending skin over the same 11 parts | done: every corner's shares and every pivot are in the body files; posed in Python |
-| Ordinary garments from the wardrobe file (regions, roles, bulk, mirror, layering) | built in Python, shown on both bodies; they bend with the body |
-| Special shapes: straps, skirt, cape | built, with every setting the voxel ones have; all seven starter outfits dress both bodies (`renders/special_shapes.png`, `renders/special_shapes_moving.png`) |
+| Ordinary garments from the wardrobe file (regions, roles, bulk, mirror, layering) | built in Python, on all eight bodies; they bend with the body |
+| Special shapes: straps, skirt, cape | built, with every setting the voxel ones have; all seven starter outfits dress all eight bodies, in every test pose (`renders/special_shapes.png`, `renders/special_shapes_moving.png`, `renders/bodies_builds.png`) |
 | Facial hair: four parts, each on or off, and one length (stubble, short, medium, long) | built, on every head; colours follow the hair and the skin as in the game (`renders/facial_hair.png`). The game's three facial hair items are read as parts and a length. The parts and the length are not in the game's wardrobe file or editor yet |
 | Special shapes: hood, drawn (anchored) shapes | not started. The cloak is worn without its hood; the long beard and the ponytail's tail are drawn shapes |
 | Hair | not rebuilt. The wardrobe's short crop goes on by the ordinary region rules, which is enough to show brows and beards following it |
@@ -46,7 +49,6 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Heads | all five (round, boxy, oval, strong, heart) as rounded forms: 114 polygons each, same layout; any head goes on any body (`renders/heads.png`) |
 | Faces: eyes, lids, lashes, eyebrows, skin tones | built: oval eyes from the wardrobe's eye sets and their colourways, the game's ten lid states, lids from the skin tone, a thin lash line, eyebrows from the hair, all six skin tones (`renders/faces.png`) |
 | The mouth | a first pass: a short line, straight or curved, or a small open oval. New here; the voxel faces have none |
-| The other six bodies (slim, heavy and short, each sex) | clays only (above). Not cut yet: slim and heavy can be cut as the averages were; the short bodies first need heights of their own (see "Not decided yet") |
 | Building polygons in Godot (assembler, editor, runtime) | not started |
 
 ## How a body is made
@@ -55,8 +57,9 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
    change to an average carries over. Slim and heavy keep every height and change widths and girths
    (`BUILD_FACTORS`); heavy is more mass everywhere and its belly never comes forward of the chest. Short is made
    broader, then shorter: each band of height keeps a share of its height (`SHORT_KEEPS`), most lost from the shins
-   and thighs, less from the torso, none from the feet, and the same head sits on the shorter neck: 36 tall instead
-   of 42.
+   and the lower thighs, less from the torso, none from the feet or the upper thighs, and the same head sits on the
+   shorter neck: 36 tall instead of 42. The upper thigh keeps its height because it holds the leg opening: the broad
+   pelvis keeps most of its depth, so the crotch sits as far below the hips as on the average.
 1. **Clay** (`clay.py`). A body is a handful of rounded volumes blended into one smooth form. Its unit is the old
    voxel (24 to the metre), so heights are the old rows: 42 tall, mirror plane at x = 12, front toward -y.
 2. **Rings** (`rings.py`). Rings of a few points are placed on the clay at chosen heights and joined into four-sided
@@ -69,11 +72,20 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
    (neck, waist, elbow, knee) sit in their one-row trim bands: the band's two edge loops share the bend 75/25 and
    25/75, and the pivot is at the middle of the band. The hip bends on the leg-opening loop. The shoulder is a ball:
    the arm is a separate piece turning about the centre of its shoulder.
+5. **Every build the same way** (`body.py`). All eight bodies are cut from their own clays by the same cutter, at the
+   same rings and columns. So they have the same corners in the same order and the same polygons, regions, parts and
+   joint shares: each is the feminine average with its corners moved, and every clothing rule works on each as it
+   does on the average (`check.py` holds this, and dresses all eight in every outfit and pose). The game could even
+   blend from one build to another. A short body has the same bands at its own heights: every height the cutter
+   uses is the average's, moved to the short body's bands (`clay.Heights`); the body carries its band table
+   (`body["bands"]`, `heights` in its file); the head from the head library is set on its neck (`head_raise` in the
+   file, 6 units down), and the face and facial hair go with the head. The joints, the straps, the skirt and the cape
+   read their heights from the body.
 
 Three places where a region follows the body instead of a level line:
 
-- **Hips / upper thigh:** the boundary is the leg opening, level 11 at the outside of the hip and dropping to the
-  crotch. A level line would leave the crotch outside "hips", because this pelvis hangs lower between the legs than
+- **Hips / upper thigh:** the boundary is the leg opening, level 11 at the outside of the hip (a short body: its own
+  height there) and dropping to the crotch. A level line would leave the crotch outside "hips", because this pelvis hangs lower between the legs than
   the voxel one, which simply ended at row 11.
 - **Front / back:** split along the side seam (the widest point of each ring), within half a unit of the depth centre.
 - **Arm top and foot top:** they stand a little past their bands' heights and are tagged "shoulder" and "foot".
@@ -181,7 +193,11 @@ Three ways, by what the clothing is:
   to the waist line, a cape to the shoulder line) and each a fixed length. For any pose, every column is a taut line
   from its top over whatever of the figure sticks out under it, then straight down, leaning out by the garment's
   flare. Nothing is simulated and nothing is remembered between poses, so standing still is one more pose. This is
-  what makes a skirt fit the hips, let the forward knee push its front out, and lie over a lap.
+  what makes a skirt fit the hips, let the forward knee push its front out, and lie over a lap. Each column has five
+  rows of points between its top and its trim line, on its bends; a four-sided piece of cloth between two columns
+  that is not flat is split into two triangles along the diagonal that folds outward, as cloth over a body does.
+  (Three rows, and either diagonal, let the thick thighs of the heavy and short bodies come through a skirt when
+  sitting.)
 - **It stays rigid.** Nothing does yet. `pose.posed_rigid` is kept for hard pieces, if they come to need it.
 
 The voxel system turned hanging cloth by rule instead: each panel by 0.8 of a thigh's swing. That rule is not used
@@ -206,7 +222,7 @@ here; see "Not decided yet", 1.
 | `check.py` | checks the band table, the geometry, the regions, the files, the clothing in every test pose, the faces against the game's own cells, and the facial hair on every head |
 | `game.py` | fetches what is taken from the game: the starter wardrobe, the test poses, the special shapes' settings, the eyes and lid states, the skin, brow and stubble colours |
 | `dump_wardrobe.gd` | run by `game.py` in Godot: writes those as JSON into `_work/` |
-| `bodies/` | the body files: corners and their shares, polygons with region and part, pivots, the band table. Generated; do not hand-edit |
+| `bodies/` | the eight body files (`body_<sex>_<build>`): corners and their shares, polygons with region and part, pivots, the band table and each band's heights on that body, how far the head is raised. Generated; do not hand-edit |
 | `heads/` | the head files: corners, polygons with their region, the eye box and its angle, the seven sections that define the shape. Generated |
 | `renders/` | the sheets each decision was made from. `faces_first_port.png` is the eyes as first ported, in cells with straight or square edges, which the owner turned down for rounded ovals |
 
@@ -239,10 +255,10 @@ GODOT=/path/to/godot python3 lowpoly/sheets.py all
 
 `check.py` also runs as part of `tests/run.sh` when numpy is installed. Its clothing and face checks, and every sheet
 with clothes or eyes on it, ask Godot for the game's wardrobe and tables: set `GODOT=/path/to/godot` (or have `godot`
-on PATH). Without Godot, `check.py` skips the clothing and the faces and says so. With it, the check takes about a
-minute and a half.
+on PATH). Without Godot, `check.py` skips the clothing and the faces and says so. With it, the check takes about two
+minutes (the eight bodies are dressed side by side, four at a time).
 
-`sheets.py` takes `look`, `male`, `builds`, `regions`, `joints`, `heads`, `faces`, `beards`, `shapes`, `moving` or `all`; the clay
+`sheets.py` takes `look`, `male`, `builds`, `bodies`, `regions`, `joints`, `heads`, `faces`, `beards`, `shapes`, `moving` or `all`; the clay
 pictures take about 40 seconds a view and are kept in `lowpoly/_work/` for the next run.
 
 ## Not decided yet
@@ -258,7 +274,7 @@ All of these are the owner's to settle. Recommendations are recommendations.
    Still open under the same heading: hard pieces fixed to one part so that they never bend (which could be what the
    "hard" edge style comes to mean), and sleeves at the shoulder.
 2. **Polygon budget.** A body is 344 polygons with an edge on every region boundary, and a head 114: 458 for the
-   figure. Dressed in a starter outfit a figure is about 500 to 540: a skirt adds about 40, a cape 20, a pair of straps
+   figure. Dressed in a starter outfit a figure is about 500 to 560: a skirt adds about 56, a cape 28, a pair of straps
    about 36, and every band that is lifted off the body adds a ring of hem polygons. A pair of eyes with brows adds
    10 to 50 (most of them slivers: of the white round the pupil, and of the lash line round the top of the eye; 52 to
    132 triangles, about a tenth of the figure), a mouth 2 to 6. Facial hair adds up to about 22 polygons (66
@@ -274,14 +290,19 @@ All of these are the owner's to settle. Recommendations are recommendations.
    go.
 6. **The masculine clay** is a first pass: shoulder width (about 20% wider than the feminine), the amount of chest
    muscle, the slight belly and arm thickness are the parts most open to change.
-   **The slim, heavy and short clays** are a first pass too (`renders/bodies_builds_clay.png`): how far apart the
-   builds are (the voxel bodies' builds were hard to tell apart once dressed), and the short bodies' proportions.
-   **The short bodies need heights of their own.** Every body so far shares one band table, and so does every voxel
-   body (`SPEC.md` 3.3: identical row boundaries). Garments are made of regions, so they fit any heights; what
-   needs work is everything that uses a height directly: the band table becomes each body's own, the head is set
-   on the body's neck instead of at fixed heights (faces and facial hair move with it), and the skirt, cape and
-   straps read their heights from the body. The other way, a short body made by scaling an average down whole, is
-   simpler but shrinks the head too, so it reads as a child rather than a dwarf.
+   **The slim, heavy and short bodies** are a first pass too (`renders/bodies_builds.png`, and their clays in
+   `renders/bodies_builds_clay.png`): how far apart the builds are (the voxel bodies' builds were hard to tell apart
+   once dressed), and the short bodies' proportions. Calls made while building them, each easy to change:
+   - **the short bodies have heights of their own**: the same bands, lower, so `SPEC.md` 3.3's "identical row
+     boundaries" holds for the voxel bodies and for the low-poly slim, average and heavy, not for the short ones.
+     Garments are made of regions, so they fit; everything that used a height directly now reads it from the body.
+     The other way, a short body made by scaling an average down whole, is simpler but shrinks the head too, so it
+     reads as a child rather than a dwarf;
+   - **the short legs**: the first pass had the crotch below the thigh's ring and the knee high on the leg; the
+     upper thigh now keeps its height and the shins and lower thighs give it up, which puts the knee where it is on
+     the average (57% of the way from ankle to crotch);
+   - **the same head on every build**: a heavy or short body may want a broader head, or a short one a bigger nose
+     or brow, later.
 7. **Facial hair** is built as the owner described it: four parts and one length. Calls made while building, each
    easy to change:
    - **"cheeks"** is the name given here to the part between the sideburns and the goatee;

@@ -6,6 +6,12 @@ edge loop, every polygon lies in exactly one region, and each polygon is tagged 
 
 Heights are the voxel rows: the clay's unit is one voxel, so the band table is the same table.
 
+Eight bodies: slim, average, heavy and short, for each sex. Every one is cut from its own clay (clay.py, made from
+the sex's average clay) by the same cutter, so all eight have the same polygons, made of the same corners in the
+same order, with the same regions and joints: each is the feminine average with its corners moved, and every
+clothing rule works on it as it does on the average. A short body has the same bands at its own, lower heights
+(clay.short_heights); everything here reads a body's heights from its own band table, body["bands"].
+
 The body is one skin that bends at its joints (see "joints" below); each corner's shares are in the body file.
 
 Three places where a region follows the body rather than a level line:
@@ -42,24 +48,32 @@ FOOT_COLS = [325, 35, 90, 135, 225, 270]
 FOOT_Y = [-4.2, -2.8, -0.9, 1.0, 2.05]
 
 # torso rings, top to bottom: (height, depth offset of the ring's centre). Heights that are band boundaries are fixed;
-# the others are shape rings inside a band (shoulder line, upper chest, under the chest, widest hip).
-BODIES = {
-    ("female", "average"): dict(model=clay.FEM_AVERAGE,
-        torso=[(26.6, .35), (26, .35), (25, .5), (24, .5), (22.6, .4), (21.3, .3), (20, .25), (18.4, .25), (17, .2), (15, 0.0), (14, .1), (12.6, .3)]),
-    ("male", "average"): dict(model=clay.MASC_AVERAGE,
-        torso=[(26.6, .35), (26, .35), (25, .5), (24, .6), (22.75, .45), (21.6, .3), (20, .3), (18.4, .25), (17, .2), (15, .05), (14, .15), (12.6, .3)]),
+# the others are shape rings inside a band (shoulder line, upper chest, under the chest, widest hip). Every height
+# here is the average body's; a short body's are moved to its own bands (clay.Heights).
+TORSO = {
+    "female": [(26.6, .35), (26, .35), (25, .5), (24, .5), (22.6, .4), (21.3, .3), (20, .25), (18.4, .25), (17, .2), (15, 0.0), (14, .1), (12.6, .3)],
+    "male": [(26.6, .35), (26, .35), (25, .5), (24, .6), (22.75, .45), (21.6, .3), (20, .3), (18.4, .25), (17, .2), (15, .05), (14, .15), (12.6, .3)],
 }
+BUILDS = ("average", "slim", "heavy", "short")
+BODIES = {(sex, b): dict(model=clay.BODIES[(sex, b)], torso=TORSO[sex], heights=clay.Heights(clay.HEIGHTS.get((sex, b))))
+          for sex in ("female", "male") for b in BUILDS}
 HIP_SEAT_Z = 11.6                       # one extra ring through the fullest part of the seat
 HOLE = dict(side=11.0, oblique=10.6, lift=0.7)   # the leg opening: its height at the side, at the front/back obliques, above the crotch
 LEG_Z = [9, 7, 6, 3, 2, 1.2]            # band boundaries down the leg; the last ring is hidden inside the foot
+ARM_Z = [21, 18, 17, 15, 13, 12]        # band boundaries down the arm, between the shoulder's rings and the hand's
 
 
-def band_at(z, families):
-    for name, (z0, z1, fam, _) in BANDS.items():
+def bands_of(at):
+    """The band table at a body's heights (at: clay.Heights)."""
+    return {name: (at(z0), at(z1), fam, trim) for name, (z0, z1, fam, trim) in BANDS.items()}
+
+
+def band_at(z, families, bands=BANDS):
+    for name, (z0, z1, fam, _) in bands.items():
         if fam in families and z0 <= z < z1:
             return name
-    lo = min((b for b in BANDS.items() if b[1][2] in families), key=lambda b: b[1][0])
-    hi = max((b for b in BANDS.items() if b[1][2] in families), key=lambda b: b[1][1])
+    lo = min((b for b in bands.items() if b[1][2] in families), key=lambda b: b[1][0])
+    hi = max((b for b in bands.items() if b[1][2] in families), key=lambda b: b[1][1])
     return lo[0] if z < lo[1][0] else hi[0]
 
 
@@ -97,24 +111,27 @@ def mirrored(r):
 
 # ------------------------------------------------------------------------------------------------- the pieces ---
 
-def build_skin(spec):
+def build_skin(spec, bands):
     out = []
-    halves = [ring_tools.torso_ring(z, TORSO_COLS, yc) for z, yc in spec["torso"]]
-    zs = [z for z, _ in spec["torso"]]
+    at = spec["heights"]
+    zs = [at(z) for z, _ in spec["torso"]]
+    halves = [ring_tools.torso_ring(z, TORSO_COLS, yc) for z, (_, yc) in zip(zs, spec["torso"])]
+    neck_top = bands["neck"][1]
     for i in range(len(halves) - 1):
         u, l = halves[i], halves[i + 1]
-        band = "neck" if zs[i] > 26 else band_at(0.5 * (zs[i] + zs[i + 1]), CENTRED)
+        band = "neck" if zs[i] > neck_top else band_at(0.5 * (zs[i] + zs[i + 1]), CENTRED, bands)
         for k in range(4):
-            out.append(rec([u[k], u[k + 1], l[k + 1], l[k]], band, "L", "F" if k < 2 else "B", "skin", hidden=zs[i] > 26))
+            out.append(rec([u[k], u[k + 1], l[k + 1], l[k]], band, "L", "F" if k < 2 else "B", "skin", hidden=zs[i] > neck_top))
     out.append(rec(list(halves[0][::-1]), "neck", "L", "F", "skin", hidden=True))          # top of the neck, inside the head
 
     yc, zc = ring_tools.crotch()
     j = halves[-1]
     ring_j = np.array(list(j) + [np.array([CX, 0.5 * (j[0][1] + j[-1][1]), zs[-1]])])
-    seat = ring_tools.hip_half_ring(HIP_SEAT_Z, TORSO_COLS)
-    lo = ring_tools.hip_half_ring(zc + HOLE["lift"], TORSO_COLS); ob = ring_tools.hip_half_ring(HOLE["oblique"], TORSO_COLS); sd = ring_tools.hip_half_ring(HOLE["side"], TORSO_COLS)
+    seat = ring_tools.hip_half_ring(at(HIP_SEAT_Z), TORSO_COLS)
+    lo = ring_tools.hip_half_ring(at(at.back(zc) + HOLE["lift"]), TORSO_COLS)
+    ob = ring_tools.hip_half_ring(at(HOLE["oblique"]), TORSO_COLS); sd = ring_tools.hip_half_ring(at(HOLE["side"]), TORSO_COLS)
     hole = np.array([lo[0], ob[1], sd[2], ob[3], lo[4], np.array([CX, yc, zc])])           # F, A, S, B, R, crotch
-    rings = [ring_j, seat, hole] + [ring_tools.leg_ring(z, LEG_COLS) for z in LEG_Z]
+    rings = [ring_j, seat, hole] + [ring_tools.leg_ring(at(z), LEG_COLS) for z in LEG_Z]
     bands = ["hips", "hips", "upper_thigh", "lower_thigh", "knee", "shin", "ankle", "foot"]
     for (u, l), band in zip(zip(rings[:-1], rings[1:]), bands):
         for k in range(6):
@@ -127,14 +144,14 @@ def build_skin(spec):
     return out + [mirrored(r) for r in out], dict(crotch=(yc, zc))
 
 
-def build_arm():
+def build_arm(spec, bands):
     M = ring_tools.M
     keys = ("hand", "forearm", "upper_arm", "deltoid")
     kz = [M[k][0][2] for k in keys]
     cen = lambda z: (CX + np.interp(z, kz, [M[k][0][0] for k in keys]), CY + np.interp(z, kz, [M[k][0][1] for k in keys]))
     top = M["deltoid"][0][2] + M["deltoid"][1]; dz = M["deltoid"][0][2]
     hz = M["hand"][0][2]; hb = hz - M["hand"][1][2]
-    zs = [top - 0.22, dz + 0.4, 21, 18, 17, 15, 13, 12, hz + 0.1, hb + 0.35]
+    zs = [top - 0.22, dz + 0.4] + [spec["heights"](z) for z in ARM_Z] + [hz + 0.1, hb + 0.35]
     rings = []
     for z in zs:
         o = ring_tools.inside_centre(ring_tools.sdf_arm, cen(z), z, 1.0)
@@ -143,7 +160,7 @@ def build_arm():
     fams = ("upper_arm", "forearm")
     out = [rec(list(rings[0][::-1]), "shoulder", "L", "", "arm_L")]
     for i in range(len(rings) - 1):
-        band = band_at(0.5 * (zs[i] + zs[i + 1]), fams)
+        band = band_at(0.5 * (zs[i] + zs[i + 1]), fams, bands)
         for k in range(6):
             out.append(rec([rings[i][k], rings[i][(k + 1) % 6], rings[i + 1][(k + 1) % 6], rings[i + 1][k]], band, "L", "", "arm_L"))
     out.append(rec(list(rings[-1]), "hand", "L", "", "arm_L"))
@@ -185,16 +202,16 @@ def build_foot():
 JOINT_BANDS = {"neck": ("head", "chest"), "waist": ("chest", "pelvis"), "elbow": ("upper_arm", "forearm"), "knee": ("thigh", "shin")}
 
 
-def joint_pivots(model):
+def joint_pivots(model, bands=BANDS):
     def on_line(a, b, z):
         (ca, _), (cb, _) = model[a], model[b]
         t = (z - ca[2]) / (cb[2] - ca[2])
         return (CX + ca[0] + t * (cb[0] - ca[0]), CY + ca[1] + t * (cb[1] - ca[1]), z)
-    mid = lambda band: 0.5 * (BANDS[band][0] + BANDS[band][1])
+    mid = lambda band: 0.5 * (bands[band][0] + bands[band][1])
     d = model["deltoid"][0]; th = model["thigh"][0]
-    p = {"pelvis": (CX, CY, float(BANDS["hips"][0])), "chest": (CX, CY + 0.1, mid("waist")), "head": (CX, CY + 0.4, mid("neck")),
+    p = {"pelvis": (CX, CY, float(bands["hips"][0])), "chest": (CX, CY + 0.1, mid("waist")), "head": (CX, CY + 0.4, mid("neck")),
          "upper_arm_L": (CX + d[0], CY + d[1], d[2]), "forearm_L": on_line("upper_arm", "forearm", mid("elbow")),
-         "thigh_L": (CX + th[0], CY + th[1], float(BANDS["hips"][0])), "shin_L": on_line("thigh", "calf", mid("knee"))}
+         "thigh_L": (CX + th[0], CY + th[1], float(bands["hips"][0])), "shin_L": on_line("thigh", "calf", mid("knee"))}
     for k in list(p):
         if k.endswith("_L"):
             x, y, z = p[k]; p[k[:-1] + "R"] = (2 * CX - x, y, z)
@@ -205,13 +222,13 @@ def share_key(piece, v):
     return (piece, tuple(float(x) for x in np.round(v, 4)))
 
 
-def corner_shares(polys):
+def corner_shares(polys, bands=BANDS):
     """For every corner: the parts it follows and in what share. Keyed by share_key(piece, position)."""
     at = {}
     for r in polys:
         for v in r["pts"]:
             at.setdefault(share_key(r["piece"], v), set()).add(r["part"])
-    edge = lambda band: (float(BANDS[band][1]), float(BANDS[band][0]))     # upper loop, lower loop
+    edge = lambda band: (float(bands[band][1]), float(bands[band][0]))     # upper loop, lower loop
     shares = {}
     for (piece, pos), parts in at.items():
         x, _, z = pos
@@ -243,20 +260,27 @@ SDF = dict(skin=lambda p: ring_tools.sdf_skin(p), arm_L=lambda p: ring_tools.sdf
 
 
 def build(sex, build="average", head="round"):
-    """The body with one of the heads on it (heads.py). The body's own file leaves the head out."""
+    """The body with one of the heads on it (heads.py). The body's own file leaves the head out.
+    bands: the band table at this body's heights. info: the crotch; the head's name; head_dz, how far the head is
+    moved from the head library's heights to sit on this body's neck (0 but on a short body)."""
     import heads as head_library
     spec = BODIES[(sex, build)]
-    ring_tools.use(spec["model"])
-    skin, info = build_skin(spec)
-    polys = skin + build_arm() + build_foot()
+    bands = bands_of(spec["heights"])
+    ring_tools.use(spec["model"], spec["heights"])
+    skin, info = build_skin(spec, bands)
+    polys = skin + build_arm(spec, bands) + build_foot()
     for r in polys:                                                  # wind every polygon outward
         n = ring_tools.normal(r["pts"]); c = r["pts"].mean(axis=0)
         d = SDF[r["piece"]](np.array([c + 0.25 * n, c - 0.25 * n]))
         if d[0] < d[1]:
             r["pts"] = r["pts"][::-1].copy()
-    polys += head_library.build(head)
-    info = dict(info, head=head)
-    return dict(sex=sex, build=build, polys=polys, pivots=joint_pivots(spec["model"]), shares=corner_shares(polys), info=info)
+    dz = float(bands["neck"][1] - BANDS["neck"][1])
+    for r in head_library.build(head):
+        if dz: r["pts"] = r["pts"] + np.array([0.0, 0.0, dz])
+        polys.append(r)
+    info = dict(info, head=head, head_dz=dz)
+    return dict(sex=sex, build=build, polys=polys, bands=bands, pivots=joint_pivots(spec["model"], bands),
+                shares=corner_shares(polys, bands), info=info)
 
 
 # ---------------------------------------------------------------------------------------------------- checks ---
@@ -300,7 +324,7 @@ def check(body):
     stray = []
     for r in polys:                                                  # every polygon inside its own band's heights
         if r["hidden"]: continue
-        z0, z1 = BANDS[r["band"]][:2]; lo, hi = r["pts"][:, 2].min(), r["pts"][:, 2].max()
+        z0, z1 = body["bands"][r["band"]][:2]; lo, hi = r["pts"][:, 2].min(), r["pts"][:, 2].max()
         if lo < z0 - 1e-6 or hi > z1 + 1e-6:
             stray.append((r["key"], round(float(lo), 2), round(float(hi), 2)))
     allowed = ("hips", "upper_thigh", "shoulder", "hand", "foot", "crown", "lower_head")
@@ -334,12 +358,14 @@ def to_data(body):
     polys = [dict(v=[vid(r["piece"], v) for v in r["pts"]], region=r["key"], part=r["part"], piece=r["piece"], hidden=bool(r["hidden"]))
              for r in body["polys"] if r["piece"] != "head"]
     return {
-        "format": "lowpoly_body", "version": 3, "units_per_metre": 24, "facing": "-y", "mirror_plane_x": CX, "depth_centre_y": CY,
+        "format": "lowpoly_body", "version": 4, "units_per_metre": 24, "facing": "-y", "mirror_plane_x": CX, "depth_centre_y": CY,
         "sex": body["sex"], "build": body["build"],
-        "head": "from the head library (lowpoly/heads/head_*.json); it sits on the neck and follows the head part",
-        "note": "Generated by lowpoly/body.py; regenerate rather than hand-edit. Heights are the old voxel rows. 'hidden' polygons are ends buried inside a neighbouring piece. 'shares' has one entry per corner: the parts that corner follows when the figure moves, and in what share.",
+        "head": "from the head library (lowpoly/heads/head_*.json); it sits on the neck, raised by head_raise, and follows the head part",
+        "head_raise": body["info"]["head_dz"],
+        "note": "Generated by lowpoly/body.py; regenerate rather than hand-edit. 'regions' is the game's region table (its rows are the voxel bodies'); 'heights' is where each band is on this body: the old voxel rows on every build but short. 'hidden' polygons are ends buried inside a neighbouring piece. 'shares' has one entry per corner: the parts that corner follows when the figure moves, and in what share. All eight bodies have the same vertices in the same order and the same polygons.",
         "parts": {k: {"parent": PARENT[k], "pivot": [float(x) for x in body["pivots"][k]]} for k in PARENT},
         "regions": {k: {"z0": v[0], "z1": v[1] - 1, "part": v[2], "trim": v[3]} for k, v in BANDS.items()},
+        "heights": {k: [round(float(v[0]), 4), round(float(v[1]), 4)] for k, v in body["bands"].items()},
         "vertices": verts, "shares": shares, "polygons": polys,
     }
 

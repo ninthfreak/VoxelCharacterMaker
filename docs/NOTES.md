@@ -991,6 +991,63 @@ as clay, before anything is cut, as the averages were.
   Nothing would need changing, but the head would shrink with it, and a
   small figure with the chibi head reads as a child, not a dwarf.
 
+## 4r. Slim, heavy and short bodies: cut on the average's layout (owner's direction)
+
+The owner wants the low-poly bodies, not the clays, and they must be
+compatible enough with the average body that every clothing rule still
+works. (The clays of 4q were already made from the average clays, by
+factors and a squash, not modelled anew.)
+
+- **Each build is the average body with its corners moved** (difficulty
+  low for slim and heavy, medium for short; confidence high, checked).
+  Every build is cut from its own clay by the same cutter at the same rings
+  and columns, so all eight bodies have the same 365 corners in the same
+  order and the same 344 polygons, regions, parts and joint shares; the two
+  sexes too. `check.py` holds this, and dresses all eight in all seven
+  starter outfits in all six test poses. A side effect: the game could
+  blend one build into another.
+- **The short bodies' own heights.** `clay.Heights` maps a height on the
+  average to the same place in the same band on a short body. The cutter
+  uses it for every height it has (torso rings, the seat, the leg opening,
+  the leg and arm rings, where the shoulder is cut, where it looks for the
+  crotch and the knee). A body now carries its band table
+  (`body["bands"]`; `heights` in the file, format version 4). The head
+  from the head library is lowered onto the neck (`head_raise`, -6.04: the
+  neck's top is at 19.96 against 26), and the eyes, mouth and facial hair
+  go with it, exactly (checked against the average's, moved). The joints,
+  the straps, the skirt and the cape read their heights from the body.
+- **The short legs, re-proportioned** (difficulty low; confidence medium
+  on the look). Cut with the first pass's heights, the short body's
+  crotch fell 0.34 below the ring at the bottom of the upper thigh, and the
+  leg opening crossed it. The crotch is set by the pelvis, which keeps most
+  of its depth on a broad body, not by how the thigh is split. So the
+  upper thigh, which holds the leg opening, keeps its full height, and the
+  shins and lower thighs give theirs up (keeping 47 and 45 per cent). The
+  crotch is now 0.38 above the ring (the average's: 0.46), and the knee is
+  where it is on the average, 57 per cent of the way from ankle to crotch
+  (it was at 67, high). Still 36 tall.
+- **Hanging cloth, fixed for thick thighs** (difficulty medium;
+  confidence high for the test poses). Sitting, the heavy feminine and the
+  short bodies' thighs came through a skirt by up to 0.41 units at the
+  outer front of the lap. Two causes, two changes in `hang.py`. A
+  four-sided piece of cloth between a column lying over the lap and one
+  hanging at the side is twisted, and was split along the diagonal that
+  folds inward; it now starts at the corner that splits it outward. And a
+  column had three rows of points: the one over the lap spent them on the
+  lap's edge while its neighbour spread them down its fall, leaving a long
+  sliver between them; now five. Nothing comes through on any body in any
+  test pose (most: 0.07, the averages' toga, which was 0.13). A skirt is
+  now 56 polygons (was 40), a cape 28 (was 20). Every sheet with hanging
+  cloth was redrawn.
+- **The toga on the short bodies has one column fewer**: its wrap's cut
+  edge meets the hem right at the front corner there, so the skirt's own
+  rule needs no extra column. Not a fault.
+- **The check** now builds each body once and dresses the eight bodies four
+  at a time: 163 checks, about two minutes.
+
+Open, for the owner: the six new bodies' shapes are a first pass, and
+every build has the same head.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

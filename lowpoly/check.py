@@ -3,7 +3,11 @@
 1. The band table in body.py is the project's own (the "regions" block every voxel body file carries, which a Godot
    test already holds equal to core/body_layout.gd): same bands, rows, part families and trim flags.
 2. Every body rebuilds cleanly: no twisted polygons, no open or doubled edges, nothing standing off the clay, all 64
-   regions present, every polygon inside its own band's heights apart from the documented exceptions.
+   regions present, every polygon inside its own band's heights apart from the documented exceptions. All eight
+   (slim, average, heavy, short, for each sex) have the same corners in the same order and the same polygons,
+   regions, parts and joint shares: each is the female average with its corners moved. Each has the same bands, each
+   on the one below, at the voxel rows' heights or (short) at its own; the head sits on the neck; the crotch stands
+   clear above the ring at the bottom of the upper thigh.
 3. The joints: every corner has shares that add up to one, over known parts; standing still the bending skin is the
    body as built; in a big move nothing flies off.
 4. The heads: closed, on their regions, the right size, the same layout of polygons on all five, and a flat patch
@@ -11,7 +15,7 @@
 5. The files in lowpoly/bodies/ and lowpoly/heads/ are what a rebuild gives. They are generated, not hand-edited.
 6. Clothing, with the game's own starter wardrobe and test poses (written out by dump_wardrobe.gd, so this part
    needs Godot: GODOT=/path/to/godot, or the two files already in lowpoly/_work/; without either it is skipped):
-   the special shapes' settings and defaults are the game's; every starter outfit dresses both bodies; hanging cloth
+   the special shapes' settings and defaults are the game's; every starter outfit dresses all eight bodies; hanging cloth
    hangs to its hem when standing, and in every test pose nothing of the figure comes through it; straps lie on the
    chest with nothing coming through them.
 7. Faces (also from the game's tables): every polygon of the eyes and the mouth lies on its flat patch of the face;
@@ -22,6 +26,7 @@
    every way of putting the parts together leaves every head one closed surface; each part covers only its own
    area, is the same on both sides, in the colours the game works out, and under the eyes; stubble and short lie
    flush, medium and long stand out by exactly their bulk; the moustache is clear of the eyes and hangs over the mouth.
+   On a short body the head, the face and the facial hair are the average's, moved down with the head.
 """
 import json, os, shutil, sys
 import numpy as np
@@ -43,16 +48,39 @@ voxel = json.load(open(os.path.join(HERE, "..", "assets", "body42_female_average
 ours = {k: {"z0": v[0], "z1": v[1] - 1, "part": v[2], "trim": v[3]} for k, v in lb.BANDS.items()}
 expect(ours == voxel, f"{len(ours)} bands match the voxel bodies' region table")
 
+import clay
+layout_of = lambda data: ([(p["v"], p["region"], p["part"], p["piece"], p["hidden"]) for p in data["polygons"]], data["shares"])
+averages = {}
 for sex, build_name in lb.BODIES:
     print(f"== {sex} {build_name} ==")
     b = lb.build(sex, build_name)
     ok, text = lb.check(b)
     print(text)
     expect(ok, "geometry and regions")
-    n = lb.counts(b)
+    fresh = json.loads(json.dumps(lb.to_data(b)))
     n = lb.counts(b, head=False)
-    expect(n == lb.counts(lb.build("female"), head=False), f"same polygon count as the other bodies ({n[0]} polygons, {n[1]} triangles, without a head)")
-    b = lb.build(sex, build_name)
+    if build_name == "average":
+        averages[sex] = fresh
+        if sex != "female":
+            mine, theirs = averages["female"], fresh
+            expect(len(theirs["vertices"]) == len(mine["vertices"]) and layout_of(theirs) == layout_of(mine),
+                   f"the same corners, polygons, regions, parts and joint shares as the female average ({n[0]} polygons, {n[1]} triangles, without a head)")
+    else:
+        mine, theirs = averages[sex], fresh
+        expect(len(theirs["vertices"]) == len(mine["vertices"]) and layout_of(theirs) == layout_of(mine),
+               f"the {sex} average with its corners moved: the same {len(mine['vertices'])} corners in the same order, and the same polygons, "
+               f"regions, parts and joint shares")
+    bands = b["bands"]; heights = clay.HEIGHTS.get((sex, build_name))
+    chain = [name for name, _, _ in clay.BAND_HEIGHTS]
+    stacked = all(abs(bands[lo][1] - bands[hi][0]) < 1e-9 for lo, hi in zip(chain[:-1], chain[1:])) and all(v[0] < v[1] for v in bands.values())
+    own = all(abs(bands[name][0] - z0) < 1e-9 and abs(bands[name][1] - z1) < 1e-9 for name, z0, z1 in heights) if heights else \
+        all(tuple(bands[k][:2]) == tuple(v[:2]) for k, v in lb.BANDS.items())
+    head_low = min(float(r["pts"][:, 2].min()) for r in b["polys"] if r["piece"] == "head")
+    expect(stacked and own and abs(head_low - bands["neck"][1]) < 1e-6,
+           (f"the same bands at its own heights ({bands['neck'][1]:.2f} to the top of the neck, against 26), each on the one below"
+            if heights else "the bands at the voxel rows' heights") + f"; the head sits on the neck ({head_low:.2f})")
+    gap = b["info"]["crotch"][1] - bands["upper_thigh"][0]
+    expect(gap >= 0.25, f"the crotch is {gap:.2f} above the thigh's ring at the bottom of the upper thigh (at least 0.25)")
     bare = [dict(pts=r["pts"], rgb=(0, 0, 0), part=r["part"], piece=r["piece"],
                  shares=[b["shares"][lb.share_key(r["piece"], v)] for v in r["pts"]]) for r in b["polys"]]
     still = ps.posed_bend(b, bare, ps.REST)
@@ -65,7 +93,7 @@ for sex, build_name in lb.BODIES:
     if not os.path.exists(path):
         expect(False, f"{os.path.relpath(path, HERE)} exists (run: python3 lowpoly/body.py)")
         continue
-    disk = json.load(open(path)); fresh = json.loads(json.dumps(lb.to_data(b)))
+    disk = json.load(open(path))
     same_shape = np.array(disk["vertices"]).shape == np.array(fresh["vertices"]).shape
     close = same_shape and bool(np.allclose(np.array(disk["vertices"]), np.array(fresh["vertices"]), atol=2e-4))
     rest = all(disk[k] == fresh[k] for k in fresh if k != "vertices")
@@ -107,12 +135,16 @@ else:
     poses = {name: ps.from_game(v["parts"]) for name, v in tables["poses"].items()}
     known = lambda note: "edge style" in note or "'hood' not built" in note      # not built yet; see the README
     chest = lambda q: q["piece"] == "skin" and q["band"] in ("waist", "belly", "lower_chest", "upper_chest", "collar", "neck")
-    for sex, build_name in lb.BODIES:
+
+    def dressed(which):
+        """Every starter outfit on one body, in every test pose: [(ok, what)]. Run for the eight bodies side by side."""
+        sex, build_name = which
+        out = []; expect = lambda ok, what: out.append((bool(ok), what))
         b = lb.build(sex, build_name)
         for name in sorted(w.outfits):
             look = ld.dress(b, w, w.outfit(name))
             odd = [n for n in look.notes if not known(n)]
-            said = f"{sex}, '{name}'"
+            said = f"{sex} {build_name}, '{name}'"
             hems = True; worst = 0.0; longest = 0.0; whole = True
             for pose_name, pose in poses.items():
                 bent, cloths = ps.laid(b, look, pose)
@@ -149,6 +181,12 @@ else:
                     rise = max(rise, float(sp._above(probe, hang.unit(n), tris).max()))
                 expect(len(straps) > 0 and sides == {True, False} and rise == 0.0,
                        f"{said}: two straps ({len(straps)} polygons), with nothing of the chest coming through them")
+        return out
+
+    import multiprocessing
+    with multiprocessing.Pool(4) as pool:                          # the eight bodies side by side: a quarter of the time
+        for results in pool.map(dressed, list(lb.BODIES)):
+            for ok, what in results: expect(ok, what)
 
     # ---- faces: the eyes in every lid state, against the game's own cells; and the mouth
     print("== faces ==")
@@ -326,6 +364,18 @@ else:
         whole &= len(fc.lower_face(tables, m)) == len(fc.mouth_shape(m))
     expect(symmetric and clash == 0 and under == 0 and whole, "the moustache is the same on both sides and clear of the eyes in every lid state; "
                                                               "once it is more than stubble the mouth is cut where it hangs over it, and under stubble the mouth is whole")
+
+    # ---- the short bodies: the head sits lower, and the face and facial hair go with it
+    beard = w.facial_hair(fh.PARTS, "medium")
+    for sex in ("female", "male"):
+        made = {}
+        for build_name in ("average", "short"):
+            b = lb.build(sex, build_name, head="strong")
+            look = ld.dress(b, w, [], skin="tan", eyes={}, mouth="smile", features=[("short_crop", "black"), (beard, "default")])
+            made[build_name] = ([q for q in look.polys if q["piece"] in ("head", "face")], b["info"]["head_dz"], look.notes)
+        (a, _, notes_a), (s, dz, notes_s) = made["average"], made["short"]
+        same = len(a) == len(s) and all(p["rgb"] == q["rgb"] and np.allclose(p["pts"] + np.array([0.0, 0.0, dz]), q["pts"], atol=1e-9) for p, q in zip(a, s))
+        expect(same and not notes_a and not notes_s and dz < 0, f"{sex} short: the head, the eyes and mouth, and a full beard are the average's, {-dz:.2f} lower ({len(s)} polygons)")
 
 print("low-poly bodies, heads, clothing, faces and facial hair:", "all checks passed" if not failed else f"{len(failed)} FAILED")
 sys.exit(1 if failed else 0)
