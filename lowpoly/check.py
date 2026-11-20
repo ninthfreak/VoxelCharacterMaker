@@ -6,8 +6,8 @@
    regions present, every polygon inside its own band's heights apart from the documented exceptions.
 3. The joints: every corner has shares that add up to one, over known parts; standing still the bending skin is the
    body as built; in a big move nothing flies off.
-4. The heads: closed, on their regions, the right size, the same layout of polygons on all five, and a flat face
-   wide and tall enough for both eye boxes and the brow row.
+4. The heads: closed, on their regions, the right size, the same layout of polygons on all five, and a flat patch
+   wide and tall enough for each eye box and the brow row above it.
 5. The files in lowpoly/bodies/ and lowpoly/heads/ are what a rebuild gives. They are generated, not hand-edited.
 6. Clothing, with the game's own starter wardrobe and test poses (written out by dump_wardrobe.gd, so this part
    needs Godot: GODOT=/path/to/godot, or the two files already in lowpoly/_work/; without either it is skipped):
@@ -69,7 +69,7 @@ for name in hd.NAMES:
     polys = hd.build(name)
     ok, text = hd.check(name, polys)
     print(text)
-    expect(ok, f"{name}: geometry, regions, size, and a flat face for the eyes")
+    expect(ok, f"{name}: geometry, regions, size, and a flat patch for each eye")
     shape = [(len(r["pts"]), r["key"]) for r in polys]
     layout = layout or shape
     expect(shape == layout, f"{name}: the same layout of polygons and regions as the other heads")

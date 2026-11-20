@@ -646,6 +646,30 @@ are still to come.
   skin at the waist. The voxel figure has the same strip. A skirt hides it
   with its waistband; trousers have none.
 
+## 4k. Rounder heads (owner's request)
+
+- **Why.** The first low-poly heads were blocks with bevelled edges: seven
+  rounded rectangles stacked, with a flat top, straight sides and a flat
+  back. Beside bodies cut from smooth clay they looked like boxes. The owner
+  asked for them to be less blocky and consistent with the bodies.
+- **What changed** (difficulty low; confidence medium on the look, which is
+  the owner's to judge). A head is now seven rings laid out like a rounded
+  form: a domed crown closed by a point, a back that is an ellipse from
+  above, cheeks that turn the corner in two steps, and a jaw that tapers to
+  a small flat base. 114 polygons, two fewer than before. The five ideas
+  are kept: round, a rounded square (boxy), a narrow egg (oval), a wide jaw
+  under a round crown (strong), a pointed chin (heart).
+- **The one limit is the face.** The eyes are big: together they span 12 of
+  the head's 16 units of width, and each has to lie flat. With both on one
+  plane, as the spec has it, the front of the head is a flat panel however
+  round the rest is. Two treatments are built, one number apart
+  (`FACE_BEND`): one flat face, or each eye on its own flat patch with the
+  two turned 15 degrees outward, which makes the front round as well. The
+  second changes the spec's rule, so the heads are committed with the first
+  and the choice is put to the owner (`lowpoly/renders/heads.png`).
+- **Kept as a record:** the first rebuild's sheet, as
+  `lowpoly/renders/heads_first_rebuild.png`.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

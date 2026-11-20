@@ -34,8 +34,9 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
 
 **Where this stands:** `lowpoly/README.md`. In short: the feminine and masculine average bodies exist, cut so that
 their polygons follow the region map of section 3.4, with the shares and pivots that make them bend; ordinary garments
-from the wardrobe file go onto them and bend with them. The five heads of section 4 are rebuilt as low-poly forms
-that keep what section 4 says every head shares (size, face plane, eye box, ears). Three of section 7.4's special
+from the wardrobe file go onto them and bend with them. The five heads of section 4 are rebuilt as rounded low-poly
+forms (the owner found the first, block-like rebuild too blocky) that keep what section 4 says every head shares (size,
+face plane, eye box, ears). Three of section 7.4's special
 shapes are rebuilt (straps, skirt, cape), so all seven starter outfits dress both bodies; the hood, facial hair, drawn
 shapes and hair are not. All of that is built in Python so far. Nothing in `core/`, `runtime/` or `editor/` builds
 polygons yet; the Godot project still runs the voxel system.
@@ -83,8 +84,10 @@ they are easy to change):
 2. Front / back: split along the side seam, within half a unit of the depth centre.
 3. The arm's top and the foot's top stand a little past their bands' heights and belong to "shoulder" and "foot".
 
-**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): whether hanging cloth stays laid
-afresh for every pose, hard pieces and sleeves at the joints, the polygon budget, flat or smooth shading, how far one
+**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): whether the face stays one flat
+plane (section 5: "the face plane") or becomes one flat patch for each eye, the two turned a little apart, so that the
+front of the head can be round too (`lowpoly/renders/heads.png` shows both; the heads are committed with the flat
+plane); whether hanging cloth stays laid afresh for every pose, hard pieces and sleeves at the joints, the polygon budget, flat or smooth shading, how far one
 step of bulk stands off the body, what becomes of edge style, and the final shape of the masculine clay.
 
 ---

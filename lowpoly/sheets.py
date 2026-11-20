@@ -4,7 +4,7 @@
   python3 lowpoly/sheets.py male      the masculine average (budget A), beside its clay and the feminine one
   python3 lowpoly/sheets.py regions   the bodies the clothing system uses: their regions, then starter outfits
   python3 lowpoly/sheets.py joints    the comparison behind the joints decision: rigid pieces, or one bending skin
-  python3 lowpoly/sheets.py heads     the five heads, beside the voxel heads they follow
+  python3 lowpoly/sheets.py heads     the five heads as rounded forms, with the face treated two ways
   python3 lowpoly/sheets.py shapes    the special shapes built so far (skirt, cape, straps), standing, with their settings
   python3 lowpoly/sheets.py moving    the same clothes in the game's test poses
   python3 lowpoly/sheets.py all
@@ -308,46 +308,56 @@ def sheet_joints(sex="female"):
     save_sheet(rows, "joints_rigid_or_bend.png")
 
 
-def voxel_head(name):
-    """One of the voxel heads (assets/head42_*.json) as square polygons, to draw beside its low-poly successor."""
-    cells = {tuple(v) for v in json.load(open(os.path.join(ROOT, "assets", f"head42_{name}.json")))["voxels"] if v[2] >= 26}
-    faces = []
-    corners = {(1, 0, 0): [(1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)], (-1, 0, 0): [(0, 0, 0), (0, 0, 1), (0, 1, 1), (0, 1, 0)],
-               (0, 1, 0): [(0, 1, 0), (0, 1, 1), (1, 1, 1), (1, 1, 0)], (0, -1, 0): [(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)],
-               (0, 0, 1): [(0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)], (0, 0, -1): [(0, 0, 0), (0, 1, 0), (1, 1, 0), (1, 0, 0)]}
-    for x, y, z in cells:
-        for d, quad in corners.items():
-            if (x + d[0], y + d[1], z + d[2]) not in cells:
-                faces.append((np.array([[x + a, y + b, z + c] for a, b, c in quad], float), ld.SKIN))
-    return faces
+FACE_BENDS = [("one flat face", 0.0), ("each eye on its own flat patch, turned 15 degrees outward", 15.0)]
 
 
 def sheet_heads():
+    """The heads as rounded forms, with the face treated two ways, beside the first rebuild they replace."""
     w = ld.Wardrobe(wardrobe_path())
     frame = dict(scale=22.0, width=22.0, z_range=(24.5, 43.5))
-    heads = {n: hd.build(n) for n in hd.NAMES}
-    for n in hd.NAMES:
-        ok, text = hd.check(n, heads[n]); assert ok, text
-    count = len(heads["round"])
-    plain = {n: mr.prepare_coloured({"head": [(r["pts"], ld.SKIN) for r in heads[n]]}) for n in hd.NAMES}
-    eyes = [(p, w.palette[c]) for p, c in hd.eye_preview()]
-    faced = {n: mr.prepare_coloured({"head": [(r["pts"], ld.SKIN) for r in heads[n]], "unlit:eyes": eyes}) for n in hd.NAMES}
-    voxel = {n: mr.prepare_coloured({"head": voxel_head(n)}) for n in hd.NAMES}
-    rows = [("1. The voxel heads", "the five originals, for comparison", band([mr.render(voxel[n], 0, 12, **frame) for n in hd.NAMES], hd.NAMES)),
-            ("2. The new heads, front", f"{count} polygons each, and the same layout of polygons on all five. Same height, depth and widths as the originals.",
-             band([mr.render(plain[n], 0, 12, **frame) for n in hd.NAMES], hd.NAMES)),
-            ("3. Side", "the face is flat where the eyes go, on every head", band([mr.render(plain[n], 90, 12, **frame) for n in hd.NAMES], hd.NAMES)),
-            ("4. Turned", "", band([mr.render(plain[n], 35, 15, **frame) for n in hd.NAMES], hd.NAMES)),
-            ("5. Turned, from behind, with the polygon edges drawn", "", band([mr.render(plain[n], 145, 15, mode="lines", **frame) for n in hd.NAMES], hd.NAMES)),
-            ("6. With the standard open eye in place", "placement only: the eye boxes are where they were, the same size on every head. Lids, brows and colours are not rebuilt yet.",
-             band([mr.render(faced[n], 0, 12, **frame) for n in hd.NAMES] , hd.NAMES))]
+    small = dict(scale=16.0, width=22.0, z_range=(24.5, 43.5))
+    made = {}
+    for _, bend in FACE_BENDS:
+        for n in hd.NAMES:
+            polys = hd.build(n, bend); ok, text = hd.check(n, polys, bend)
+            assert ok, text
+            eyes = [(p, w.palette[c]) for p, c in hd.eye_preview(bend)]
+            made[(n, bend)] = mr.prepare_coloured({"head": [(r["pts"], ld.SKIN) for r in polys], "unlit:eyes": eyes})
+    count = len(hd.build("round"))
+    shot = lambda bend, yaw, pitch, fr=frame, mode="facet", names=hd.NAMES: [mr.render(made[(n, bend)], yaw, pitch, mode=mode, **fr) for n in names]
+    rows = []
+    before = os.path.join(RENDERS, "heads_first_rebuild.png")
+    if os.path.exists(before):                                       # the "turned" row of the first rebuild's sheet
+        old = Image.open(before).convert("RGB")
+        tw, th, top = int(frame["scale"] * frame["width"]), int(frame["scale"] * 19.0), 3 * (78 + 418 + 30) + 78 + 30
+        tl = [np.array(old.crop((PAD + i * (tw + PAD), top, PAD + i * (tw + PAD) + tw, top + th))) for i in range(5)]
+        rows.append(("1. As they were", "the first low-poly rebuild: blocks with bevelled edges", band(tl, hd.NAMES)))
+    (name_a, a), (name_b, b) = FACE_BENDS
+    rows.append((f"2. Rounder, A: {name_a}", f"a domed crown, a round back, cheeks that turn the corner in steps, a tapering jaw. {count} polygons each. "
+                 "Both eyes on one plane, as the spec has it, so the front stays flat.", band(shot(a, 35, 15), hd.NAMES)))
+    rows.append((f"3. Rounder, B: {name_b}", "the same heads, with the front round too. Each eye, with its brow, still lies flat; the two patches meet down the middle of the face.",
+                 band(shot(b, 35, 15), hd.NAMES)))
+    rows.append(("4. A from the front", "", band(shot(a, 0, 12), hd.NAMES)))
+    rows.append(("5. B from the front", "from straight ahead the two are nearly the same", band(shot(b, 0, 12), hd.NAMES)))
+    pair = ["round", "heart"]
+    tl = shot(a, 90, 0, small, names=pair) + shot(a, 0, 89, small, names=pair) + shot(b, 90, 0, small, names=pair) + shot(b, 0, 89, small, names=pair)
+    rows.append(("6. From the side, and from above", "round and heart. A on the left, B on the right. From above, the face is toward the bottom of the picture.",
+                 band(tl, ["A: round, side", "A: heart, side", "A: round, above", "A: heart, above", "B: round, side", "B: heart, side", "B: round, above", "B: heart, above"], gap_after=(3,))))
     tl = []; lab = []
-    for i, n in enumerate(hd.NAMES):
-        sex = "female" if i % 2 == 0 else "male"
-        b = lb.build(sex, head=n)
-        groups = {"all": [(r["pts"], ld.SKIN) for r in b["polys"]], "unlit:eyes": eyes}
-        tl.append(mr.render(mr.prepare_coloured(groups), 0, 12, scale=15.0)); lab.append(f"{n}, on the {sex} body")
-    rows.append(("7. On the bodies", "any head goes on any body", band(tl, lab)))
+    for tag, bend in (("A", a), ("B", b)):
+        keep = hd.FACE_BEND; hd.FACE_BEND = bend
+        try:
+            for n, sex in (("round", "female"), ("strong", "male")):
+                body = lb.build(sex, head=n)
+                eyes = [(p, w.palette[c]) for p, c in hd.eye_preview(bend)]
+                prep = mr.prepare_coloured({"all": [(r["pts"], ld.SKIN) for r in body["polys"]], "unlit:eyes": eyes})
+                tl += [mr.render(prep, 0, 12, scale=13.0, width=22.0), mr.render(prep, 35, 15, scale=13.0, width=22.0)]
+                lab += [f"{tag}: {n}, {sex}", "turned"]
+        finally:
+            hd.FACE_BEND = keep
+    rows.append(("7. On the bodies", "any head goes on any body, as before", band(tl, lab, gap_after=(3,))))
+    rows.append(("8. B from behind, with the polygon edges drawn", "the same layout of polygons on all five heads, with an edge on every head region",
+                 band(shot(b, 145, 15, mode="lines"), hd.NAMES)))
     save_sheet(rows, "heads.png")
 
 

@@ -26,7 +26,7 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Special shapes: straps, skirt, cape | built, with every setting the voxel ones have; all seven starter outfits dress both bodies (`renders/special_shapes.png`, `renders/special_shapes_moving.png`) |
 | Special shapes: hood, facial hair, drawn (anchored) shapes; hair | not started. The cloak is worn without its hood |
 | Edge style (soft / hard) | not carried over. The boots ask for "hard" and are built soft |
-| Heads | all five rebuilt: round, boxy, oval, strong, heart. 116 polygons each, same layout; any head goes on any body |
+| Heads | all five (round, boxy, oval, strong, heart) as rounded forms: 114 polygons each, same layout; any head goes on any body. How the face sits on them is waiting for the owner's choice (`renders/heads.png`) |
 | Faces (eyes, lids, brows) | not rebuilt. Every head keeps the flat face and the eye boxes they need; the open eye is placed as flat polygons for pictures only |
 | The other six bodies (slim, heavy and short, each sex) | not started; each needs a clay |
 | Building polygons in Godot (assembler, editor, runtime) | not started |
@@ -56,11 +56,25 @@ Three places where a region follows the body instead of a level line:
 
 ## How a head is made
 
-A head is seven sections, top to bottom, each a rounded rectangle: half-width, depth in front of and behind the
-centre, and how round the front and back corners are (`heads.py`). Those numbers are the whole shape. The five heads
-follow the ideas and proportions of the voxel heads without tracing them, and share what lets faces, hair and hats
-fit any of them: the size (16 tall, 14 deep, 16 wide, the oval 14), a flat face over both eye boxes and the brow row,
-the ears level with the eyes, and one layout of polygons with an edge on every head region.
+A head is seven rings of points, top to bottom, closed by a point at the crown and a flat base (`heads.py`). Each ring
+is given by three numbers: its half-width, and its depth in front of and behind the centre. Those numbers, and how
+square the back is, are the whole shape. Every ring is laid out the same way: the face, cheeks that turn the corner in
+steps, the side seam, a rounded back. So a head has a domed crown, a round back and a tapering jaw, like the bodies it
+sits on. (The first rebuild was a block with bevelled edges; the owner found it too blocky:
+`renders/heads_first_rebuild.png`.)
+
+The five heads follow the ideas of the voxel heads without tracing them, and share what lets faces, hair and hats fit
+any of them: the size (16 tall, 14 deep, 16 wide, the oval 14), the ears level with the eyes, one layout of polygons
+with an edge on every head region, and the face.
+
+**The face** is the one part that cannot simply be made round: each eye is 5 wide and 6 tall, the same on every head
+(the owner's rule), and has to lie flat. `FACE_BEND` in `heads.py` says how:
+
+- **0 (as committed): one flat face.** Both eye boxes and the brow row lie on one plane, as the spec has it. The front
+  of the head stays flat, 12 wide.
+- **15: each eye on its own flat patch**, the two turned 15 degrees outward and meeting down the middle of the face.
+  The front of the head is then round as well. This changes the spec's "one face plane" to "one flat patch for each
+  eye", so it is the owner's call.
 
 ## How clothing moves
 
@@ -144,8 +158,8 @@ All of these are the owner's to settle. Recommendations are recommendations.
    for polygons if the owner prefers it.
    Still open under the same heading: hard pieces fixed to one part so that they never bend (which could be what the
    "hard" edge style comes to mean), and sleeves at the shoulder.
-2. **Polygon budget.** A body is 344 polygons with an edge on every region boundary, and a head 116: 460 for the
-   figure. Dressed in a starter outfit a figure is 500 to 540: a skirt adds about 40, a cape 20, a pair of straps
+2. **Polygon budget.** A body is 344 polygons with an edge on every region boundary, and a head 114: 458 for the
+   figure. Dressed in a starter outfit a figure is about 500 to 540: a skirt adds about 40, a cape 20, a pair of straps
    about 36, and every band that is lifted off the body adds a ring of hem polygons. The first two cuts of the body
    were 273 ("A", no region edges, a plain block for a head) and 603 ("B"); work since has used A. For scale: the
    1997 Final Fantasy VII battle model of Cloud is put at about 900 polygons for the whole character.
@@ -157,7 +171,9 @@ All of these are the owner's to settle. Recommendations are recommendations.
    go.
 6. **The masculine clay** is a first pass: shoulder width (about 20% wider than the feminine), the amount of chest
    muscle, the slight belly and arm thickness are the parts most open to change.
-7. **Calls made in the special shapes** that differ from the voxel ones; each is easy to change:
+7. **How the face sits on the head:** one flat face, or each eye on its own flat patch ("How a head is made" above;
+   both are on `renders/heads.png`). Recommendation: the two patches, at 15 degrees. It is one number to change.
+8. **Calls made in the special shapes** that differ from the voxel ones; each is easy to change:
    - a skirt hangs from the waist line, not from below the hips (a lap needs the cloth to lift off the hips);
    - "four panels" is one cloth all round; "two panels" is a front cloth and a back cloth with the sides open (the
      voxel four were separate slabs that parted at the corners when they swung);
