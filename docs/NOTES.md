@@ -737,6 +737,55 @@ shown on `lowpoly/renders/faces.png`.
   face. In the engine they should be cut into the face's polygons, or drawn
   with a depth offset, so that they cannot flicker against the face.
 
+## 4m. Rounded oval eyes, and a mouth (owner's direction)
+
+Shown the eyes of 4l, the owner answered the question about their edges with
+a third way: **the eyes should be rounded ovals, of roughly the same
+footprint, and slightly smaller now that voxels do not limit them, which
+leaves room for a small mouth.** The sheet of 4l is kept as
+`lowpoly/renders/faces_first_port.png`.
+
+- **The eye is an oval, and still the game's eye** (difficulty low to
+  medium; confidence high that the lid states are right, medium on the look,
+  which is the owner's to judge). The oval fills the box that the eye set's
+  drawing fills and its pupil lies over the drawing's pupil cells, so the
+  wardrobe's eye set still says how big the eye is and where it looks. The
+  lid states are untouched: a lid cuts the oval straight across, the brow is
+  a bar along the upper lid. The check of 4l carries over nearly unchanged:
+  at the middle of every cell the oval eye shows what the game's cells show.
+  That it passes is not luck: the standard eye is an oval drawn in cells.
+- **What "slightly smaller" is.** The whole eye box, brow row and all, goes
+  on the head at 0.9 of its voxel size (4.5 by 5.4 instead of 5 by 6), from
+  the same top line, so all the room it gives up is under the eyes. Lid
+  rows shrink with it. The sheet shows 1.0, 0.9 and 0.8 for the owner to
+  choose from.
+- **The white is cut round the pupil, not laid under it.** A convex shape
+  with a convex hole is cut into one sliver for each side of the hole. That
+  keeps the rule of 4l (the polygons of an eye tile it, so they lie at one
+  height), at the price of more polygons: 6 to 32 for a pair of eyes, 36 to
+  92 triangles, with an outline of 20 corners and a pupil of 12. Laying the
+  pupil over the white would be about a third fewer triangles and need two
+  heights. Both are easy; in Godot the eyes may be better drawn by a shader
+  or a small texture than by polygons at all, which is a question for that
+  port.
+- **A tilted brow is one straight bar now.** The game stops a brow at the
+  top of the brow row, which gave the "sad" brow a square end. Here it
+  carries on straight, up to half a row higher. The ten states never go
+  further, so it agrees with the game everywhere the check looks.
+- **The mouth is a first pass** (difficulty low; confidence low to medium
+  on the look). The voxel faces have none, so nothing could be carried
+  over: its shapes are a small table in `faces.py` (a line that is
+  straight, curved up or curved down, and a small open oval), its colour is
+  the skin's darkened and a little toward red, and it is lit like the skin.
+  It lies across the middle of the face, where the two eye patches meet, so
+  it is built in two halves. **Where it can go is limited:** the flat part
+  of the face ends at the bottom of the old eye box, and under that the jaw
+  slopes away, where a mouth would be hidden from a camera that looks down.
+  So it sits level with the bottoms of the eyes, between them. More room
+  would need the eyes moved up, or the flat part of the face made taller.
+- **Not done:** mouths in the game's data and in the editor, and a rule
+  for which mouth goes with which lid state.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

@@ -137,14 +137,15 @@ class Look:
         return pose.posed_groups(self.body, self, pose_ or {})
 
 
-def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, brow=None):
+def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, brow=None, mouth=None):
     """A figure, dressed. Returns a Look.
     worn      [(item id, colourway)] from the wardrobe's items
     features  [(feature id, colourway)] from its features: hair, facial hair
-    skin      a colour, or the name of one of the game's skin tones (lids and stubble need the name)
-    eyes      None for a blank face, or what faces.eyes takes: eye_set, colourway, lids, style ({} for the standard
+    skin      a colour, or the name of one of the game's skin tones (lids, stubble and the mouth need the name)
+    eyes      None for a blank face, or what faces.eyes takes: eye_set, colourway, lids, size ({} for the standard
               eye, neutral)
     brow      a brow colour, instead of the one the hair gives
+    mouth     None for no mouth, or the name of one of faces.MOUTHS
     paint     optional {region key: rgb} to colour bare regions (for the region map)"""
     notes = []
     tables = []
@@ -291,9 +292,11 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
                 for pts, _ in hang.lay(cloth, fit.rest(), P, Z0):
                     fit._polys = fit._polys + [dict(pts=pts, piece="cloth:" + cloth.name, band=None, hidden=False)]
         notes += more
-    if eyes is not None:                                             # the face: under hair and hats, which stand in front of it
+    if eyes is not None or mouth is not None:                        # the face: under hair and hats, which stand in front of it
         import faces
-        for q in faces.eyes(game_tables(), wardrobe, skin=tone, hair=hair, brow=brow, **eyes):
+        face = faces.eyes(game_tables(), wardrobe, skin=tone, hair=hair, brow=brow, **eyes) if eyes is not None else []
+        if mouth is not None: face += faces.mouth(game_tables(), mouth, skin=tone)
+        for q in face:
             out.append(dict(pts=q["pts"], rgb=q["rgb"], src=None, shares=[{"head": 1.0}] * len(q["pts"]), part="head", piece="face",
-                            band=None, hidden=False, unlit=q["unlit"]))
+                            band=None, hidden=False, unlit=q["unlit"], role=q["role"]))
     return Look(body, out, cloths, notes)

@@ -14,8 +14,9 @@
    the special shapes' settings and defaults are the game's; every starter outfit dresses both bodies; hanging cloth
    hangs to its hem when standing, and in every test pose nothing of the figure comes through it; straps lie on the
    chest with nothing coming through them.
-7. Faces (also from the game's tables): every eye polygon lies on its eye's flat patch; in every lid state the eyes
-   drawn here show what the game's own cells show; facial hair is found on every head, the same on both sides, in
+7. Faces (also from the game's tables): every polygon of the eyes and the mouth lies on its flat patch of the face;
+   in every lid state the oval eyes show what the game's own cells show at the middle of each cell; the polygons of
+   an eye tile it; the mouth is clear of the eyes; facial hair is found on every head, the same on both sides, in
    the colours the game works out.
 """
 import json, os, shutil, sys
@@ -145,44 +146,77 @@ else:
                 expect(len(straps) > 0 and sides == {True, False} and rise == 0.0,
                        f"{said}: two straps ({len(straps)} polygons), with nothing of the chest coming through them")
 
-    # ---- faces: the eyes on every head, in every lid state, against the game's own cells
+    # ---- faces: the eyes in every lid state, against the game's own cells; and the mouth
     print("== faces ==")
     import faces as fc
     box = tables["eyes"]["box"]; EW, EH = int(box["w"]), int(box["h"])
+    states = tables["eyes"]["order"]
+
+    def on_face(q, bend):
+        p = q["pts"]
+        return bool(np.allclose(p[:, 1], [hd.face_y(v, bend) - fc.LIFT for v in p[:, 0]], atol=1e-9)
+                    and np.abs(p[:, 0] - lb.CX).max() <= hd.FACE_HALF_WIDTH + 1e-6
+                    and p[:, 2].min() >= hd.BELT[0] - 1e-6 and p[:, 2].max() <= hd.BELT[1] + 1e-6)
+
     flat = True
-    for bend_name in ("heads' own", "none"):
-        for eye_set in w.eye_sets:
-            for state in tables["eyes"]["order"] + [""]:
-                for style in ("eased", "cells"):
-                    bend = None if bend_name != "none" else 0.0
-                    for q in fc.eyes(tables, w, eye_set=eye_set, lids=state, style=style, bend=bend):
-                        p = q["pts"]; x = np.abs(p[:, 0] - lb.CX)
-                        on = np.allclose(p[:, 1], [hd.face_y(v, bend) - fc.LIFT for v in p[:, 0]], atol=1e-9)
-                        flat &= bool(on and x.min() >= 1.0 - 1e-6 and x.max() <= hd.FACE_HALF_WIDTH + 1e-6
-                                     and p[:, 2].min() >= hd.FACE_Z[0] - 1e-6 and p[:, 2].max() <= hd.FACE_Z[1] + 1e-6)
-    expect(flat, f"every eye polygon, in all {len(tables['eyes']['order'])} lid states and both ways of drawing, lies on its eye's flat patch and inside the eye box and brow row")
+    for bend in (None, 0.0):                                         # the heads' own two patches, and one flat face
+        for size in (None, 1.0):                                     # as built, and as big as the game's eye box
+            for eye_set in w.eye_sets:
+                for state in states + [""]:
+                    flat &= all(on_face(q, bend) for q in fc.eyes(tables, w, eye_set=eye_set, lids=state, bend=bend, size=size))
+        for m in fc.MOUTHS:
+            flat &= all(on_face(q, bend) for q in fc.mouth(tables, m, bend=bend))
+    expect(flat, f"every polygon of the eyes (all {len(states)} lid states) and of the mouth (all {len(fc.MOUTHS)}) lies on its flat patch of the face")
+
+    inside = lambda poly, x, r: all((poly[(i + 1) % len(poly)][0] - poly[i][0]) * (r - poly[i][1]) - (poly[(i + 1) % len(poly)][1] - poly[i][1]) * (x - poly[i][0]) >= -1e-9
+                                    for i in range(len(poly)))
     for eye_set, es in w.eye_sets.items():
-        wrong = 0; looked = 0; most = 0; least = 99
-        for state in tables["eyes"]["order"]:
-            count = 0
+        wrong = 0; looked = 0; torn = 0; counts = []; tris = []
+        for state in states:
+            count = 0; tri = 0
             for i, eye in enumerate(fc.EYES):
                 numbers = tables["eyes"]["states"][state][i]
-                pieces = fc.eased(fc.drawing_of(es, eye), numbers, eye, EW, EH); count += len(pieces)
+                shape = fc.shape_of(fc.drawing_of(es, eye))
+                pieces = fc.drawn(shape, numbers, eye, EW, EH)
+                count += len(pieces); tri += sum(len(p) - 2 for p, _ in pieces)
                 theirs = {(cc, r): role for cc, r, role in tables["eyes"]["applied"][eye_set][state][eye]}
                 for cc in range(EW):
                     if numbers[4] and (numbers[4] * cc) % (EW - 1): continue     # a tilted lid's edge runs through these cells' centres
                     for r in range(EH + 1):
                         looked += 1
-                        if (cc, r) in theirs:
-                            wrong += fc.role_at(pieces, cc + 0.5, r + 0.5) != theirs[(cc, r)]
-                        else:                                         # not painted: at most the half nearer the eye is eased in
-                            out_x = cc + (0.2 if cc + 0.5 < EW / 2 else 0.8); out_r = r + (0.2 if r + 0.5 < EH / 2 else 0.8)
-                            wrong += fc.role_at(pieces, out_x, out_r) is not None
-                same = fc.cells(tables["eyes"]["applied"][eye_set][state][eye])
-                wrong += any(fc.role_at(same, cc + 0.5, r + 0.5) != role for (cc, r), role in theirs.items())
-            most = max(most, count); least = min(least, count)
-        expect(wrong == 0, f"eye set '{eye_set}': in every lid state the eyes drawn here show what the game's cells show ({looked} cells looked at); "
-                           f"{least} to {most} polygons for a pair of eyes")
+                        wrong += fc.role_at(pieces, cc + 0.5, r + 0.5) != theirs.get((cc, r))
+                # the pieces tile the eye: nowhere two of them, and no hole inside its outline
+                ox, oy, oa, ob = shape["outline"]
+                within = fc.oval(ox, oy, 0.97 * oa, 0.97 * ob, fc.SIDES, fc.ROUND)
+                for x in np.arange(0.037, EW, 0.11):
+                    for r in np.arange(-0.463, EH + 1.5, 0.11):
+                        n = sum(inside(p, x, r) for p, _ in pieces)
+                        torn += n > 1 or (n == 0 and inside(within, x, r))
+            counts.append(count); tris.append(tri)
+        expect(wrong == 0, f"eye set '{eye_set}': in every lid state the oval eyes show what the game's cells show at the middle of each cell ({looked} cells looked at)")
+        expect(torn == 0, f"eye set '{eye_set}': the polygons of an eye tile it, with no overlap and no hole; "
+                          f"{min(counts)} to {max(counts)} polygons ({min(tris)} to {max(tris)} triangles) for a pair of eyes")
+
+    def overlap(a, b):                                               # two convex polygons, as (x on the head, height)
+        part = [tuple(v) for v in a]
+        if fc._area(b) and sum(b[i][0] * b[(i + 1) % len(b)][1] - b[(i + 1) % len(b)][0] * b[i][1] for i in range(len(b))) < 0: b = b[::-1]
+        for i in range(len(b)):
+            part = fc._clip(part, b[i], b[(i + 1) % len(b)], True)
+            if len(part) < 3: return 0.0
+        return fc._area(part)
+
+    flat2 = lambda q: [(float(v[0]), float(v[2])) for v in q["pts"]]
+    clash = 0; even = True; sizes = []
+    for m in fc.MOUTHS:
+        made = fc.mouth(tables, m); sizes.append(len(made))
+        mids = sorted((round(float(q["pts"][:, 0].mean() - lb.CX), 6), round(float(q["pts"][:, 2].mean()), 6)) for q in made)
+        even &= mids == sorted((-x, z) for x, z in mids)
+        for size in (None, 1.0):
+            for state in states:
+                for e in fc.eyes(tables, w, lids=state, size=size):
+                    clash += sum(overlap(flat2(q), flat2(e)) > 1e-9 for q in made)
+    expect(clash == 0 and even, f"the mouth ({', '.join(fc.MOUTHS)}): the same on both sides, and clear of the eyes and brows in every lid state, "
+                                f"even with eyes as big as the game's box; {min(sizes)} to {max(sizes)} polygons")
     tones = tables["skin_order"]
     expect(sorted(tones) == sorted(tables["skin"]) and tables["default_skin"] in tones
            and all(tuple(tables["skin"][t]["lid"]) != tuple(tables["skin"][t]["mid"]) for t in tones)

@@ -16,6 +16,8 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 - **Heads are rounded forms**, like the bodies (the first rebuild, blocks with bevelled edges, was too blocky).
 - **The face: each eye lies on its own flat patch**, the two patches turned 15 degrees outward ("B" on
   `renders/heads.png`). This replaces the voxel spec's one face plane.
+- **The eyes are rounded ovals**, not drawings in cells, and slightly smaller than the voxel eyes, which leaves room
+  for **a small mouth**. How much smaller, and what the mouth looks like, are still open (`renders/faces.png`).
 
 ## Where it stands
 
@@ -32,7 +34,8 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Hair | not rebuilt. The wardrobe's short crop goes on by the ordinary region rules, which is enough to show brows and beards following it |
 | Edge style (soft / hard) | not carried over. The boots ask for "hard" and are built soft |
 | Heads | all five (round, boxy, oval, strong, heart) as rounded forms: 114 polygons each, same layout; any head goes on any body (`renders/heads.png`) |
-| Faces: eyes, lids, brows, skin tones | built: the wardrobe's eye sets and their colourways, the game's ten lid states, lids from the skin tone, brows from the hair, all six skin tones (`renders/faces.png`) |
+| Faces: eyes, lids, brows, skin tones | built, as rounded ovals: the wardrobe's eye sets and their colourways, the game's ten lid states, lids from the skin tone, brows from the hair, all six skin tones (`renders/faces.png`). Their size is waiting for the owner's choice |
+| The mouth | a first pass: a short line, straight or curved, or a small open oval. New here; the voxel faces have none |
 | The other six bodies (slim, heavy and short, each sex) | not started; each needs a clay |
 | Building polygons in Godot (assembler, editor, runtime) | not started |
 
@@ -80,9 +83,10 @@ The angle is `FACE_BEND` in `heads.py`. (The owner chose this over one flat face
 
 ## How a face is made
 
-The options are the voxel faces', and what is drawn comes from the game each time (`game.py`), not from a copy here:
+What is shown is the voxel faces' own, and comes from the game each time (`game.py`), not from a copy here:
 
-- **An eye set** is the open eye, drawn once for each eye in the eye box's cells. It comes from the wardrobe file.
+- **An eye set** is the open eye, drawn once for each eye in the eye box's cells, in the wardrobe file. What is
+  taken from the drawing is how much of the box it fills and where its pupil sits.
 - **Eye colour** is a colourway of the eye set.
 - **A lid state** is five numbers for each eye: how far the upper lid has come down, how far the lower lid has come
   up, where the pupil looks (across and up or down), and the tilt of the upper lid. The ten named states (neutral,
@@ -90,14 +94,22 @@ The options are the voxel faces', and what is drawn comes from the game each tim
 - **Lid colour** comes from the skin tone and **brow colour** from the hair (dark brown on a bald head). Both are the
   game's own numbers.
 
-`faces.py` turns these into flat polygons on the two eye patches. It can draw them two ways:
+How it is drawn is the low-poly figure's own (`faces.py`):
 
-- **eased** (the default): a one-cell step in the outline of the eye becomes a diagonal, and a tilted lid is one
-  sloped edge with the brow as a bar along it. A pair of eyes is 6 to 18 polygons.
-- **cells**: every cell a square, exactly the cells the game works out for the voxel face.
+- **The eye is a rounded oval** that fills the box the drawing fills, with an oval pupil over the drawing's pupil
+  cells. A lid cuts the oval straight across, on a slope when it is tilted, and the brow is a bar along the upper
+  lid's edge, as on the voxel face. A check holds every lid state equal to the game's cells at the middle of each
+  cell (leaving out the columns where a tilted lid's edge runs through the middle of the cells).
+- **Its size.** The whole eye box, brow row and all, goes on the head at 0.9 of the voxel one (`EYE_SIZE`): 4.5 wide
+  and 5.4 tall, where the voxel eye is 5 by 6. It hangs from the same top line, so the room it gives up is under the
+  eyes.
+- **The mouth** sits in that room, between the eyes' lower halves: a short line, straight (neutral), curved up
+  (smile) or down (frown), or a small open oval. Its colour is the skin's, darkened. It lies across the middle of
+  the face, so it is cut in two where the patches meet. Which mouth goes with which eyes is for the game to say.
 
-The white, the pupil and the line are drawn in their own colour, untouched by the light, as on the voxel face. The lid
-and the brow are lit like the skin.
+The white and the pupil are drawn in their own colour, untouched by the light, as on the voxel face. The lid, the
+brow and the mouth are lit like the skin. The polygons of an eye tile it without overlapping, so the whole face lies
+at one small height off the head. A pair of eyes is 6 to 32 polygons (36 to 92 triangles); a mouth is 2 to 6.
 
 **Facial hair** (`specials.py`) makes no polygons of its own. It marks which of the head's own polygons it claims, and
 the ordinary garment rules do the rest, so a beard gets its edges the way a sleeve gets its hem:
@@ -135,7 +147,7 @@ here; see "Not decided yet", 1.
 | `specials.py` | the special shapes built so far: straps, skirt, cape, facial hair, with the voxel generators' settings |
 | `hang.py` | hanging cloth: how a skirt or a cape is laid over the figure in a pose |
 | `heads.py` | the five heads; writes `heads/*.json` and `*.obj` |
-| `faces.py` | the eyes, with their lids and brows, as flat polygons on a head |
+| `faces.py` | the eyes, with their lids and brows, and the mouth, as flat polygons on a head |
 | `pose.py` | posing: the bending skin, hanging cloth, the game's poses in this folder's terms, and the rigid-piece alternative |
 | `picture.py` | pictures of polygon meshes: flat shade, smooth shade, edges drawn |
 | `sheets.py` | builds the review sheets in `renders/` |
@@ -144,7 +156,7 @@ here; see "Not decided yet", 1.
 | `dump_wardrobe.gd` | run by `game.py` in Godot: writes those as JSON into `_work/` |
 | `bodies/` | the body files: corners and their shares, polygons with region and part, pivots, the band table. Generated; do not hand-edit |
 | `heads/` | the head files: corners, polygons with their region, the eye box and its angle, the seven sections that define the shape. Generated |
-| `renders/` | the sheets each decision was made from |
+| `renders/` | the sheets each decision was made from. `faces_first_port.png` is the eyes as first ported, in cells with straight or square edges, which the owner turned down for rounded ovals |
 
 `dress.py`, `specials.py`, `hang.py` and `faces.py` hold the clothing and face rules for polygons in Python. The
 project keeps that logic in exactly one place, and that place is `core/` (GDScript), which today only knows voxels.
@@ -194,10 +206,11 @@ All of these are the owner's to settle. Recommendations are recommendations.
    "hard" edge style comes to mean), and sleeves at the shoulder.
 2. **Polygon budget.** A body is 344 polygons with an edge on every region boundary, and a head 114: 458 for the
    figure. Dressed in a starter outfit a figure is about 500 to 540: a skirt adds about 40, a cape 20, a pair of straps
-   about 36, and every band that is lifted off the body adds a ring of hem polygons. A pair of eyes adds 6 to 18,
-   stubble 14, a chinstrap or a full beard 44. The first two cuts of the body were 273 ("A", no region edges, a plain
-   block for a head) and 603 ("B"); work since has used A. For scale: the 1997 Final Fantasy VII battle model of
-   Cloud is put at about 900 polygons for the whole character.
+   about 36, and every band that is lifted off the body adds a ring of hem polygons. A pair of eyes adds 6 to 32
+   (most of them slivers of the white round the pupil: 36 to 92 triangles), a mouth 2 to 6, stubble 14, a chinstrap
+   or a full beard 44. The first two cuts of the body were 273 ("A", no region edges, a plain block for a head) and
+   603 ("B"); work since has used A. For scale: the 1997 Final Fantasy VII battle model of Cloud is put at about 900
+   polygons for the whole character.
 3. **Flat or smooth shading.** It changes the look more than the polygon count does. The voxel system's baked
    light/mid/dark does not carry over as it is, and the owner dislikes baked shading on 3D objects.
 4. **How far one step of bulk stands off the body.** One old voxel (4.2 cm) now; it reads puffy on sleeves. One number
@@ -206,14 +219,19 @@ All of these are the owner's to settle. Recommendations are recommendations.
    go.
 6. **The masculine clay** is a first pass: shoulder width (about 20% wider than the feminine), the amount of chest
    muscle, the slight belly and arm thickness are the parts most open to change.
-7. **How the eyes are drawn:** with straight edges ("eased", as built) or in square steps like the voxel face
-   ("cells"). Both are built and both are on `renders/faces.png`, row 5. Recommendation: eased, because square steps
-   on a head with no other square steps read as a low-resolution texture. It is one setting.
-8. **Calls made in the faces** that differ from the voxel ones; each is easy to change:
+7. **How big the eyes are.** Built at 0.9 of the voxel eye. `renders/faces.png`, row 1, shows the voxel size, 0.9
+   and 0.8 side by side, each with the mouth. Recommendation: 0.9. It is one number (`EYE_SIZE`).
+8. **The mouth** is a first pass for the owner to react to: its size and height, its four shapes, its colour, and
+   whether a face has one at all. Still to settle with it: where mouth shapes are kept (they are a small table in
+   `faces.py` now; the game has no mouths), and how the game pairs a mouth with a lid state.
+   Other calls made in the faces, each easy to change:
+   - the eye's outline is an ellipse (`ROUND`; a larger number makes it fuller toward the corners of its box);
+   - a tilted brow is one straight bar. Where the game stops it at the top of the brow row, here it carries on
+     straight, up to half a row higher;
    - a sideburn is the one polygon of each ring just in front of the ear (the voxel one was a strip three deep);
    - ears stay skin under hair. The crop's regions include the ears' polygons; coloured as hair they read as lumps;
-   - the eyes are flat polygons lying 0.04 units off the face, not cut into it. In Godot they should either be cut
-     into the face's polygons or be drawn with a depth offset, so that they never flicker against it.
+   - the face's polygons lie 0.04 units off the head, not cut into it. In Godot they should either be cut into the
+     head's polygons or be drawn with a depth offset, so that they never flicker against it.
 9. **Calls made in the special shapes** that differ from the voxel ones; each is easy to change:
    - a skirt hangs from the waist line, not from below the hips (a lap needs the cloth to lift off the hips);
    - "four panels" is one cloth all round; "two panels" is a front cloth and a back cloth with the sides open (the
@@ -228,11 +246,12 @@ Known weak spots of the clothing built so far: hands hang close to the hips, so 
 a bulky boot touches a shin-length hem and pushes it out a little; the wardrobe's shirt and trousers leave the waist
 row bare between them (the voxel figure has the same strip of skin).
 
-Known weak spots of the faces built so far: a chinstrap stands one whole step of bulk off the jaw, as the voxel one
-does, and reads heavy for the same reason sleeves read puffy (4); a sideburn stops one row short of the top of the
-eye, as the game's does, which leaves a strip of bare temple between it and the edge of the short crop; with a tilted
-lid ("angry", "sad") the brow's high end is cut square where it reaches the top of the brow row; the short crop,
-coming from region rules alone, stands off the whole back of the head like a cap.
+Known weak spots of the faces built so far: the mouth sits at the very bottom of the flat part of the face, level
+with the bottoms of the eyes, because the jaw slopes away under it; on the deepest skin tone it is hard to see at
+small sizes; a chinstrap stands one whole step of bulk off the jaw, as the voxel one does, and reads heavy for the
+same reason sleeves read puffy (4); a sideburn stops one row short of the top of the eye, as the game's does, which
+leaves a strip of bare temple between it and the edge of the short crop; the short crop, coming from region rules
+alone, stands off the whole back of the head like a cap.
 
 Known weak spots of the bending skin, at this polygon count: a sharp bend loses a little volume on the inside of the
 joint, and the inner thigh stretches flat on a very high step. The shoulder is a ball, so a raised sleeve cuts into
