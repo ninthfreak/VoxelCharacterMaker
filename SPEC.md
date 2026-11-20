@@ -45,10 +45,11 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
   the open eye and never leaves it, and each eye has an eyebrow of its own above it.
 - **The face has a small mouth**, low on the flat part of the face, with room left for a moustache above it and a
   beard under and round it. Its shapes are a first pass (`lowpoly/renders/faces.png`).
-- **A beard and a moustache are chosen separately**, so that any beard goes with any moustache. Section 5.1 kept
-  three beards and turned down the moustache and the goatee, at voxel resolution. With room on the face the owner
-  wants beards and moustaches done properly; which styles, and how thick, are being chosen from
-  `lowpoly/renders/facial_hair.png`.
+- **Facial hair is four parts and one length** (owner's design, replacing section 5.1's three styles): a moustache,
+  sideburns, a goatee and the cheeks between them, each on or off, and one length for all of them, done the way
+  clothes do bulk. Stubble is a tint flush with the face; short is opaque and still flush; longer lengths grow out
+  from the face. A named style is a set of parts: a full beard has all four, an Amish beard all but the moustache
+  (`lowpoly/renders/facial_hair.png`).
 
 **Where this stands:** `lowpoly/README.md`. In short: the feminine and masculine average bodies exist, cut so that
 their polygons follow the region map of section 3.4, with the shares and pivots that make them bend; ordinary garments
@@ -56,7 +57,7 @@ from the wardrobe file go onto them and bend with them. The five heads of sectio
 forms that keep what section 4 says every head shares (size, eye box, ears). The faces of section 5 are rebuilt on
 them: eye sets and their colourways, the ten lid states, lids, brows and the six skin tones. Three of section 7.4's
 special shapes are rebuilt (straps, skirt, cape), so all seven starter outfits dress both bodies, and facial hair is
-rebuilt for the new face (beards and moustaches); the hood, drawn shapes (the long beard among them) and hair are
+rebuilt for the new face (four parts and one length); the hood, drawn shapes (the long beard among them) and hair are
 not. All of that is built in Python so far. Nothing in
 `core/`, `runtime/` or `editor/` builds polygons yet; the Godot project still runs the voxel system.
 
@@ -95,8 +96,8 @@ different from 7.4:
   the edge of the chest's top row); from there they run straight to the front of the waist.
 - A cape hangs from the shoulder line and drapes over the back; it does not react to the arms.
 
-**Faces and facial hair as polygons** (`lowpoly/faces.py`, `lowpoly/specials.py`). The options are section 5's and
-5.1's, unchanged, and are read from the game each time: the eye sets and colourways in the wardrobe file, the ten lid
+**Faces and facial hair as polygons** (`lowpoly/faces.py`, `lowpoly/facial_hair.py`). The options are section 5's,
+and are read from the game each time: the eye sets and colourways in the wardrobe file, the ten lid
 states with their five numbers for each eye, the lid colour from the skin tone, the brow and stubble colours from the
 hair. What is different:
 
@@ -118,18 +119,15 @@ hair. What is different:
   say.
 - White, pupil and lash line keep their own colour whatever the light (section 5); lid, eyebrow and mouth are lit
   as skin.
-- **A beard is the head's own polygons**, cut along the beard's edge where it crosses one, and recoloured or lifted
-  by the ordinary garment rules (`lowpoly/facial_hair.py`). Stubble recolours the jaw, the underside of the chin,
-  the cheeks and the upper lip. A chinstrap is hair standing off the bottom of the jaw and the sideburns. A full
-  beard is the jaw and the cheeks up to a line from beside the mouth to the sideburn, with a window of skin left
-  round the mouth; it and the goatee grow out of the face, with no thickness at the top of the jaw. With hair on,
-  sideburns run up into the hair; on a bald head they stop at the top of the ear.
-- **A moustache is a flat shape on the face** above the mouth, in the hair's colour, and hangs over the mouth. Four
-  styles so far.
-- **Back as options, though section 5.1 turned them down for the voxel face:** the moustache (now asked for), the
-  goatee, a full beard with thickness, and flat sideburns (the full beard's). The reasons then were about voxel
-  resolution. The goatee, the thickness and the flat sideburns are offered, not decided.
-- The goatee and the moustaches are not in the game's wardrobe file or editor yet.
+- **Facial hair is the head's own polygons**, cut along each part's edge and recoloured or lifted by the ordinary
+  garment rules (`lowpoly/facial_hair.py`). The lengths: stubble (the game's stubble colour, flush), short (the hair's
+  colour, flush), medium (half a step of bulk out) and long (a whole step out). With every part on, a gap of skin is
+  left round the mouth. A moustache that is more than stubble hangs over the mouth. With hair on, sideburns run up
+  into the hair; on a bald head they stop at the top of the ear.
+- **Section 5.1 turned down** the goatee, the moustache and a beard with volume for the voxel face; all three are
+  back, by the owner's design. The game's three items are read as parts and a length (stubble: every part at
+  stubble; chinstrap: all but the moustache, medium; full beard: every part, medium). The parts and the length are
+  not in the game's wardrobe file, its generator or the editor yet.
 - Ears stay skin under hair.
 
 **Three places where a region now follows the body instead of a level line** (calls made while cutting the bodies;
@@ -140,8 +138,8 @@ they are easy to change):
 2. Front / back: split along the side seam, within half a unit of the depth centre.
 3. The arm's top and the foot's top stand a little past their bands' heights and belong to "shoulder" and "foot".
 
-**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): which beards and moustaches there
-are, and how thick a beard is; the mouth's shapes; whether hanging cloth stays laid afresh for every pose; hard pieces and
+**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): how far each facial hair length
+grows out; the mouth's shapes; whether hanging cloth stays laid afresh for every pose; hard pieces and
 sleeves at the joints; the polygon budget; flat or smooth shading; how far one step of bulk stands off the body; what
 becomes of edge style; and the final shape of the masculine clay.
 
@@ -329,6 +327,9 @@ the lids drive; see below.)
 - Draw order: the face draws **under** hair and hats.
 
 ### 5.1 Facial hair (owner, 2026-11)
+
+*For the low-poly figures, section 0 replaces this: facial hair is four parts (moustache, sideburns, goatee, cheeks),
+each on or off, and one length.*
 
 At this resolution facial hair is coverage and depth, not detail. Kept: **stubble**, **chinstrap**, **full beard**;
 rejected: goatee, moustache, moustache + goatee, a volumetric full beard, flat sideburns.

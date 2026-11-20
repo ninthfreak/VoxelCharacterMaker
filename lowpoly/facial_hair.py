@@ -1,50 +1,74 @@
-"""Facial hair on the low-poly head: beards and moustaches.
+"""Facial hair on the low-poly head (owner, 2026-11).
 
-A beard and a moustache are chosen separately, so that any beard goes with any moustache (owner, 2026-11).
+Facial hair is four parts, each on or off, and one length for all of them:
 
-  beards       stubble, chinstrap and full beard are the game's three (SPEC 5.1; check.py holds GAME_BEARDS equal to
-               the game's list). A goatee is new here.
-  moustaches   new here. The voxel face had three rows under the eyes and no mouth, so no room for one.
+  parts     moustache   above the mouth
+            sideburns   in front of each ear, from about the bottom of the ear up to the hair (on a bald head, up to
+                        the top of the ear)
+            goatee      the chin: from under the mouth, down the front of the jaw and under it
+            cheeks      the rest of a beard, between the sideburns and the goatee: the jaw, the lower cheeks, and the
+                        face beside the mouth, up to a line from beside the mouth to the foot of the sideburn
+  length    thickness done the way clothes do bulk:
+            stubble     a tint over the skin, as if seen through, flush with the face: the game's stubble colour,
+                        which it works out from the skin and the hair
+            short       the hair's colour, opaque, still flush with the face
+            medium      grown out from the face by half a step of bulk
+            long        grown out by a whole step
 
-Facial hair is made of three kinds of piece:
+A full beard has every part on, an Amish beard every part but the moustache, and so on (PRESETS).
 
-  the head's own polygons, recoloured   stubble everywhere, and the cheeks and sideburns of a full beard. Where the
-                                        beard's upper edge crosses a polygon, the polygon is cut along it.
-  the head's own polygons, lifted       the body of a beard: the jaw of a full beard, a goatee, a chinstrap. They
-                                        stand up to BULK steps of bulk off the head, and the ordinary garment rules
-                                        of dress.py give them their edges, as they give a sleeve its hem. A full
-                                        beard and a goatee grow out of the face: nothing at the top of the jaw, their
-                                        whole thickness lower down.
-  flat shapes on the face               a moustache. faces.py lays it with the mouth, which it hangs over.
-
-The upper edge of a beard (CHEEK_LINE) starts beside the mouth, runs out under the eye, and climbs across the cheek
-to the sideburn in front of the ear. With hair on, the sideburn runs up into the hair; on a bald head it stops at the
-top of the ear. A full beard leaves the mouth a window of skin, so that the mouth can still be read on dark hair.
+Every part is made of the head's own polygons. The polygons a part covers are cut along its edge, and the ordinary
+garment rules of dress.py recolour them, or lift them and give them their edges, as they do a sleeve. So facial hair
+follows every head's own shape. The game's three facial hair items (setting "style": stubble, chinstrap, full beard)
+are read as parts and a length (GAME_STYLES).
 """
 import numpy as np
 import body as lb, heads as hd
 
 CX = lb.CX
-GAME_BEARDS = ("stubble", "chinstrap", "full_beard")
-BEARDS = GAME_BEARDS + ("goatee",)
-
-BULK = 0.5                       # how far the body of a beard stands off the head at its thickest, in steps of bulk
-FADE = (hd.BELT[0], hd.RING_Z[-2])           # a beard has no thickness at the top of the jaw, and all of it from the next ring down
-CHEEK_LINE = (29.95, 30.15, 31.0, 32.5)      # a beard's upper edge: beside the mouth, at the edge of the flat face, and at the next two corners round the cheek
-MOUTH_ROOM = 1.2                 # a full beard keeps this far from the middle of the face, where the mouth is
-MOUTH_FLOOR = 29.12              # and comes up this high under the mouth
-LIP_TOP = 30.2                   # stubble on the upper lip reaches this high
-EAR_TOP = 34.4                   # where a sideburn stops on a bald head
-GOATEE_HALF = (2.0, 1.5)         # half the width of a goatee: at the top of the jaw, and under the chin
-
-# A moustache, from the middle of the face outward: (how far out, lower edge, upper edge). "leg": a bar down beside
-# the mouth, hanging from the wing: (inner edge, outer edge, how low it goes).
-MOUSTACHES = {
-    "moustache": dict(wing=[(0.0, 29.66, 30.42), (1.0, 29.62, 30.28), (2.1, 29.50, 29.86)]),
-    "handlebar": dict(wing=[(0.0, 29.68, 30.36), (1.0, 29.64, 30.20), (1.8, 29.70, 30.10), (2.5, 30.05, 30.38)]),
-    "horseshoe": dict(wing=[(0.0, 29.66, 30.40), (1.25, 29.64, 30.30), (1.75, 29.64, 30.12)], leg=(1.25, 1.75, hd.BELT[0])),
-    "pencil": dict(wing=[(0.0, 29.70, 30.02), (1.5, 29.64, 29.86)]),
+PARTS = ("moustache", "sideburns", "goatee", "cheeks")
+LENGTHS = {"stubble": 0.0, "short": 0.0, "medium": 0.5, "long": 1.0}    # how far each length stands out, in steps of bulk
+PRESETS = {
+    "full beard": PARTS,
+    "Amish": ("sideburns", "goatee", "cheeks"),
+    "mutton chops": ("sideburns", "cheeks"),
+    "goatee and moustache": ("moustache", "goatee"),
+    "goatee": ("goatee",),
+    "moustache": ("moustache",),
+    "sideburns": ("sideburns",),
 }
+GAME_STYLES = {"stubble": (PARTS, "stubble"), "chinstrap": (PRESETS["Amish"], "medium"), "full_beard": (PARTS, "medium")}
+
+SIDEBURN_FOOT = hd.RING_Z[3]     # 31: a sideburn comes down to about the bottom of the ear
+EAR_TOP = 34.4                   # on a bald head a sideburn stops at the top of the ear
+CHEEK_LINE = (29.95, 30.15, 30.55, SIDEBURN_FOOT)   # the top of the cheeks: beside the mouth, then at the next three corners round the head
+MOUTH_ROOM = 1.2                 # beside the mouth the cheeks keep this far from the middle of the face
+MOUTH_FLOOR = 29.12              # under the mouth the goatee comes up to here
+GOATEE_HALF = (2.0, 1.5)         # half the goatee's width: at the top of the jaw, and under the chin
+MOUSTACHE = [(0.0, 29.66, 30.42), (1.0, 29.62, 30.28), (2.1, 29.50, 29.86)]   # from the middle of the face outward: (how far out, lower edge, upper edge)
+
+
+def read(params):
+    """An item's facial hair settings, as (parts, length, notes). Takes the four parts' toggles and a length, or the
+    game's own "style" setting."""
+    params = params or {}
+    if any(p in params for p in PARTS) or "length" in params:
+        parts = tuple(p for p in PARTS if params.get(p)); length = str(params.get("length", "short"))
+    else:
+        style = str(params.get("style", "stubble"))
+        if style not in GAME_STYLES: return (), "short", [f"unknown facial hair style '{style}'"]
+        parts, length = GAME_STYLES[style]
+    if length not in LENGTHS: return (), "short", [f"unknown facial hair length '{length}'"]
+    return tuple(parts), length, []
+
+
+def item(parts, length):
+    """A facial hair item for the wardrobe with these parts on and this length: (its id, the item)."""
+    on = [p for p in PARTS if p in parts]
+    params = {p: p in on for p in PARTS}; params["length"] = length
+    item_id = "facial hair: " + (", ".join(on) or "none") + ", " + length
+    return item_id, dict(category="facial_hair", name=item_id, colourways={"default": {"hair": "@hair", "stubble": "@stubble"}}, coverage={},
+                         draw_order=65, edge_style="soft", mirror=True, roles=["hair", "stubble"], specials=[dict(type="facial_hair", params=params)])
 
 
 # ---------------------------------------------------------------------------------------------- mesh tools ---
@@ -67,38 +91,89 @@ def _split(r, point, normal):
     return halves[0], halves[1]
 
 
-def _cut(polys, pick, point, normal, claim=None):
-    """polys, with every picked polygon cut by the plane. The part on the normal's side is given the claim, if any.
-    A claim is (bulk, draw order, colour), as dress.py reads them."""
+def _carve(polys, pick, planes, claim):
+    """Cut every picked polygon down to the part inside all the planes, and give that part the claim. A plane is (a
+    point on it, its normal pointing in). What is cut away stays as it was. A claim is (bulk, draw order, colour), as
+    dress.py reads them."""
     out = []
     for r in polys:
         if not pick(r):
             out.append(r); continue
-        yes, no = _split(r, point, normal)
-        if yes is not None:
-            if claim is not None:
-                yes = dict(yes); yes["claims"] = list(yes.get("claims", [])) + [claim]
-            out.append(yes)
-        if no is not None: out.append(no)
+        rest = r
+        for point, normal in planes:
+            rest, away = _split(rest, point, normal)
+            if away is not None: out.append(away)
+            if rest is None: break
+        if rest is not None:
+            rest = dict(rest); rest["claims"] = list(rest.get("claims", [])) + [claim]
+            out.append(rest)
     return out
 
 
-def _claim(polys, pick, claim):
-    out = []
+def _tidy(p):
+    """A polygon's corners without repeats and without corners on a straight run."""
+    p = [np.asarray(v, float) for v in p]
+    changed = True
+    while changed and len(p) >= 3:
+        changed = False
+        for i in range(len(p)):
+            a, b, c = p[i - 1], p[i], p[(i + 1) % len(p)]
+            ab, bc = np.linalg.norm(b - a), np.linalg.norm(c - b)
+            if ab < 1e-9 or np.linalg.norm(np.cross(b - a, c - b)) <= 1e-9 * max(ab * bc, 1e-12):
+                del p[i]; changed = True; break
+    return p
+
+
+def _merge(polys):
+    """Join neighbouring pieces cut from the same polygon of the head that carry the same claims, wherever the two
+    together are still convex: a cut only needs to stay where the claims on its two sides differ. Corners on a straight
+    run are dropped; conform() puts back those that a neighbour needs."""
+    key = lambda v: tuple(np.round(v, 5))
+    newell = lambda p: sum(np.cross(p[i], p[(i + 1) % len(p)]) for i in range(len(p)))
+    area = lambda p: 0.5 * float(np.linalg.norm(newell(p)))
+
+    def convex(p):
+        n = newell(p); ln = np.linalg.norm(n)
+        if len(p) < 3 or ln < 1e-12: return False
+        n = n / ln
+        return all(np.cross(p[i] - p[i - 1], p[(i + 1) % len(p)] - p[i]) @ n > 0 for i in range(len(p)))
+
+    groups = {}; out = []
     for r in polys:
-        if pick(r):
-            r = dict(r); r["claims"] = list(r.get("claims", [])) + [claim]
-        out.append(r)
-    return out
+        at = r.get("at")
+        if r["piece"] != "head" or at is None or at[0] not in ("ring", "base"):
+            out.append([r]); continue
+        k = (at, frozenset(tuple(c) for c in r.get("claims", ())))
+        if k not in groups:
+            groups[k] = []; out.append(groups[k])
+        pts = _tidy(r["pts"])
+        if len(pts) >= 3 and area(pts) > 1e-9:
+            r = dict(r); r["pts"] = np.array(pts); groups[k].append(r)
+    for pieces in groups.values():
+        joined = True
+        while joined:
+            joined = False
+            for i in range(len(pieces)):
+                for j in range(i + 1, len(pieces)):
+                    a, b = pieces[i]["pts"], pieces[j]["pts"]
+                    shared = [(s, t) for s in range(len(a)) for t in range(len(b))
+                              if key(b[t]) == key(a[(s + 1) % len(a)]) and key(b[(t + 1) % len(b)]) == key(a[s])]
+                    if len(shared) != 1: continue
+                    s, t = shared[0]
+                    ring = _tidy([a[(s + 1 + k) % len(a)] for k in range(len(a))] + [b[(t + 2 + k) % len(b)] for k in range(len(b) - 2)])
+                    if convex(ring) and abs(area(ring) - area(a) - area(b)) <= 1e-3 * (area(a) + area(b)):
+                        r = dict(pieces[i]); r["pts"] = np.array(ring); pieces[i] = r; del pieces[j]; joined = True; break
+                if joined: break
+    return [r for group in out for r in group]
 
 
 def conform(polys, piece="head"):
     """After cutting: give every polygon of the piece the corners that other polygons have on its edges, so that
     neighbours share whole edges again. dress.py looks across an edge to find the neighbour a hem steps down to."""
-    mine = [r for r in polys if r["piece"] == piece]
     seen = {}
-    for r in mine:
-        for v in r["pts"]: seen.setdefault(tuple(np.round(v, 5)), v)
+    for r in polys:
+        if r["piece"] == piece:
+            for v in r["pts"]: seen.setdefault(tuple(np.round(v, 5)), v)
     pts = np.array(list(seen.values()))
     out = []
     for r in polys:
@@ -118,94 +193,87 @@ def conform(polys, piece="head"):
     return out
 
 
-# ---------------------------------------------------------------------------------------------- on the head ---
+# ---------------------------------------------------------------------------------------------- the parts ---
 
-def on_head(polys, style, colours, order, head, hair):
-    """The figure's polygons with a beard marked on the head: a new list in which the polygons the beard takes carry
-    claims, cut where its edge crosses them. A claim is (bulk, draw order, colour) or (bulk, draw order, colour,
-    fade), as dress.py reads them. Returns (polys, notes).
-    head: the name of the head's shape. hair: whether hair is worn (the sideburns run up into it)."""
-    if style not in BEARDS: return polys, [f"unknown facial hair style '{style}'"]
-    rg = hd.rings(head); n = len(rg[0]); ring_z = hd.RING_Z; e = 1e-6
-    top = hd.BELT[1] if hair else EAR_TOP                           # where the sideburn ends
+def areas(head, hair):
+    """Where each part is on a head: [(part, pick, planes)]. pick chooses the head's polygons the part may cover;
+    planes (a point, a normal pointing in) cut its edge through them. hair: whether hair is worn (the sideburns then
+    run up into it)."""
+    rg = hd.rings(head); n = len(rg[0]); zs = hd.RING_Z
+    tilt = float(np.tan(np.radians(hd.FACE_BEND)))
+    out = []
 
-    def column(j, side, z):
-        """The point at height z on the j-th corner round the head from the front (side 1: by the figure's left)."""
-        i = max(k for k in range(len(ring_z) - 1) if ring_z[k] >= z - 1e-9)
-        a, b = rg[i][j if side > 0 else (n - j) % n], rg[i + 1][j if side > 0 else (n - j) % n]
-        return a + (ring_z[i] - z) / (ring_z[i] - ring_z[i + 1]) * (b - a)
+    def column(j, s, z):
+        """The point at height z down the j-th corner round the head from the front, on side s (1: the figure's left)."""
+        i = max(k for k in range(len(zs) - 1) if zs[k] >= z - 1e-9)
+        a, b = rg[i][j if s > 0 else (n - j) % n], rg[i + 1][j if s > 0 else (n - j) % n]
+        return a + (zs[i] - z) / (zs[i] - zs[i + 1]) * (b - a)
 
-    flat = lambda u, side, z: np.array([CX + side * u, hd.face_y(CX + side * u), z])    # a point on the flat of the face
-    on = lambda r, kind: r["piece"] == "head" and r.get("at", ("",))[0] == kind
-    lo = lambda r: float(r["pts"][:, 2].min()); hi = lambda r: float(r["pts"][:, 2].max())
-    out_by = lambda r: float(np.abs(r["pts"][:, 0] - CX).mean())
-    front = lambda r: r["face"] == "F"
-    jaw = lambda r: on(r, "ring") and front(r) and hi(r) <= hd.BELT[0] + e              # the front of the head under the flat face
-    chin = lambda r: on(r, "base") and front(r)                                         # its underside
-    facet = lambda j, side: (j if side > 0 else n - 1 - j)                              # the polygons between corners j and j + 1
-    between = lambda j, side, band: (lambda r: on(r, "ring") and r["at"][1:] == (band, facet(j, side)))
-    level = lambda z: (np.array([0.0, 0.0, z]), np.array([0.0, 0.0, -1.0]))             # a plane, its normal pointing down
+    def facet_normal(band, j, s):
+        k = j if s > 0 else (n - j) % n; k1 = (j + 1) if s > 0 else (n - j - 1) % n
+        a, b, c, d = rg[band][k], rg[band][k1], rg[band + 1][k1], rg[band + 1][k]
+        m = np.cross(c - a, d - b); m = m / np.linalg.norm(m)
+        return m if m @ (0.5 * (a + c) - np.array([CX, lb.CY, 0.5 * (a[2] + c[2])])) > 0 else -m
 
-    def under(polys, pick, a, b, claim):
-        """Cut the picked polygons along the line from a to b, and claim what is under it."""
-        mine = [r for r in polys if pick(r)]
-        if not mine: return polys
-        across = np.cross(b - a, lb.ring_tools.normal(mine[0]["pts"]))                  # in the polygon, square to the line
-        return _cut(polys, pick, a, -across if across[2] > 0 else across, claim)
+    def line(p, q, normal, toward):
+        """The plane through the line from p to q, square to a surface of this normal, pointing toward a point."""
+        m = np.cross(q - p, normal)
+        return p, (m if m @ (toward - p) > 0 else -m)
 
-    def cheeks(polys, claim):
-        """Everything of the cheek under the beard's upper edge, from the flat of the face round to the ear."""
-        heights = list(CHEEK_LINE[1:]) + [top]
-        for side in (1, -1):
-            for j in (1, 2, 3):
-                for band in (2, 3):                                                     # the two bands the flat face is as tall as
-                    polys = under(polys, between(j, side, band), column(j, side, heights[j - 1]), column(j + 1, side, heights[j]), claim)
-        return polys
-
-    if style == "stubble":
-        shade = (0, order, colours["stubble"])
-        polys = cheeks(_claim(polys, lambda r: jaw(r) or chin(r), shade), shade)
-        for side in (1, -1):                                                            # and across the flat of the face, upper lip and all
-            polys = under(polys, between(0, side, 3), flat(0.0, side, LIP_TOP), flat(hd.FACE_HALF_WIDTH, side, CHEEK_LINE[1]), shade)
-    elif style == "full_beard":
-        thin = (0, order, colours["hair"])
-        polys = _claim(polys, lambda r: jaw(r) or chin(r), (BULK, order, colours["hair"], FADE))
-        polys = cheeks(polys, thin)
-        for side in (1, -1):                                                            # on the flat of the face: beside the mouth, and under it
-            patch = between(0, side, 3)
-            polys = _cut(polys, patch, flat(MOUTH_ROOM, side, 0.0), np.array([float(side), 0.0, 0.0]))
-            polys = under(polys, lambda r: patch(r) and out_by(r) > MOUTH_ROOM, flat(MOUTH_ROOM, side, CHEEK_LINE[0]),
-                          flat(hd.FACE_HALF_WIDTH, side, CHEEK_LINE[1]), thin)
-            polys = _cut(polys, lambda r: patch(r) and out_by(r) < MOUTH_ROOM, *level(MOUTH_FLOOR), thin)
-    elif style == "chinstrap":
-        strap = (BULK, order, colours["hair"])
-        if top < hd.BELT[1] - e:                                                        # so that the sideburn has an edge to stop at
-            polys = _cut(polys, lambda r: on(r, "ring") and lo(r) < top - e and hi(r) > top + e, *level(top))
-        beside_ear = lambda r: on(r, "ring") and r["at"][2] in (facet(3, 1), facet(3, -1))
-        low = ring_z[-2]                                                                # the strap runs along the lowest band of the jaw
-        polys = _claim(polys, lambda r: (jaw(r) and hi(r) <= low + e) or (beside_ear(r) and lo(r) >= low - e and hi(r) <= top + e), strap)
-    elif style == "goatee":
-        g0, g1 = GOATEE_HALF; drop = hd.BELT[0] - hd.BOTTOM
-        sides = [(np.array([CX + s * g0, 0.0, hd.BELT[0]]), np.array([s, 0.0, (g1 - g0) / drop])) for s in (1.0, -1.0)]
-        for point, outward in sides:                                                    # cut the chin free of the jaw on both sides
-            polys = _cut(polys, lambda r: jaw(r) or chin(r), point, outward)
-        middle = lambda r: (jaw(r) or chin(r)) and all(float(((r["pts"] - point) @ outward).max()) <= e for point, outward in sides)
-        polys = _claim(polys, middle, (BULK, order, colours["hair"], FADE))
-    return conform(polys), []
-
-
-# ---------------------------------------------------------------------------------------------- on the face ---
-
-def moustache(style):
-    """A moustache as flat polygons [(x from the face's centre line, height)]. Each lies on one side of the centre
-    line, because the face is two flat patches that meet there. faces.py lays them, with the mouth."""
-    m = MOUSTACHES[style]; out = []
+    ring = lambda band, j, s: (lambda r: r["piece"] == "head" and r.get("at") == ("ring", band, j if s > 0 else n - 1 - j))
+    base = lambda s: (lambda r: r["piece"] == "head" and r.get("at") == ("base", 0 if s > 0 else 3))
+    down = lambda z: (np.array([0.0, 0.0, z]), np.array([0.0, 0.0, -1.0]))
+    g0, g1 = GOATEE_HALF; slope = (g1 - g0) / (hd.BELT[0] - hd.BOTTOM)
     for s in (1.0, -1.0):
-        w = m["wing"]
-        for (ua, la, ha), (ub, lb_, hb) in zip(w[:-1], w[1:]):
+        flat = lambda u, z, s=s: np.array([CX + s * u, hd.face_y(CX + s * u), z])           # a point on this side's flat of the face
+        face = np.array([s * tilt, -1.0, 0.0]) / np.hypot(tilt, 1.0)                        # its outward normal
+        goatee_in = (np.array([CX + s * g0, 0.0, hd.BELT[0]]), np.array([-s, 0.0, -slope]))   # the goatee's edge, pointing in
+        goatee_out = (goatee_in[0], -goatee_in[1])
+        # the moustache: each piece a convex quad on the flat of the face, above the mouth
+        for (ua, la, ha), (ub, lb_, hb) in zip(MOUSTACHE[:-1], MOUSTACHE[1:]):
+            corners = [flat(ua, la), flat(ub, lb_), flat(ub, hb), flat(ua, ha)]
+            middle = np.mean(corners, axis=0)
+            planes = [line(corners[k], corners[(k + 1) % 4], face, middle) for k in range(4)]
+            out.append(("moustache", ring(3, 0, s), planes))
+        # the sideburn: the column in front of the ear, from its foot up to the hair or the top of the ear
+        out.append(("sideburns", ring(2, 3, s), [] if hair else [down(EAR_TOP)]))
+        # the goatee: under the mouth, then a strip down the front of the jaw and under the chin
+        out.append(("goatee", ring(3, 0, s), [goatee_in, down(MOUTH_FLOOR)]))
+        for band in (4, 5):
+            out.append(("goatee", ring(band, 0, s), [goatee_in]))
+        out.append(("goatee", base(s), [goatee_in]))
+        # the cheeks: beside the mouth, the lower cheeks up to the cheek line, the jaw and under it, round to the sideburn
+        beside = line(flat(MOUTH_ROOM, hd.BELT[0]), flat(MOUTH_ROOM, hd.BELT[1]), face, flat(hd.FACE_HALF_WIDTH, hd.BELT[0]))
+        top = line(flat(MOUTH_ROOM, CHEEK_LINE[0]), flat(hd.FACE_HALF_WIDTH, CHEEK_LINE[1]), face, flat(MOUTH_ROOM, hd.BELT[0]))
+        out.append(("cheeks", ring(3, 0, s), [beside, top]))
+        for j in (1, 2):
+            p, q = column(j, s, CHEEK_LINE[j]), column(j + 1, s, CHEEK_LINE[j + 1])
+            out.append(("cheeks", ring(3, j, s), [line(p, q, facet_normal(3, j, s), column(j, s, hd.BELT[0]))]))
+        out.append(("cheeks", ring(3, 3, s), []))
+        for band in (4, 5):
+            out.append(("cheeks", ring(band, 0, s), [goatee_out]))
+            for j in (1, 2, 3):
+                out.append(("cheeks", ring(band, j, s), []))
+        out.append(("cheeks", base(s), [goatee_out]))
+    return out
+
+
+def on_head(polys, parts, length, colours, order, head, hair, who=None):
+    """The figure's polygons with facial hair marked on the head: a new list in which the polygons it covers carry a
+    claim (bulk, draw order, colour, who), cut along its edge. parts: which of PARTS are on. colours: "hair" and
+    "stubble". head: the name of the head's shape. hair: whether hair is worn. who: the item, for dress.py to name."""
+    if not parts: return polys
+    claim = (LENGTHS[length], order, colours["stubble" if length == "stubble" else "hair"], who)
+    for part, pick, planes in areas(head, hair):
+        if part in parts: polys = _carve(polys, pick, planes, claim)
+    return conform(_merge(polys))
+
+
+def cover():
+    """The moustache as flat polygons on the face [(x from the face's centre line, height)], each on one side of the
+    centre line: what it hides of the mouth, once it is more than stubble."""
+    out = []
+    for s in (1.0, -1.0):
+        for (ua, la, ha), (ub, lb_, hb) in zip(MOUSTACHE[:-1], MOUSTACHE[1:]):
             out.append([(s * ua, la), (s * ub, lb_), (s * ub, hb), (s * ua, ha)])
-        if "leg" in m:
-            inner, outer, low = m["leg"]
-            at = lambda u: float(np.interp(u, [p[0] for p in w], [p[1] for p in w]))    # the wing's lower edge, where the leg hangs from
-            out.append([(s * inner, low), (s * outer, low), (s * outer, at(outer)), (s * inner, at(inner))])
     return out

@@ -23,8 +23,11 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
   eyebrow of its own above it.
 - **The face has a small mouth**, low on the flat part of the face, so that there is room for a moustache above it
   and a beard under and round it. Its shapes are a first pass (`renders/faces.png`).
-- **A beard and a moustache are chosen separately**, so that any beard goes with any moustache. Which styles there
-  are, and how thick a beard is, are still open (`renders/facial_hair.png`).
+- **Facial hair is four parts and one length** (owner's design): moustache, sideburns, goatee and cheeks, each on
+  or off, and one length for all of them, done the way clothes do bulk: stubble is a tint flush with the face (like
+  skin-tight clothing), short is opaque and still flush, and longer lengths grow out from the face
+  (`renders/facial_hair.png`). A named style is just a set of parts: a full beard has all four, an Amish beard all
+  but the moustache.
 
 ## Where it stands
 
@@ -36,8 +39,7 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Joints: one bending skin over the same 11 parts | done: every corner's shares and every pivot are in the body files; posed in Python |
 | Ordinary garments from the wardrobe file (regions, roles, bulk, mirror, layering) | built in Python, shown on both bodies; they bend with the body |
 | Special shapes: straps, skirt, cape | built, with every setting the voxel ones have; all seven starter outfits dress both bodies (`renders/special_shapes.png`, `renders/special_shapes_moving.png`) |
-| Beards: stubble, chinstrap, goatee, full beard | built for the new face, on every head; colours follow the hair and the skin as in the game (`renders/facial_hair.png`). The goatee is new here. How thick a beard's body is, is waiting for the owner's choice |
-| Moustaches: four styles | built. New here: the voxel face had no room for one |
+| Facial hair: four parts, each on or off, and one length (stubble, short, medium, long) | built, on every head; colours follow the hair and the skin as in the game (`renders/facial_hair.png`). The game's three facial hair items are read as parts and a length. The parts and the length are not in the game's wardrobe file or editor yet |
 | Special shapes: hood, drawn (anchored) shapes | not started. The cloak is worn without its hood; the long beard and the ponytail's tail are drawn shapes |
 | Hair | not rebuilt. The wardrobe's short crop goes on by the ordinary region rules, which is enough to show brows and beards following it |
 | Edge style (soft / hard) | not carried over. The boots ask for "hard" and are built soft |
@@ -131,30 +133,37 @@ The lid, the eyebrow and the mouth are lit like the skin. The polygons of a face
 whole face lies at one small height off the head. A pair of eyes with their brows is 10 to 50 polygons (52 to 132
 triangles); a mouth is 2 to 6.
 
-**Facial hair** (`facial_hair.py`) is a beard and a moustache, chosen separately.
+**Facial hair** (`facial_hair.py`) is four parts, each on or off, and one length for all of them (owner's design):
 
-A beard is made of the head's own polygons, so it follows every head's shape, and the ordinary garment rules give it
-its edges, as they give a sleeve its hem. Where the beard's edge crosses a polygon, the polygon is cut along it.
+- **moustache**: above the mouth;
+- **sideburns**: in front of each ear, from about the bottom of the ear up to the hair (on a bald head, up to the
+  top of the ear);
+- **goatee**: the chin, from under the mouth down the front of the jaw and under it;
+- **cheeks**: the part between the sideburns and the goatee, as named here: the jaw, the lower cheeks, and the face
+  beside the mouth, up to a line from beside the mouth to the foot of the sideburn.
 
-- **stubble** recolours the skin: the jaw and the underside of the chin, the cheeks, and the upper lip. Its colour is
-  worked out by the game from the skin tone and the hair.
-- **chinstrap** is hair standing off the head along the bottom of the jaw and up each sideburn.
-- **goatee** (new here) is the chin alone, narrowing downward.
-- **full beard** is the jaw and the underside of the chin, and the cheeks up to a line that starts beside the mouth,
-  runs out under the eye and climbs to the sideburn. It leaves a window of skin round the mouth, so that the mouth
-  can still be read on dark hair.
+A named style is a set of parts (`PRESETS`): a full beard has all four, an Amish beard all but the moustache, mutton
+chops the sideburns and the cheeks, and so on. Any set works. With every part on there is still a gap of skin round
+the mouth, so that the mouth can be read on dark hair.
 
-The three raised ones take the hair's colour. A full beard and a goatee grow out of the face: they have no thickness
-at the top of the jaw and their whole thickness from the next ring down (`BULK`, half a step of bulk as built), so
-there is no shelf under the mouth. The cheeks of a full beard are flat. With hair on, sideburns run up into the hair;
-on a bald head they stop at the top of the ear.
+The **length** works the way bulk works on clothes:
 
-A moustache (new here) is a flat shape on the face above the mouth, like an eyebrow, in the hair's colour. It hangs
-over the mouth, so it is cut out of it and the two tile. There are four: moustache, handlebar, horseshoe (with a bar
-down each side of the mouth, which meets a goatee) and pencil.
+- **stubble**: a tint over the skin, flush with the face, like skin-tight clothing. Its colour is the game's own
+  stubble colour, worked out from the skin tone and the hair: the skin seen through the hair, always a little darker
+  than the skin. Under stubble the mouth shows whole;
+- **short**: the hair's colour, opaque, still flush with the face;
+- **medium** and **long**: grown out from the face by half a step and a whole step of bulk (`LENGTHS`), with edges
+  like a sleeve's. The chin grows downward, so a long beard hangs lower.
 
-The goatee and the moustaches are not in the game's wardrobe file yet: `dress.py` adds them to the wardrobe it reads
-(`NEW_FEATURES`), with the moustache as a slot of its own.
+Every part is made of the head's own polygons. The polygons a part covers are cut along its edge, the leftover pieces
+are joined back together where their colours match, and the ordinary garment rules recolour or lift the parts, so
+facial hair follows each head's shape. A moustache that is more than stubble hangs over the mouth, so the mouth is cut
+where the moustache is. Hair colour comes from the worn hair; on a bald head it is dark brown.
+
+The game's three facial hair items (`style`: stubble, chinstrap, full beard) are read as parts and a length
+(`GAME_STYLES`): stubble is every part at stubble; chinstrap is the Amish parts at medium, since a narrow strap is not
+a part; full beard is every part at medium. The four toggles and the length are not in the game's wardrobe file yet:
+`Wardrobe.facial_hair` in `dress.py` makes such an item for the pictures and checks.
 
 ## How clothing moves
 
@@ -179,9 +188,9 @@ here; see "Not decided yet", 1.
 | `clay.py` | the clay bodies and the smooth-shape maths; draws a clay body |
 | `rings.py` | cutting a clay into rings; also the first two cuts ("A" and "B") that the look was approved from |
 | `body.py` | the bodies: regions, parts, joints; writes `bodies/*.json` and `*.obj` |
-| `dress.py` | a whole character from the wardrobe file: body, skin tone, eyes, mouth, features (hair, a beard, a moustache) and garments (see the note below) |
+| `dress.py` | a whole character from the wardrobe file: body, skin tone, eyes, mouth, features (hair, facial hair) and garments (see the note below). Every polygon it makes says which worn item made it |
 | `specials.py` | the special shapes built so far: straps, skirt, cape, with the voxel generators' settings |
-| `facial_hair.py` | beards, cut into the head's own polygons, and moustaches, flat on the face |
+| `facial_hair.py` | facial hair: four parts and a length, cut into the head's own polygons |
 | `hang.py` | hanging cloth: how a skirt or a cape is laid over the figure in a pose |
 | `heads.py` | the five heads; writes `heads/*.json` and `*.obj` |
 | `faces.py` | the eyes, with their lids and brows, and the mouth, as flat polygons on a head |
@@ -225,7 +234,7 @@ GODOT=/path/to/godot python3 lowpoly/sheets.py all
 `check.py` also runs as part of `tests/run.sh` when numpy is installed. Its clothing and face checks, and every sheet
 with clothes or eyes on it, ask Godot for the game's wardrobe and tables: set `GODOT=/path/to/godot` (or have `godot`
 on PATH). Without Godot, `check.py` skips the clothing and the faces and says so. With it, the check takes about a
-minute.
+minute and a half.
 
 `sheets.py` takes `look`, `male`, `regions`, `joints`, `heads`, `faces`, `beards`, `shapes`, `moving` or `all`; the clay
 pictures take about 40 seconds a view and are kept in `lowpoly/_work/` for the next run.
@@ -246,9 +255,10 @@ All of these are the owner's to settle. Recommendations are recommendations.
    figure. Dressed in a starter outfit a figure is about 500 to 540: a skirt adds about 40, a cape 20, a pair of straps
    about 36, and every band that is lifted off the body adds a ring of hem polygons. A pair of eyes with brows adds
    10 to 50 (most of them slivers: of the white round the pupil, and of the lash line round the top of the eye; 52 to
-   132 triangles, about a tenth of the figure), a mouth 2 to 6, a moustache 2 to 6, a beard 8 to 44 (a full beard 12
-   to 18; the most is a chinstrap on a bald head). The first two cuts of the body were 273 ("A", no region edges, a plain block for a head) and
-   603 ("B"); work since has used A. For scale: the 1997 Final Fantasy VII battle model of Cloud is put at about 900
+   132 triangles, about a tenth of the figure), a mouth 2 to 6. Facial hair adds up to about 22 polygons (66
+   triangles) when flush and up to about 56 (134 triangles) when grown out, for a full beard on a bald head; less
+   with hair, and less for fewer parts. The first two cuts of the body were 273 ("A", no region edges, a plain block
+   for a head) and 603 ("B"); work since has used A. For scale: the 1997 Final Fantasy VII battle model of Cloud is put at about 900
    polygons for the whole character.
 3. **Flat or smooth shading.** It changes the look more than the polygon count does. The voxel system's baked
    light/mid/dark does not carry over as it is, and the owner dislikes baked shading on 3D objects.
@@ -258,17 +268,20 @@ All of these are the owner's to settle. Recommendations are recommendations.
    go.
 6. **The masculine clay** is a first pass: shoulder width (about 20% wider than the feminine), the amount of chest
    muscle, the slight belly and arm thickness are the parts most open to change.
-7. **Beards and moustaches** are built as a set of options for the owner to choose from
-   (`renders/facial_hair.png`):
-   - **how thick a beard's body is** (row 4): flat, half a step of bulk (as built), or a whole step like the hair.
-     Recommendation: half a step. It is one number (`BULK`);
-   - **which styles there are.** Four beards and four moustaches so far. Each moustache is a few numbers in
-     `MOUSTACHES`; a beard is a rule about which of the head's polygons it takes;
-   - the goatee and the moustaches have to be added to the game's wardrobe file and to the editor before the game
-     can use them. Here they are added in Python;
-   - **three things here were turned down for the voxel face** (`SPEC.md` 5.1): a goatee, a full beard with
-     volume, and flat sideburns (the full beard has them). They are back as options, because the reasons then were
-     about voxel resolution. The owner has not said they are wanted;
+7. **Facial hair** is built as the owner described it: four parts and one length. Calls made while building, each
+   easy to change:
+   - **"cheeks"** is the name given here to the part between the sideburns and the goatee;
+   - **"semi-transparent" stubble** is the game's own stubble colour: the skin as if seen through the hair. Real
+     see-through rendering would look the same here, because the stubble lies on the skin itself;
+   - **the lengths**: four (stubble, short, medium, long), with medium half a step out and long a whole step
+     (`LENGTHS`). More lengths are one line each;
+   - **every part grows by the same amount**, as the owner asked: one length for everything. A moustache or
+     sideburns on their own at long length stand off the face as much as a full beard does, which reads chunky
+     (`renders/facial_hair.png`, row 4). Letting them grow less than the beard would keep one setting;
+   - **the game's three items** are read as parts and a length: stubble as every part at stubble, chinstrap as the
+     Amish parts at medium (its narrow strap is not a part any more), full beard as every part at medium;
+   - **turned down for the voxel face and back now** (`SPEC.md` 5.1): the goatee and the moustache are parts, and a
+     beard can have thickness;
    - the long beard is a drawn shape and is still not rebuilt.
 8. **The mouth** is a first pass for the owner to react to: its size, its four shapes, its colour, and whether a
    face has one at all. Still to settle with it: where mouth shapes are kept (they are a small table in `faces.py`
@@ -305,8 +318,8 @@ Known weak spots of the faces built so far: the mouth cannot go lower than it is
 ends a quarter of a unit under it and the jaw slopes away there; on the deepest skin tone the mouth and the default
 dark eyebrows are hard to see at small sizes; under a fringe the eyebrows sit just below the hair's edge, and a raised
 brow touches it; a moustache hides the upper part of the mouth, so a smile or a frown under one is only its lower
-edge; a fair beard on light skin is hard to see; the short crop, coming from region rules alone, stands off the whole
-back of the head like a cap.
+edge; a fair beard on light skin is hard to see; grown-out sideburns cover the front of the ear a little, seen from
+the side; the short crop, coming from region rules alone, stands off the whole back of the head like a cap.
 
 Known weak spots of the bending skin, at this polygon count: a sharp bend loses a little volume on the inside of the
 joint, and the inner thigh stretches flat on a very high step. The shoulder is a ball, so a raised sleeve cuts into

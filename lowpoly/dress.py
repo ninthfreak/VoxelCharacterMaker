@@ -24,11 +24,6 @@ import specials, facial_hair
 
 SKIN = (236, 178, 134)        # the project's default skin tone ("light", mid shade)
 BULK_UNIT = 1.0               # how far one step of bulk stands off the body, in voxels
-# Features the low-poly figures have and the game's wardrobe does not yet: id -> (slot, special shape, its style).
-# A moustache is a slot of its own, so that any beard goes with any moustache.
-NEW_FEATURES = {"goatee": ("facial_hair", "facial_hair", "goatee"), "moustache": ("moustache", "moustache", "moustache"),
-                "handlebar": ("moustache", "moustache", "handlebar"), "horseshoe": ("moustache", "moustache", "horseshoe"),
-                "pencil": ("moustache", "moustache", "pencil")}
 
 
 def hex_rgb(h):
@@ -46,13 +41,16 @@ class Wardrobe:
         self.features = {}                    # hair, facial hair, face accessories: feature id -> (slot, item)
         for slot, items in d.get("features", {}).items():
             for item_id, item in items.items(): self.features[item_id] = (slot, item)
-        for item_id, (slot, kind, style) in NEW_FEATURES.items():
-            self.features.setdefault(item_id, (slot, dict(
-                category=slot, name=item_id.capitalize(), colourways={"default": {"hair": "@hair"}}, coverage={}, draw_order=65,
-                edge_style="soft", mirror=True, roles=["hair"], specials=[dict(type=kind, params=dict(style=style))])))
 
     def outfit(self, name):
         return [(e["item"], e["colourway"]) for e in self.outfits[name]]
+
+    def facial_hair(self, parts, length):
+        """A facial hair feature with these parts on and this length (facial_hair.py), added to the wardrobe if it is
+        not there. The game's wardrobe file does not have these settings yet. Returns the feature's id."""
+        item_id, item = facial_hair.item(parts, length)
+        self.features.setdefault(item_id, ("facial_hair", item))
+        return item_id
 
 
 def resolve(item):
@@ -129,7 +127,7 @@ class Fit:
 class Look:
     """A dressed figure: what dress() returns.
     polys   the body and everything that bends with it: dicts with pts, rgb, shares (for every corner, the parts it
-            follows), part, piece, band, hidden
+            follows), part, piece, band, hidden, and by: the worn item that made it (None for bare skin)
     cloths  hanging cloth (hang.Cloth), laid afresh for every pose
     notes   what was asked for and could not be built"""
 
@@ -149,7 +147,7 @@ class Look:
 def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, brow=None, mouth=None):
     """A figure, dressed. Returns a Look.
     worn      [(item id, colourway)] from the wardrobe's items
-    features  [(feature id, colourway)] from its features: hair, a beard, a moustache
+    features  [(feature id, colourway)] from its features: hair, facial hair (Wardrobe.facial_hair makes any)
     skin      a colour, or the name of one of the game's skin tones (lids, stubble and the mouth need the name)
     eyes      None for a blank face, or what faces.eyes takes: eye_set, colourway, lids, size ({} for the standard
               eye, neutral)
@@ -192,25 +190,24 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
         cov = resolve(it)
         for sp in it.get("specials", []):
             kind = sp["type"]
-            if kind in ("facial_hair", "moustache"):                 # on the head and the face themselves: see below
-                style = str(specials.settings(kind, sp.get("params", {}))["style"]) if kind in specials.DEFAULTS else str(sp["params"]["style"])
-                whiskers.append((kind, style, colours, int(it["draw_order"]), item_id)); continue
+            if kind == "facial_hair":                                # it claims the head's own polygons: see below
+                parts, length, more = facial_hair.read(sp.get("params", {}))
+                notes += [f"{item_id}: {m}" for m in more]
+                whiskers.append((parts, length, colours, int(it["draw_order"]), item_id)); continue
             if kind not in specials.BUILT:
                 notes.append(f"{item_id}: special shape '{kind}' not built"); continue
             cov = {**specials.coverage(kind, sp.get("params", {})), **cov}       # the item's own regions come first
             shapes.append((kind in specials.HANGS, int(it["draw_order"]), len(shapes), item_id, kind, sp.get("params", {}), colours))
-        layers.append(dict(cov=cov, order=int(it["draw_order"]), colours=colours))
+        layers.append(dict(cov=cov, order=int(it["draw_order"]), colours=colours, id=item_id))
         if it.get("edge_style", "soft") != "soft":
             notes.append(f"{item_id}: edge style '{it['edge_style']}' ignored")
         unknown = [k for k in it["coverage"] if k not in known]
         if unknown: notes.append(f"{item_id}: regions not on this body: {unknown}")
     head = body.get("info", {}).get("head")
-    for kind, style, colours, order, item_id in whiskers:           # a beard claims the head's own polygons, before anything is lifted
-        if kind != "facial_hair": continue
+    for parts, length, colours, order, item_id in whiskers:         # facial hair claims the head's own polygons, before anything is lifted
         if head is None:
             notes.append(f"{item_id}: no head to grow it on"); continue
-        polys, more = facial_hair.on_head(polys, style, colours, order, head, hair is not None)
-        notes += [f"{item_id}: {m}" for m in more]
+        polys = facial_hair.on_head(polys, parts, length, colours, order, head, hair is not None, who=item_id)
     win = []
     for r in polys:
         best = None
@@ -219,9 +216,9 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
                 if r["key"] in L["cov"]:
                     role, bulk = L["cov"][r["key"]]
                     if best is None or (bulk, L["order"]) > (best[0], best[1]):
-                        best = (bulk, L["order"], L["colours"][role], None)
-            for claim in r.get("claims", ()):                        # (bulk, draw order, colour) and, for some, a fade
-                if best is None or (claim[0], claim[1]) > (best[0], best[1]): best = tuple(claim) + (None,) * (4 - len(claim))
+                        best = (bulk, L["order"], L["colours"][role], L["id"])
+            for claim in r.get("claims", ()):                        # (bulk, draw order, colour, the item claiming it)
+                if best is None or (claim[0], claim[1]) > (best[0], best[1]): best = tuple(claim)
         win.append(best)
 
     # per piece: weld corners, corner normals from the visible polygons, who is across each edge, and the most
@@ -241,9 +238,8 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
             e = frozenset((key(r["piece"], p[a]), key(r["piece"], p[(a + 1) % len(p)])))
             across.setdefault(e, []).append(i)
 
-    def moved(r, v, bulk, fade=None):
-        """Where a corner goes when its polygon is lifted. fade (z0, z1): nothing at z0, all of it from z1 on."""
-        if fade is not None: bulk = bulk * float(np.clip((fade[0] - v[2]) / (fade[0] - fade[1]), 0.0, 1.0))
+    def moved(r, v, bulk):
+        """Where a corner goes when its polygon is lifted by that much bulk."""
         if bulk == 0: return v
         n = acc.get(key(r["piece"], v), np.zeros(3)); ln = np.linalg.norm(n)
         if ln < 1e-9: return v
@@ -257,7 +253,7 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
         return v + d
 
     def lifted(i, v):
-        return moved(polys[i], v, win[i][0], win[i][3]) if win[i] is not None else v
+        return moved(polys[i], v, win[i][0]) if win[i] is not None else v
 
     def surface(piece, v):
         _, i = most.get(key(piece, v), (0, None))
@@ -269,19 +265,19 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
         if r["piece"] == "head": return [{"head": 1.0}] * len(src)   # every corner of a head follows the head alone
         return [body["shares"][lb.share_key(r["piece"], s)] for s in src]
 
-    def put(r, pts, rgb, src):
+    def put(r, pts, rgb, src, by=None):
         out.append(dict(pts=np.asarray(pts, float), rgb=rgb, src=src, shares=shares_of(r, src), part=r["part"], piece=r["piece"],
-                        band=r["band"], hidden=r["hidden"]))
+                        band=r["band"], hidden=r["hidden"], by=by))
 
     for i, r in enumerate(polys):
         w = win[i]
         if w is None:
             put(r, r["pts"], paint.get(r["key"], skin) if (paint and not r["hidden"]) else skin, r["pts"]); continue
-        bulk, _, rgb, _ = w
+        bulk, _, rgb, by = w
         if bulk == 0:
-            put(r, r["pts"], rgb, r["pts"]); continue
+            put(r, r["pts"], rgb, r["pts"], by); continue
         p = r["pts"]
-        put(r, np.array([lifted(i, v) for v in p]), rgb, p)
+        put(r, np.array([lifted(i, v) for v in p]), rgb, p, by)
         for a in range(len(p)):                                                           # hems: a step down to a lower neighbour
             va, vb = p[a], p[(a + 1) % len(p)]
             others = [j for j in across[frozenset((key(r["piece"], va), key(r["piece"], vb)))] if j != i]
@@ -292,7 +288,7 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
             if m >= bulk: continue
             hem = [lifted(i, va), lifted(i, vb), lifted(others[0], vb), lifted(others[0], va)]
             if max(np.linalg.norm(hem[0] - hem[3]), np.linalg.norm(hem[1] - hem[2])) > 1e-6:
-                put(r, np.array(hem), rgb, np.array([va, vb, vb, va]))
+                put(r, np.array(hem), rgb, np.array([va, vb, vb, va]), by)
 
     # special shapes: those that lie on the figure first, then hanging cloth in draw order, each hanging over
     # everything before it
@@ -304,7 +300,7 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
             made, more = specials.BUILT[kind](fit, params, colours, name=item_id)
             for q in made:
                 out.append(dict(pts=q["pts"], rgb=q["rgb"], src=None, shares=q["shares"], part="chest", piece="shape:" + kind,
-                                band=None, hidden=False))
+                                band=None, hidden=False, by=item_id))
         else:
             cloth, more = specials.BUILT[kind](fit, params, colours, name=item_id)
             if cloth is not None:
@@ -313,12 +309,12 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
                 for pts, _ in hang.lay(cloth, fit.rest(), P, Z0):
                     fit._polys = fit._polys + [dict(pts=pts, piece="cloth:" + cloth.name, band=None, hidden=False)]
         notes += more
-    moustache = [(p, colours["hair"]) for kind, style, colours, _, _ in whiskers if kind == "moustache" for p in facial_hair.moustache(style)]
-    if eyes is not None or mouth is not None or moustache:           # the face: under hair and hats, which stand in front of it
+    if eyes is not None or mouth is not None:                        # the face: under hair and hats, which stand in front of it
         import faces
         face = faces.eyes(game_tables(), wardrobe, skin=tone, hair=hair, brow=brow, **eyes) if eyes is not None else []
-        face += faces.lower_face(game_tables() if mouth is not None else None, mouth, skin=tone, moustache=moustache)
+        hides = any("moustache" in parts and length != "stubble" for parts, length, _, _, _ in whiskers) and head is not None
+        if mouth is not None: face += faces.lower_face(game_tables(), mouth, skin=tone, cover=facial_hair.cover() if hides else ())
         for q in face:
             out.append(dict(pts=q["pts"], rgb=q["rgb"], src=None, shares=[{"head": 1.0}] * len(q["pts"]), part="head", piece="face",
-                            band=None, hidden=False, unlit=q["unlit"], role=q["role"]))
+                            band=None, hidden=False, unlit=q["unlit"], role=q["role"], by=None))
     return Look(body, out, cloths, notes)

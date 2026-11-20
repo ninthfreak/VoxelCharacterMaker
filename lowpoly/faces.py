@@ -340,19 +340,15 @@ def _without(pieces, shapes):
     return pieces
 
 
-def lower_face(tables, mouth=None, skin=None, moustache=(), bend=None):
-    """The mouth and a moustache on a head: [dict(pts, rgb, role, unlit)]. They tile: the moustache hangs over the
-    mouth, so it is cut out of it.
-    mouth: the name of one of MOUTHS, or None. skin: a skin tone's name. moustache: [(polygon, rgb)], polygons as
-    (x from the face's centre line, height), each on one side of the centre line (facial_hair.py)."""
-    lips = []
-    if mouth is not None:
-        skin = tables["default_skin"] if skin is None else skin
-        lips = [(p, ("mouth", mouth_colour(tables["skin"][skin]["mid"]))) for p in mouth_shape(mouth)]
-    hair = [(p, ("moustache", tuple(rgb))) for p, rgb in moustache]
-    seen = hair + _without(lips, [p for p, _ in hair])
+def lower_face(tables, mouth, skin=None, cover=(), bend=None):
+    """The mouth on a head: [dict(pts, rgb, role, unlit)], with the shapes in `cover` cut out of it: what hangs over the
+    mouth, such as a moustache. mouth: the name of one of MOUTHS. skin: a skin tone's name. cover: polygons as (x from
+    the face's centre line, height), each on one side of the centre line (facial_hair.cover)."""
+    skin = tables["default_skin"] if skin is None else skin
+    rgb = mouth_colour(tables["skin"][skin]["mid"])
+    seen = _without([(p, "mouth") for p in mouth_shape(mouth)], list(cover))
     flat = [[(CX + u, z) for u, z in p] for p, _ in seen]
-    return [dict(pts=pts, rgb=rgb, role=role, unlit=False) for pts, (_, (role, rgb)) in zip(_on_face(flat, bend, LIFT), seen)]
+    return [dict(pts=pts, rgb=rgb, role="mouth", unlit=False) for pts in _on_face(flat, bend, LIFT)]
 
 
 def mouth(tables, state="neutral", skin=None, bend=None):

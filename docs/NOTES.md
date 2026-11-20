@@ -897,6 +897,60 @@ separately. Built as a set of options to choose from
 - **Cost.** A moustache is 2 to 6 polygons. A beard adds 8 to 44 to the
   figure, a full beard 12 to 18.
 
+## 4p. Facial hair as four parts and one length (owner's design)
+
+Shown the beards and moustaches of 4o, the owner described how facial hair
+should work instead. Thickness the way clothes do it: stubble first,
+semi-transparent and no thicker than the face (like skin-tight clothes);
+then fully opaque and still flush; then growing out from the face. Shape as
+toggles: moustache, sideburns, goatee, and the area between the sideburns
+and the goatee, each on or off. A full beard has every part on; an Amish
+beard everything but the moustache. One length setting for all the parts,
+so as not to be too fine-grained. The styles of 4o (the four moustache
+shapes, the separate moustache slot, the fade) are gone.
+
+- **The part between the sideburns and the goatee is called "cheeks"**
+  here: the jaw, the lower cheeks and the face beside the mouth.
+- **"Semi-transparent" is the game's own stubble colour.** Stubble lies on
+  the skin itself, so a see-through stubble would show nothing but the
+  skin under it: the result is one blended colour either way. The game's
+  stubble colour is that blend, made to stay darker than the skin even
+  under fair hair. Confidence high that it looks the same; medium that it
+  is what the owner meant.
+- **The lengths are four**: stubble, short, medium (half a step of bulk
+  out) and long (a whole step). Grown-out facial hair gets its edges from
+  the same hem rule as clothes. The fade of 4o (no thickness at the top of
+  the jaw) went: with every part grown out together there is no shelf to
+  hide, and the owner asked for the clothes' way.
+- **Every part is cut into the head's own polygons** (difficulty medium;
+  confidence high on the mesh, which is checked: all 15 ways of putting the
+  parts together, on all five heads, bald and with hair, leave the head one
+  closed surface). Each part is a few planes that cut its edge through
+  the polygons it may cover. Cutting with whole planes leaves slivers, so
+  pieces of one polygon with the same colour are joined back afterwards
+  where the result is convex, and corners on straight runs are dropped
+  unless a neighbour needs them. That halved the polygons a beard adds.
+- **A bug the checks caught while building that step:** two pieces sharing
+  a boundary that was split at a midpoint were joined into a polygon with a
+  doubled corner, which left a gap in the head. Pieces are now tidied
+  before they are joined, and only pairs sharing exactly one edge join.
+- **Every polygon now says which worn item made it** (`by` in the dressed
+  polygons). The checks needed it: by colour alone the hair's own fringe
+  edge was taken for beard.
+- **The sideburn comes down to about the bottom of the ear**, and the
+  cheeks' top line meets its foot, so that the two join cleanly whichever
+  is on alone.
+- **One length for all parts has a cost**: a moustache or sideburns on
+  their own, grown out a whole step, stand off the face as much as a full
+  beard does, and read chunky. Kept as asked; noted for the owner.
+- **The game's three items** are read as parts and a length (stubble:
+  every part at stubble; chinstrap: all but the moustache at medium, as
+  the narrow strap is not a part; full beard: every part at medium). The
+  game's data, generator and editor need the toggles and the length when
+  facial hair is ported to Godot.
+- **Cost.** A full beard adds about 22 polygons (66 triangles) flush and
+  about 56 (134 triangles) grown out, on a bald head; less with hair on.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

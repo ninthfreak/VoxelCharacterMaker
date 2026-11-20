@@ -6,7 +6,7 @@
   python3 lowpoly/sheets.py joints    the comparison behind the joints decision: rigid pieces, or one bending skin
   python3 lowpoly/sheets.py heads     the five heads as rounded forms, with the face treated two ways
   python3 lowpoly/sheets.py faces     the face: eyes with lashes and lids, eyebrows, the mouth, skin tones, colours
-  python3 lowpoly/sheets.py beards    beards and moustaches: the styles, pairings, how thick, on every head
+  python3 lowpoly/sheets.py beards    facial hair: four parts, each on or off, and one length
   python3 lowpoly/sheets.py shapes    the special shapes built so far (skirt, cape, straps), standing, with their settings
   python3 lowpoly/sheets.py moving    the same clothes in the game's test poses
   python3 lowpoly/sheets.py all
@@ -429,16 +429,17 @@ def sheet_faces():
                  band([tile(0, 8, frame=mid, eyes=dict(colourway=eye), features=[("short_crop", hair)] if hair else []) for eye, hair, _ in plan], [p[2] for p in plan])))
     man = dict(head="strong", sex="male", frame=mid, skin="light")
     tl = []; lab = []
-    for worn, name in (([("stubble", "default")], "stubble"), ([("goatee", "default"), ("moustache", "default")], "goatee, moustache"),
-                       ([("full_beard", "default"), ("moustache", "default")], "full beard, moustache")):
+    for parts, length, name in ((fh.PARTS, "stubble", "full beard, stubble"), (fh.PRESETS["goatee and moustache"], "short", "goatee and moustache, short"),
+                                (fh.PARTS, "medium", "full beard, medium")):
+        worn = [(w.facial_hair(parts, length), "default")]
         tl += [tile(0, 8, features=[("short_crop", "default")] + worn, **man), tile(40, 10, features=[("short_crop", "default")] + worn, **man)]
         lab += [name, "turned"]
-    rows.append(("7. Facial hair", "three of the pairings. Beards and moustaches have a sheet of their own: facial_hair.png.", band(tl, lab, gap_after=(1, 3))))
+    rows.append(("7. Facial hair", "three of the ways to wear it. Facial hair has a sheet of its own: facial_hair.png.", band(tl, lab, gap_after=(1, 3))))
     full = dict(scale=13.0, width=24.0, z_range=(-0.5, 43.0)); tiny = dict(scale=5.0, width=24.0, z_range=(-0.5, 43.0))
     cast = [("female", "round", w.outfit("everyday"), dict(skin="light", features=[("short_crop", "auburn")], eyes=dict(colourway="blue"), mouth="smile"), "everyday, smiling"),
-            ("male", "strong", w.outfit("overalls"), dict(skin="tan", features=[("short_crop", "black"), ("full_beard", "default"), ("moustache", "default")], eyes=dict(lids="unimpressed")), "overalls, beard, moustache"),
+            ("male", "strong", w.outfit("overalls"), dict(skin="tan", features=[("short_crop", "black"), (w.facial_hair(fh.PARTS, "medium"), "default")], eyes=dict(lids="unimpressed")), "overalls, full beard"),
             ("female", "heart", w.outfit("dress"), dict(skin="brown", features=[("short_crop", "black")], eyes=dict(lids="sad"), mouth="frown"), "dress, sad"),
-            ("male", "boxy", _shown(w)["travelling"], dict(skin="pale", features=[("short_crop", "grey"), ("stubble", "default")], eyes=dict(lids="angry", colourway="amber"), mouth="frown"), "green cloak, stubble, angry")]
+            ("male", "boxy", _shown(w)["travelling"], dict(skin="pale", features=[("short_crop", "grey"), (w.facial_hair(fh.PARTS, "stubble"), "default")], eyes=dict(lids="angry", colourway="amber"), mouth="frown"), "green cloak, stubble, angry")]
     tl = []; lab = []
     for sex, h, worn, who, name in cast:
         tl += [tile(0, 12, head=h, sex=sex, frame=full, worn=worn, **who), tile(35, 15, head=h, sex=sex, frame=full, worn=worn, **who)]
@@ -450,78 +451,63 @@ def sheet_faces():
     save_sheet(rows, "faces.png")
 
 
-BEARD_BULKS = [("A", "flat", 0.0), ("B", "half a step of bulk (as built)", None), ("C", "a whole step, like the hair", 1.0)]
-
-
 def sheet_beards():
-    """Beards and moustaches on the low-poly heads: the styles, the pairings, how thick, on every head."""
+    """Facial hair on the low-poly heads: four parts, each on or off, and one length."""
     w = ld.Wardrobe(wardrobe_path()); tables = game.tables()
     crop = w.features["short_crop"][1]
     for name in ("black", "auburn", "fair", "grey"): crop["colourways"].setdefault(name, {"hair": "hair_" + name})
-    mid = dict(scale=18.0, width=22.0, z_range=(24.0, 43.5))
+    mid = dict(scale=18.0, width=22.0, z_range=(23.5, 43.5))
     bodies = {}; notes = set()
 
-    def tile(yaw, pitch, worn=(), hair="default", head="strong", sex="male", frame=mid, clothes=(), bulk=None, **who):
+    def tile(yaw, pitch, parts=(), length="short", hair="default", head="strong", sex="male", frame=mid, clothes=(), **who):
         if (sex, head) not in bodies: bodies[(sex, head)] = lb.build(sex, head=head)
-        features = ([("short_crop", hair)] if hair else []) + [(f, "default") for f in worn]
-        keep = fh.BULK
-        if bulk is not None: fh.BULK = bulk
-        try:
-            prep, look = figure(bodies[(sex, head)], w, list(clothes), features=features, **{"skin": "light", **who})
-        finally:
-            fh.BULK = keep
+        features = ([("short_crop", hair)] if hair else []) + ([(w.facial_hair(parts, length), "default")] if parts else [])
+        prep, look = figure(bodies[(sex, head)], w, list(clothes), features=features, **{"skin": "light", **who})
         notes.update(look.notes)
         return mr.render(prep, yaw, pitch, **frame)
 
-    said = lambda f: f.replace("_", " ")
-    styles = list(fh.MOUSTACHES)
-    tl = [tile(0, 8, [m]) for m in styles] + [tile(40, 10, [m]) for m in styles[:2]]
-    rows = [("1. Moustaches (new)", "flat shapes on the face, above the mouth, in the hair's colour. Four to start with.",
-             band(tl, [said(m) for m in styles] + [f"{said(m)}, turned" for m in styles[:2]], gap_after=(3,)))]
-    tl = []; lab = []
-    for b in ("stubble", "chinstrap", "goatee"):
-        tl += [tile(0, 8, [b]), tile(40, 10, [b])]; lab += [said(b), "turned"]
-    rows.append(("2. Beards", "stubble: a shadow over the jaw, the cheeks and the upper lip. Chinstrap: a strap under the jaw and up the sideburns. Goatee (new): the chin alone.",
-                 band(tl, lab, gap_after=(1, 3))))
-    tl = [tile(0, 8, ["full_beard"]), tile(40, 10, ["full_beard"]), tile(90, 5, ["full_beard"]), tile(0, 8, ["full_beard"], hair=None), tile(40, 10, ["full_beard"], hair=None),
-          tile(40, 10, ["chinstrap"], hair=None)]
-    rows.append(("", "full beard: the jaw, and the cheeks up to a line from the mouth to the sideburn, with a window of skin left round the mouth. With hair the sideburns run up into it; on a bald head they stop at the ear.",
-                 band(tl, ["full beard", "turned", "from the side", "full beard, bald", "turned", "chinstrap, bald"], gap_after=(2,))))
-    plan = [(["full_beard", "moustache"], "full beard, moustache"), (["full_beard", "handlebar"], "full beard, handlebar"), (["goatee", "horseshoe"], "goatee, horseshoe"),
-            (["goatee", "moustache"], "goatee, moustache"), (["stubble", "moustache"], "stubble, moustache"), (["chinstrap", "pencil"], "chinstrap, pencil")]
-    rows.append(("3. Any beard with any moustache", "they are chosen separately. Six of the twenty pairings.",
-                 band([tile(0, 8, worn) for worn, _ in plan], [name for _, name in plan])))
-    tl = []; lab = []
-    for k, name, bulk in BEARD_BULKS:
-        tl += [tile(40, 10, ["full_beard", "moustache"], bulk=bulk), tile(90, 5, ["full_beard", "moustache"], bulk=bulk)]
-        lab += [f"{k}: {name}", "from the side"]
-    rows.append(("4. How thick? A beard's body", "A is paint: the jaw keeps its shape. In B and C a full beard and a goatee grow out of the face: nothing at the top of the jaw, their full thickness lower down. "
-                 "The cheeks and the moustache stay flat in all three.", band(tl, lab, gap_after=(1, 3))))
-    tl = [tile(40, 10, ["goatee"], bulk=bulk) for _, _, bulk in BEARD_BULKS] + [tile(40, 10, ["chinstrap"], bulk=bulk) for _, _, bulk in BEARD_BULKS]
-    rows.append(("", "", band(tl, [f"{k}: goatee" for k, _, _ in BEARD_BULKS] + [f"{k}: chinstrap" for k, _, _ in BEARD_BULKS], gap_after=(2,))))
+    lengths = list(fh.LENGTHS)
+    rows = [("1. Four parts, each on or off", "shown at the short length, so that the shapes are clear. \"Cheeks\" is the name used here for the part between the sideburns and the goatee: "
+             "the jaw, the lower cheeks and the face beside the mouth.", band([tile(0, 8, (part,)) for part in fh.PARTS] + [tile(0, 8, fh.PARTS)], list(fh.PARTS) + ["all four: a full beard"], gap_after=(3,))),
+            ("", "", band([tile(40, 10, (part,)) for part in fh.PARTS] + [tile(40, 10, fh.PARTS)], [f"{part}, turned" for part in fh.PARTS] + ["all four, turned"], gap_after=(3,)))]
+    rows.append(("2. One length for every part, done the way clothes do bulk", "stubble: a tint, flush with the face. Short: opaque, still flush. Medium and long: grown out from the face, "
+                 f"by {fh.LENGTHS['medium']:g} and {fh.LENGTHS['long']:g} steps of bulk, with edges like a sleeve's. Shown: a full beard (every part on).",
+                 band([tile(0, 8, fh.PARTS, ln) for ln in lengths] + [tile(40, 10, fh.PARTS, ln) for ln in lengths[1:3]], lengths + [f"{ln}, turned" for ln in lengths[1:3]], gap_after=(3,))))
+    rows.append(("", "", band([tile(90, 5, fh.PARTS, ln) for ln in lengths] + [tile(40, 10, fh.PARTS, ln, hair=None) for ln in ("short", "long")],
+                              [f"{ln}, from the side" for ln in lengths] + [f"bald, {ln}" for ln in ("short", "long")], gap_after=(3,))))
+    names = [n for n in fh.PRESETS if n != "full beard"]
+    rows.append(("3. A named style is a set of parts", "full beard: every part. Amish: every part but the moustache. And so on. Shown at medium length.",
+                 band([tile(0, 8, fh.PRESETS[n], "medium") for n in names], names)))
+    plan = [(fh.PRESETS["goatee and moustache"], ln, f"goatee and moustache: {ln}") for ln in lengths] + [(fh.PRESETS["Amish"], "long", "Amish, long"), (("sideburns",), "long", "sideburns, long")]
+    rows.append(("4. The length on other styles", "a moustache or sideburns on their own, grown out a whole step, stand off the face as much as a full beard does",
+                 band([tile(40, 10, parts, ln) for parts, ln, _ in plan], [p[2] for p in plan], gap_after=(3,))))
+    rows.append(("5. The game's three facial hair items, read as parts and a length", "stubble: every part, stubble. Chinstrap: the Amish parts, medium (a chinstrap's narrow strap is not a part). "
+                 "Full beard: every part, medium.", band([tile(0, 8, *fh.GAME_STYLES[g]) for g in fh.GAME_STYLES] + [tile(40, 10, *fh.GAME_STYLES[g]) for g in fh.GAME_STYLES],
+                                                           [g.replace("_", " ") for g in fh.GAME_STYLES] + ["turned"] * 3, gap_after=(2,))))
     plan = [("round", "pale"), ("boxy", "light"), ("oval", "tan"), ("strong", "medium"), ("heart", "brown"), ("round", "deep")]
-    rows.append(("5. On every head, in every skin tone", "a black full beard and moustache. The beard is cut into the head's own polygons, so it follows each shape.",
-                 band([tile(0, 8, ["full_beard", "moustache"], hair="black", head=h, skin=tone) for h, tone in plan], [f"{h} head, {tone} skin" for h, tone in plan])))
-    plan = [(["full_beard", "handlebar"], "auburn", "auburn"), (["goatee", "moustache"], "fair", "fair"), (["full_beard", "moustache"], "grey", "grey"),
-            (["stubble", "pencil"], "black", "black: stubble, pencil"), (["full_beard", "moustache"], None, "bald: dark brown"), (["chinstrap", "moustache"], None, "bald: chinstrap, moustache")]
-    rows.append(("6. Colours follow the hair", "beards and moustaches take the hair's colour, dark brown on a bald head. Stubble is worked out from the skin and the hair, as before.",
-                 band([tile(0, 8, worn, hair=hair) for worn, hair, _ in plan], [name for _, _, name in plan])))
-    plan = [(["moustache"], "smile", "neutral", "moustache: smile"), (["moustache"], "open", "wide_open", "moustache: open"), (["full_beard", "moustache"], "smile", "neutral", "beard, moustache: smile"),
-            (["full_beard", "moustache"], "frown", "sad", "frown"), (["full_beard"], "open", "wide_open", "beard alone: open"), (["goatee", "horseshoe"], "smile", "blink", "goatee, horseshoe: smile")]
-    rows.append(("7. With a mouth", "a moustache hangs over the mouth, so only the lower part of a smile shows under it. A full beard leaves the mouth its window.",
-                 band([tile(0, 8, worn, mouth=m, eyes=dict(lids=lids)) for worn, m, lids, _ in plan], [p[3] for p in plan])))
+    rows.append(("6. On every head, in every skin tone", "a black full beard, long. It is cut into each head's own polygons, so it follows each shape.",
+                 band([tile(0, 8, fh.PARTS, "long", hair="black", head=h, skin=tone) for h, tone in plan], [f"{h} head, {tone} skin" for h, tone in plan])))
+    plan = [("stubble", "pale", "black"), ("stubble", "tan", "auburn"), ("stubble", "deep", None), ("medium", "light", "auburn"), ("medium", "medium", "fair"), ("medium", "light", "grey")]
+    rows.append(("7. Colours follow the hair and the skin", "stubble is the game's own stubble colour, worked out from the skin and the hair, always darker than the skin. "
+                 "Every other length is the hair's colour; dark brown on a bald head.",
+                 band([tile(0, 8, fh.PARTS, ln, hair=hc, skin=tone) for ln, tone, hc in plan], [f"{ln}: {tone} skin, {hc or 'bald'}" for ln, tone, hc in plan], gap_after=(2,))))
+    plan = [(("moustache",), "stubble", "smile", "neutral", "stubble moustache: smile"), (("moustache",), "short", "smile", "neutral", "short moustache: smile"),
+            (("moustache",), "medium", "open", "wide_open", "medium moustache: open"), (fh.PARTS, "long", "smile", "neutral", "long beard: smile"),
+            (fh.PARTS, "long", "frown", "sad", "long beard: frown"), (fh.PRESETS["Amish"], "medium", "open", "wide_open", "Amish: open")]
+    rows.append(("8. With a mouth", "under stubble the mouth shows whole. A moustache that is more than stubble hangs over the mouth. A beard leaves the mouth a gap.",
+                 band([tile(0, 8, parts, ln, mouth=m, eyes=dict(lids=lids)) for parts, ln, m, lids, _ in plan], [p[4] for p in plan])))
     full = dict(scale=13.0, width=24.0, z_range=(-0.5, 43.0)); tiny = dict(scale=5.0, width=24.0, z_range=(-0.5, 43.0))
-    cast = [(["full_beard", "moustache"], "black", "strong", w.outfit("overalls"), dict(skin="tan"), "overalls: beard, moustache"),
-            (["goatee", "horseshoe"], "auburn", "round", w.outfit("everyday"), dict(skin="light", mouth="smile"), "everyday: goatee, horseshoe"),
-            (["stubble", "moustache"], "grey", "boxy", _shown(w)["travelling"], dict(skin="pale", eyes=dict(lids="angry", colourway="amber"), mouth="frown"), "green cloak: stubble, moustache"),
-            (["handlebar"], None, "oval", w.outfit("toga"), dict(skin="medium", eyes=dict(lids="unimpressed")), "toga: bald, handlebar")]
+    cast = [(fh.PARTS, "medium", "black", "strong", w.outfit("overalls"), dict(skin="tan"), "overalls: full beard, medium"),
+            (fh.PRESETS["goatee and moustache"], "short", "auburn", "round", w.outfit("everyday"), dict(skin="light", mouth="smile"), "everyday: goatee, moustache"),
+            (fh.PARTS, "stubble", "grey", "boxy", _shown(w)["travelling"], dict(skin="pale", eyes=dict(lids="angry", colourway="amber"), mouth="frown"), "green cloak: stubble"),
+            (fh.PRESETS["Amish"], "long", None, "oval", w.outfit("toga"), dict(skin="medium", eyes=dict(lids="unimpressed")), "toga: bald, Amish, long")]
     tl = []; lab = []
-    for worn, hair, h, clothes, who, name in cast:
-        tl += [tile(0, 12, worn, hair=hair, head=h, frame=full, clothes=clothes, **who), tile(35, 15, worn, hair=hair, head=h, frame=full, clothes=clothes, **who)]
+    for parts, ln, hair, h, clothes, who, name in cast:
+        tl += [tile(0, 12, parts, ln, hair=hair, head=h, frame=full, clothes=clothes, **who), tile(35, 15, parts, ln, hair=hair, head=h, frame=full, clothes=clothes, **who)]
         lab += [name, "turned"]
-    rows.append(("8. Whole characters", "body, outfit, hair, beard and moustache together", band(tl, lab, gap_after=(1, 3, 5))))
-    tl = [tile(yaw, 12, worn, hair=hair, head=h, frame=tiny, clothes=clothes, **who) for worn, hair, h, clothes, who, _ in cast for yaw in (0, 35)]
-    rows.append(("9. The same four, small", "about the size a character might be on screen", band(tl, [""] * len(tl), gap_after=(1, 3, 5))))
+    rows.append(("9. Whole characters", "body, outfit, hair and facial hair together", band(tl, lab, gap_after=(1, 3, 5))))
+    tl = [tile(yaw, 12, parts, ln, hair=hair, head=h, frame=tiny, clothes=clothes, **who) for parts, ln, hair, h, clothes, who, _ in cast for yaw in (0, 35)]
+    rows.append(("10. The same four, small", "about the size a character might be on screen", band(tl, [""] * len(tl), gap_after=(1, 3, 5))))
     for n in sorted(notes): print("  note:", n)
     save_sheet(rows, "facial_hair.png")
 
