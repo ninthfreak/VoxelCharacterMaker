@@ -1,4 +1,5 @@
-"""Special shapes as polygons: straps, skirt, cape, facial hair. (Hood, hair and drawn shapes are still to come.)
+"""Special shapes as polygons: straps, skirt, cape. (Facial hair is in facial_hair.py. Hood, hair and drawn shapes
+are still to come.)
 
 Each takes the settings its voxel generator takes (core/specials/*.gd), with the same names, options and defaults;
 check.py holds DEFAULTS below equal to the game's own table. Each is measured from the dressed figure, so it fits any
@@ -9,7 +10,6 @@ body and stands clear of whatever is worn under it.
   skirt    hanging cloth (hang.py), fixed at the waist line. Its settings choose its columns: how long each is,
            where the cloth is cut open, how much it flares.
   cape     hanging cloth, fixed along the shoulder line at the back.
-  facial hair   stubble, chinstrap, full beard: claims on the head's own polygons (see the section below).
 """
 import numpy as np
 import body as lb
@@ -339,73 +339,5 @@ def straps(fit, params, colours, name="straps"):
     return polys, []
 
 
-# ------------------------------------------------------------------------------------------------ facial hair ---
-# Facial hair is coverage and depth, not detail (SPEC 5.1). Two layers make the three styles:
-#   stubble   recolours the skin: the jaw below the eyes, the underside of the chin in front of the neck, and a
-#             sideburn in front of each ear, as high as the top of the eye less one row. No volume.
-#   strap     hair standing one step of bulk off the head: along the bottom of the jaw, and up each side as a
-#             raised sideburn.
-#   stubble = stubble; chinstrap = strap; full_beard = both.
-# It does not make polygons of its own: it marks which of the head's own polygons it claims, and with how much bulk,
-# and the ordinary garment rules recolour or lift them (so a beard gets its edges the way a sleeve gets its hem).
-import heads as hd
-
-FACIAL_HAIR = ("stubble", "chinstrap", "full_beard")
-JAW_TOP = hd.EYE_BOX["z"][0]                     # the jaw is the face below the eyes
-SIDEBURN_TOP = hd.EYE_BOX["z"][1] - 1.0          # a sideburn stops one row short of the top of the eye
-STRAP_TOP = hd.RING_Z[-2]                        # the strap runs along the lowest band of the jaw
-SIDEBURN_AT = (hd.HALF // 2 - 1, 2 * hd.HALF - 2 - hd.HALF // 2)      # round a ring: the faces just in front of the two side seams
-
-
-def _cut_at(polys, piece, z):
-    """Cut every ring polygon of a piece that crosses the height z in two there, so that an edge runs round the
-    piece at that height. Returns a new list; the polygons it cuts are replaced by their two parts."""
-    def part(p, above):
-        out = []
-        for i in range(len(p)):
-            a, b = p[i], p[(i + 1) % len(p)]
-            da, db = (a[2] - z) * (1 if above else -1), (b[2] - z) * (1 if above else -1)
-            if da >= -1e-9: out.append(a)
-            if (da > 1e-9 and db < -1e-9) or (da < -1e-9 and db > 1e-9): out.append(a + da / (da - db) * (b - a))
-        return np.array(out)
-
-    out = []
-    for r in polys:
-        p = r["pts"]
-        if r["piece"] != piece or r.get("at", ("",))[0] != "ring" or not (p[:, 2].min() < z - 1e-6 and p[:, 2].max() > z + 1e-6):
-            out.append(r); continue
-        for above in (True, False):
-            half = dict(r); half["pts"] = part(p, above); out.append(half)
-    return out
-
-
-def facial_hair(polys, params, colours, order):
-    """Marks the head's polygons that facial hair claims. polys: the figure's polygons (body.py records). Returns a new
-    list in which each claimed polygon is a copy carrying claims: [(bulk, draw order, colour)]."""
-    style = str(settings("facial_hair", params)["style"])
-    if style not in FACIAL_HAIR: return polys, [f"unknown facial hair style '{style}'"]
-    stubble = style in ("stubble", "full_beard"); strap = style in ("chinstrap", "full_beard")
-    polys = _cut_at(polys, "head", SIDEBURN_TOP)                      # so that a sideburn has an edge to stop at
-    e = 1e-6; out = []
-    for r in polys:
-        at = r.get("at")
-        if r["piece"] != "head" or at is None or at[0] not in ("ring", "base"):
-            out.append(r); continue
-        lo, hi = float(r["pts"][:, 2].min()), float(r["pts"][:, 2].max())
-        front = r["face"] == "F"
-        beside_ear = at[0] == "ring" and at[2] in SIDEBURN_AT
-        claims = []
-        if stubble and ((at[0] == "ring" and front and hi <= JAW_TOP + e) or (at[0] == "base" and front)
-                        or (beside_ear and lo >= JAW_TOP - e and hi <= SIDEBURN_TOP + e)):
-            claims.append((0, order, colours["stubble"]))
-        if strap and at[0] == "ring" and ((front and hi <= STRAP_TOP + e) or (beside_ear and lo >= STRAP_TOP - e and hi <= SIDEBURN_TOP + e)):
-            claims.append((1, order, colours["hair"]))
-        if claims:
-            r = dict(r); r["claims"] = list(r.get("claims", [])) + claims
-        out.append(r)
-    return out, []
-
-
 BUILT = {"skirt": skirt, "cape": cape, "straps": straps}
-ON_SKIN = {"facial_hair": facial_hair}   # these claim the body's own polygons, before anything is lifted
 HANGS = ("skirt", "cape")                # placed after everything else that is worn, in draw order among themselves

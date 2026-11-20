@@ -9,10 +9,10 @@ order, colourways, special shapes, outfits) and applies the parametric rules of 
   4  arms, feet and head are separate pieces, so their bulk may overlap the torso's
   6  where worn items claim the same region, the larger bulk wins, then the higher draw order
   8  nothing on a leg or foot grows toward the other leg
-Special shapes (specials.py): straps, skirt, cape and facial hair are built; a skirt or a cape is hanging cloth
-(hang.py) and is placed after everything else that is worn. Hair, facial hair, a skin tone and a face (faces.py) make
-the figure a character. Not done here: rule 7 (soft or hard edge style), and the other special shapes (hood, drawn
-shapes).
+Special shapes (specials.py): straps, skirt and cape are built; a skirt or a cape is hanging cloth (hang.py) and is
+placed after everything else that is worn. A skin tone, a face (faces.py), hair, a beard and a moustache
+(facial_hair.py) make the figure a character. Not done here: rule 7 (soft or hard edge style), and the other special
+shapes (hood, drawn shapes).
 
 The project keeps garment logic in exactly one place, and that place is core/ (GDScript), which today only knows
 voxels. When the Godot side builds polygons these rules move there, and this file goes or shrinks to a cross-check.
@@ -20,10 +20,15 @@ voxels. When the Godot side builds polygons these rules move there, and this fil
 import json
 import numpy as np
 import body as lb
-import specials
+import specials, facial_hair
 
 SKIN = (236, 178, 134)        # the project's default skin tone ("light", mid shade)
 BULK_UNIT = 1.0               # how far one step of bulk stands off the body, in voxels
+# Features the low-poly figures have and the game's wardrobe does not yet: id -> (slot, special shape, its style).
+# A moustache is a slot of its own, so that any beard goes with any moustache.
+NEW_FEATURES = {"goatee": ("facial_hair", "facial_hair", "goatee"), "moustache": ("moustache", "moustache", "moustache"),
+                "handlebar": ("moustache", "moustache", "handlebar"), "horseshoe": ("moustache", "moustache", "horseshoe"),
+                "pencil": ("moustache", "moustache", "pencil")}
 
 
 def hex_rgb(h):
@@ -41,6 +46,10 @@ class Wardrobe:
         self.features = {}                    # hair, facial hair, face accessories: feature id -> (slot, item)
         for slot, items in d.get("features", {}).items():
             for item_id, item in items.items(): self.features[item_id] = (slot, item)
+        for item_id, (slot, kind, style) in NEW_FEATURES.items():
+            self.features.setdefault(item_id, (slot, dict(
+                category=slot, name=item_id.capitalize(), colourways={"default": {"hair": "@hair"}}, coverage={}, draw_order=65,
+                edge_style="soft", mirror=True, roles=["hair"], specials=[dict(type=kind, params=dict(style=style))])))
 
     def outfit(self, name):
         return [(e["item"], e["colourway"]) for e in self.outfits[name]]
@@ -140,7 +149,7 @@ class Look:
 def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, brow=None, mouth=None):
     """A figure, dressed. Returns a Look.
     worn      [(item id, colourway)] from the wardrobe's items
-    features  [(feature id, colourway)] from its features: hair, facial hair
+    features  [(feature id, colourway)] from its features: hair, a beard, a moustache
     skin      a colour, or the name of one of the game's skin tones (lids, stubble and the mouth need the name)
     eyes      None for a blank face, or what faces.eyes takes: eye_set, colourway, lids, size ({} for the standard
               eye, neutral)
@@ -175,7 +184,7 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
         return wardrobe.palette[name]
 
     polys = list(body["polys"])
-    layers = []; shapes = []
+    layers = []; shapes = []; whiskers = []
     known = set(lb.all_region_keys())
     wearing = [(wardrobe.items[i], i, cw) for i, cw in worn] + [(wardrobe.features[i][1], i, cw) for i, cw in features]
     for it, item_id, cw in wearing:
@@ -183,9 +192,9 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
         cov = resolve(it)
         for sp in it.get("specials", []):
             kind = sp["type"]
-            if kind in specials.ON_SKIN:                             # it claims the body's own polygons
-                polys, more = specials.ON_SKIN[kind](polys, sp.get("params", {}), colours, int(it["draw_order"]))
-                notes += [f"{item_id}: {m}" for m in more]; continue
+            if kind in ("facial_hair", "moustache"):                 # on the head and the face themselves: see below
+                style = str(specials.settings(kind, sp.get("params", {}))["style"]) if kind in specials.DEFAULTS else str(sp["params"]["style"])
+                whiskers.append((kind, style, colours, int(it["draw_order"]), item_id)); continue
             if kind not in specials.BUILT:
                 notes.append(f"{item_id}: special shape '{kind}' not built"); continue
             cov = {**specials.coverage(kind, sp.get("params", {})), **cov}       # the item's own regions come first
@@ -195,6 +204,13 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
             notes.append(f"{item_id}: edge style '{it['edge_style']}' ignored")
         unknown = [k for k in it["coverage"] if k not in known]
         if unknown: notes.append(f"{item_id}: regions not on this body: {unknown}")
+    head = body.get("info", {}).get("head")
+    for kind, style, colours, order, item_id in whiskers:           # a beard claims the head's own polygons, before anything is lifted
+        if kind != "facial_hair": continue
+        if head is None:
+            notes.append(f"{item_id}: no head to grow it on"); continue
+        polys, more = facial_hair.on_head(polys, style, colours, order, head, hair is not None)
+        notes += [f"{item_id}: {m}" for m in more]
     win = []
     for r in polys:
         best = None
@@ -203,9 +219,9 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
                 if r["key"] in L["cov"]:
                     role, bulk = L["cov"][r["key"]]
                     if best is None or (bulk, L["order"]) > (best[0], best[1]):
-                        best = (bulk, L["order"], L["colours"][role])
-            for claim in r.get("claims", ()):
-                if best is None or (claim[0], claim[1]) > (best[0], best[1]): best = tuple(claim)
+                        best = (bulk, L["order"], L["colours"][role], None)
+            for claim in r.get("claims", ()):                        # (bulk, draw order, colour) and, for some, a fade
+                if best is None or (claim[0], claim[1]) > (best[0], best[1]): best = tuple(claim) + (None,) * (4 - len(claim))
         win.append(best)
 
     # per piece: weld corners, corner normals from the visible polygons, who is across each edge, and the most
@@ -225,7 +241,9 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
             e = frozenset((key(r["piece"], p[a]), key(r["piece"], p[(a + 1) % len(p)])))
             across.setdefault(e, []).append(i)
 
-    def moved(r, v, bulk):
+    def moved(r, v, bulk, fade=None):
+        """Where a corner goes when its polygon is lifted. fade (z0, z1): nothing at z0, all of it from z1 on."""
+        if fade is not None: bulk = bulk * float(np.clip((fade[0] - v[2]) / (fade[0] - fade[1]), 0.0, 1.0))
         if bulk == 0: return v
         n = acc.get(key(r["piece"], v), np.zeros(3)); ln = np.linalg.norm(n)
         if ln < 1e-9: return v
@@ -238,9 +256,12 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
             d[0] = max(d[0], 0.0) if r["side"] == "L" else min(d[0], 0.0)
         return v + d
 
+    def lifted(i, v):
+        return moved(polys[i], v, win[i][0], win[i][3]) if win[i] is not None else v
+
     def surface(piece, v):
-        bulk, i = most.get(key(piece, v), (0, None))
-        return np.array(v, float) if i is None else moved(polys[i], v, bulk)
+        _, i = most.get(key(piece, v), (0, None))
+        return np.array(v, float) if i is None else lifted(i, v)
 
     out = []
 
@@ -256,11 +277,11 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
         w = win[i]
         if w is None:
             put(r, r["pts"], paint.get(r["key"], skin) if (paint and not r["hidden"]) else skin, r["pts"]); continue
-        bulk, _, rgb = w
+        bulk, _, rgb, _ = w
         if bulk == 0:
             put(r, r["pts"], rgb, r["pts"]); continue
         p = r["pts"]
-        put(r, np.array([moved(r, v, bulk) for v in p]), rgb, p)
+        put(r, np.array([lifted(i, v) for v in p]), rgb, p)
         for a in range(len(p)):                                                           # hems: a step down to a lower neighbour
             va, vb = p[a], p[(a + 1) % len(p)]
             others = [j for j in across[frozenset((key(r["piece"], va), key(r["piece"], vb)))] if j != i]
@@ -269,7 +290,7 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
             if q["hidden"]: continue
             m = win[others[0]][0] if win[others[0]] is not None else 0
             if m >= bulk: continue
-            hem = [moved(r, va, bulk), moved(r, vb, bulk), moved(q, vb, m), moved(q, va, m)]
+            hem = [lifted(i, va), lifted(i, vb), lifted(others[0], vb), lifted(others[0], va)]
             if max(np.linalg.norm(hem[0] - hem[3]), np.linalg.norm(hem[1] - hem[2])) > 1e-6:
                 put(r, np.array(hem), rgb, np.array([va, vb, vb, va]))
 
@@ -292,10 +313,11 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
                 for pts, _ in hang.lay(cloth, fit.rest(), P, Z0):
                     fit._polys = fit._polys + [dict(pts=pts, piece="cloth:" + cloth.name, band=None, hidden=False)]
         notes += more
-    if eyes is not None or mouth is not None:                        # the face: under hair and hats, which stand in front of it
+    moustache = [(p, colours["hair"]) for kind, style, colours, _, _ in whiskers if kind == "moustache" for p in facial_hair.moustache(style)]
+    if eyes is not None or mouth is not None or moustache:           # the face: under hair and hats, which stand in front of it
         import faces
         face = faces.eyes(game_tables(), wardrobe, skin=tone, hair=hair, brow=brow, **eyes) if eyes is not None else []
-        if mouth is not None: face += faces.mouth(game_tables(), mouth, skin=tone)
+        face += faces.lower_face(game_tables() if mouth is not None else None, mouth, skin=tone, moustache=moustache)
         for q in face:
             out.append(dict(pts=q["pts"], rgb=q["rgb"], src=None, shares=[{"head": 1.0}] * len(q["pts"]), part="head", piece="face",
                             band=None, hidden=False, unlit=q["unlit"], role=q["role"]))

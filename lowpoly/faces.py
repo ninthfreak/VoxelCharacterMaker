@@ -322,9 +322,39 @@ def mouth_colour(skin_rgb):
     return tuple(int(round(c * k)) for c, k in zip(skin_rgb, MOUTH_SHADE))
 
 
+def _anticlockwise(poly):
+    turn = sum(poly[i][0] * poly[(i + 1) % len(poly)][1] - poly[(i + 1) % len(poly)][0] * poly[i][1] for i in range(len(poly)))
+    return list(poly) if turn >= 0 else list(poly)[::-1]
+
+
+def _without(pieces, shapes):
+    """Flat pieces [(polygon, tag)] with convex shapes cut out of them."""
+    pieces = [(_anticlockwise(p), tag) for p, tag in pieces]
+    for shape in shapes:
+        shape = _anticlockwise(shape); out = []
+        for poly, tag in pieces:
+            around, inside = _apart(poly, shape)
+            if len(inside) >= 3 and _area(inside) > 1e-9: out += [(p, tag) for p in around if len(p) >= 3 and _area(p) > 1e-9]
+            else: out.append((poly, tag))
+        pieces = out
+    return pieces
+
+
+def lower_face(tables, mouth=None, skin=None, moustache=(), bend=None):
+    """The mouth and a moustache on a head: [dict(pts, rgb, role, unlit)]. They tile: the moustache hangs over the
+    mouth, so it is cut out of it.
+    mouth: the name of one of MOUTHS, or None. skin: a skin tone's name. moustache: [(polygon, rgb)], polygons as
+    (x from the face's centre line, height), each on one side of the centre line (facial_hair.py)."""
+    lips = []
+    if mouth is not None:
+        skin = tables["default_skin"] if skin is None else skin
+        lips = [(p, ("mouth", mouth_colour(tables["skin"][skin]["mid"]))) for p in mouth_shape(mouth)]
+    hair = [(p, ("moustache", tuple(rgb))) for p, rgb in moustache]
+    seen = hair + _without(lips, [p for p, _ in hair])
+    flat = [[(CX + u, z) for u, z in p] for p, _ in seen]
+    return [dict(pts=pts, rgb=rgb, role=role, unlit=False) for pts, (_, (role, rgb)) in zip(_on_face(flat, bend, LIFT), seen)]
+
+
 def mouth(tables, state="neutral", skin=None, bend=None):
-    """The mouth on a head: [dict(pts, rgb, role, unlit)]. skin: a skin tone's name."""
-    skin = tables["default_skin"] if skin is None else skin
-    rgb = mouth_colour(tables["skin"][skin]["mid"])
-    flat = [[(CX + u, z) for u, z in poly] for poly in mouth_shape(state)]
-    return [dict(pts=pts, rgb=rgb, role="mouth", unlit=False) for pts in _on_face(flat, bend, LIFT)]
+    """The mouth alone on a head: [dict(pts, rgb, role, unlit)]. skin: a skin tone's name."""
+    return lower_face(tables, state, skin, bend=bend)

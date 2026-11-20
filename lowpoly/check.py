@@ -17,7 +17,10 @@
 7. Faces (also from the game's tables): every polygon of the eyes and the mouth lies on its flat patch of the face;
    in every lid state the lids and the pupil of the oval eyes are where the game's own cells have them; the
    polygons of an eye and its brow tile; the lash line stays inside the eye; the mouth is clear of the eyes and
-   brows; facial hair is found on every head, the same on both sides, in the colours the game works out.
+   brows.
+8. Facial hair: the game's three beards are here; a beard cut into any head leaves it one closed surface; it is
+   the same on both sides, in the colours the game works out, and under the eyes; a moustache lies on the flat of
+   the face, clear of the eyes, and tiles with every mouth.
 """
 import json, os, shutil, sys
 import numpy as np
@@ -241,32 +244,66 @@ else:
            and all(tuple(tables["skin"][t]["lid"]) != tuple(tables["skin"][t]["mid"]) for t in tones)
            and all(set(v["stubble"]) == set(tones) for v in tables["hair"].values()),
            f"the game's {len(tones)} skin tones: each has its own lid colour, and every hair colour gives a stubble for each")
+    # ---- facial hair: beards cut into the head, and moustaches laid on the face
+    print("== facial hair ==")
+    import facial_hair as fh
     theirs = {e["name"]: e for e in tables["specials"]["facial_hair"]}
-    expect(list(sp.FACIAL_HAIR) == theirs["style"]["options"] and sp.DEFAULTS["facial_hair"]["style"] == theirs["style"]["default"],
-           "facial hair: the game's styles and default")
+    expect(list(fh.GAME_BEARDS) == theirs["style"]["options"] and sp.DEFAULTS["facial_hair"]["style"] == theirs["style"]["default"],
+           f"beards: the game's three and its default are here ({', '.join(b for b in fh.BEARDS if b not in fh.GAME_BEARDS)} and the moustaches are new here)")
     heads_on = {n: lb.build("male", head=n) for n in hd.NAMES}
-    brown = w.palette[tables["default_brow_hair"]]                   # what "@hair" is on a bald head
-    for style in sp.FACIAL_HAIR:
-        ok = True; added = []
+    area3 = lambda p: 0.5 * float(np.linalg.norm(sum(np.cross(p[i], p[(i + 1) % len(p)]) for i in range(len(p)))))
+    eyes_low = min(float(e["pts"][:, 2].min()) for state in states for e in fc.eyes(tables, w, lids=state))
+    for style in fh.BEARDS:
+        ok = True; added = []; sound = True
         for n in hd.NAMES:
-            plain = ld.dress(heads_on[n], w, [], skin="tan", eyes={})
-            look = ld.dress(heads_on[n], w, [], skin="tan", eyes={}, features=[(style, "default")])
-            stubble = tuple(tables["hair"][tables["default_brow_hair"]]["stubble"]["tan"])
-            on_head = [q for q in look.polys if q["piece"] == "head"]
-            left = lambda q: q["pts"][:, 0].mean() > lb.CX
-            recoloured = [q for q in on_head if q["rgb"] == stubble]; raised = [q for q in on_head if q["rgb"] == brown]
-            even = sum(map(left, recoloured)) * 2 == len(recoloured) and sum(map(left, raised)) * 2 == len(raised)
-            ok &= not look.notes and even and (len(recoloured) > 0) == (style != "chinstrap") and (len(raised) > 0) == (style != "stubble")
-            ok &= all(np.isfinite(q["pts"]).all() for q in look.polys)
-            ok &= all(q["pts"][:, 2].max() <= sp.SIDEBURN_TOP + 1e-6 for q in recoloured)
-            added.append(len(look.polys) - len(plain.polys))
-            # with hair on, beard, stubble and brows follow it
-            crop = ld.dress(heads_on[n], w, [], skin="tan", eyes={}, features=[("short_crop", "black"), (style, "default")])
-            want = tuple(tables["hair"]["hair_black"]["stubble"]["tan"]) if style != "chinstrap" else w.palette["hair_black"]
-            ok &= any(q["rgb"] == want for q in crop.polys if q["piece"] == "head" and q["pts"][:, 2].max() <= sp.JAW_TOP + 1.5)
-            ok &= any(q["rgb"] == tuple(tables["hair"]["hair_black"]["brow"]) for q in crop.polys if q["piece"] == "face")
-        expect(ok, f"facial hair '{style}': on all five heads, the same on both sides, in the colours the game works out from hair and skin; "
-                   f"it adds {min(added)} to {max(added)} polygons")
+            for hair in (None, "hair_black"):
+                # the head's own polygons, cut: still one closed surface of the same area, every edge shared by two
+                mine = [r for r in heads_on[n]["polys"] if r["piece"] == "head"]
+                cut, said = fh.on_head(heads_on[n]["polys"], style, dict(hair=(1, 2, 3), stubble=(4, 5, 6)), 65, n, hair is not None)
+                cut = [r for r in cut if r["piece"] == "head"]
+                edges = {}
+                for r in cut:
+                    p = r["pts"]
+                    for i in range(len(p)):
+                        k = frozenset((tuple(np.round(p[i], 4)), tuple(np.round(p[(i + 1) % len(p)], 4))))
+                        edges[k] = edges.get(k, 0) + 1
+                before, after = sum(area3(r["pts"]) for r in mine), sum(area3(r["pts"]) for r in cut)     # not exact: some polygons are not flat
+                sound &= not said and all(v == 2 for v in edges.values()) and abs(after - before) < 0.001 * before
+                added.append(len(cut) - len(mine))
+                # dressed: the same on both sides, in the colours the game works out, and clear of the eyes
+                crop = [("short_crop", "black")] if hair else []
+                look = ld.dress(heads_on[n], w, [], skin="tan", eyes={}, mouth="neutral", features=crop + [(style, "default")])
+                want = tuple(tables["hair"][hair or tables["default_brow_hair"]]["stubble"]["tan"]) if style == "stubble" else w.palette[hair or tables["default_brow_hair"]]
+                beard = [q for q in look.polys if q["piece"] == "head" and q["rgb"] == want and (hair is None or q["pts"][:, 2].max() <= hd.BELT[1] + 1e-6)]
+                left = [q for q in beard if q["pts"][:, 0].mean() > lb.CX]
+                ok &= not look.notes and len(beard) > 0 and len(left) * 2 == len(beard)
+                ok &= abs(sum(area3(q["pts"]) for q in left) * 2 - sum(area3(q["pts"]) for q in beard)) < 1e-6
+                ok &= all(np.isfinite(q["pts"]).all() for q in look.polys)
+                top = hd.BELT[1] if hair else fh.EAR_TOP                # no higher than the hair, or the top of the ear
+                ok &= all(q["pts"][:, 2].max() <= top + fh.BULK + 1e-6 for q in beard)
+                on_flat = [q for q in beard if np.abs(q["pts"][:, 0] - lb.CX).max() <= hd.FACE_HALF_WIDTH + 1e-6 and q["pts"][:, 2].min() >= hd.BELT[0] - 1e-6
+                           and np.allclose(q["pts"][:, 1], [hd.face_y(v) for v in q["pts"][:, 0]], atol=1e-6)]
+                ok &= all(q["pts"][:, 2].max() < eyes_low for q in on_flat)
+                ok &= any(q["rgb"] == tuple(tables["hair"][hair or tables["default_brow_hair"]]["brow"]) for q in look.polys if q["piece"] == "face")
+        expect(sound, f"beard '{style}': cut into all five heads, bald and with hair, the head is still one closed surface with every edge shared by two polygons; "
+                      f"it adds {min(added)} to {max(added)} polygons to the head")
+        expect(ok, f"beard '{style}': the same on both sides, in the colours the game works out from hair and skin, under the eyes, and no higher than the hair or the ear")
+    for style in fh.MOUSTACHES:
+        shape = fh.moustache(style)
+        mids = sorted((round(float(np.mean([u for u, _ in p])), 6), round(float(np.mean([z for _, z in p])), 6)) for p in shape)
+        even = mids == sorted((-u, z) for u, z in mids) and all(min(u for u, _ in p) >= -1e-9 or max(u for u, _ in p) <= 1e-9 for p in shape)
+        clash = 0; torn = 0
+        made = fc.lower_face(None, moustache=[(p, (9, 9, 9)) for p in shape])
+        flat &= all(on_face(q, None) for q in made)
+        for state in states:
+            for e in fc.eyes(tables, w, lids=state):
+                clash += sum(overlap(flat2(q), flat2(e)) > 1e-9 for q in made)
+        for m in fc.MOUTHS:                                          # with a mouth under it, the two tile
+            both = fc.lower_face(tables, m, moustache=[(p, (9, 9, 9)) for p in shape])
+            for i in range(len(both)):
+                torn += sum(overlap(flat2(both[i]), flat2(both[j])) > 1e-9 for j in range(i + 1, len(both)))
+        expect(even and clash == 0 and torn == 0 and all(on_face(q, None) for q in made),
+               f"moustache '{style}': {len(shape)} polygons on the flat of the face, the same on both sides, clear of the eyes in every lid state, and tiling with every mouth")
 
-print("low-poly bodies, heads, clothing and faces:", "all checks passed" if not failed else f"{len(failed)} FAILED")
+print("low-poly bodies, heads, clothing, faces and facial hair:", "all checks passed" if not failed else f"{len(failed)} FAILED")
 sys.exit(1 if failed else 0)

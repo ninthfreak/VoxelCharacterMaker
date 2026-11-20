@@ -843,6 +843,60 @@ duty as lashes and eyebrow, are artifacts of voxel art.
 - **Not done, on purpose:** the beard and moustache. The face now has the
   room; what they should be is to be talked through with the owner first.
 
+## 4o. Beards and moustaches for the new face (owner's go-ahead)
+
+With the face laid out again (4n) the owner said to go on to the facial
+hair. The proposal put to them first: a moustache as a flat shape like the
+eyebrows; stubble and chinstrap kept; a full beard that comes up the cheeks
+to the mouth and joins the moustache; beard and moustache chosen
+separately. Built as a set of options to choose from
+(`lowpoly/renders/facial_hair.png`), in `lowpoly/facial_hair.py`.
+
+- **A beard is cut into the head's own polygons** (difficulty medium;
+  confidence high that the mesh is sound, medium on the look). The beard's
+  upper edge is a line: it starts beside the mouth, runs out under the eye,
+  and climbs across the cheek to the sideburn. Each polygon the line
+  crosses is cut along it and the part under it is recoloured. After
+  cutting, every polygon is given the corners its neighbours have on its
+  edges, so that edges match again; a check holds the head to one closed
+  surface on all five heads. So a beard follows each head's own shape with
+  no drawing per head.
+- **Tried first and dropped: a beard as a shelf.** Lifting the jaw by a
+  step of bulk, as a garment is lifted, left a ledge under the mouth that
+  caught the light and read as a collar. A full beard and a goatee now
+  grow out of the face: no thickness at the top of the jaw, all of it one
+  ring lower. For this a claim on a polygon may carry a fade (two heights);
+  `dress.py` moves each corner by its own share. A chinstrap keeps its even
+  thickness, since a strap is a shelf.
+- **Tried first and dropped: the beard beside the mouth as flat shapes laid
+  on the face.** They left a light seam where they met the cheek's own
+  polygons. That part is now cut into the face's polygons like the rest;
+  only the moustache and the mouth are laid on.
+- **A window round the mouth.** A full beard stops 1.2 units either side of
+  the middle and comes up to just under the mouth. A mouth drawn straight
+  onto dark hair cannot be seen.
+- **Moustaches hang over the mouth.** A moustache is cut out of the mouth,
+  so the two tile. Under one, a smile or a frown shows only its lower edge.
+- **Sideburns meet the hair now.** With hair on they run up to the hair's
+  edge; on a bald head they stop at the top of the ear. The voxel sideburn
+  stopped below the top of the eye either way, which left bare temple under
+  the hair (noted in 4l).
+- **Thickness is offered three ways** (flat; half a step, as built; a whole
+  step): the beard's body is the one place where the owner's earlier remark
+  about heaviness applies, and it is one number.
+- **Earlier decisions touched** (`SPEC.md` 5.1, made on voxel mock-ups):
+  the goatee, the moustache, a volumetric full beard and flat sideburns
+  were turned down there. The moustache is now asked for. The goatee, a
+  beard with thickness, and the full beard's flat sideburns are put back as
+  options because the reasons were about voxel resolution; they are flagged
+  to the owner as offered, not decided.
+- **Not in the game yet.** The goatee and the moustaches exist only here:
+  `dress.py` adds them to the wardrobe it reads, the moustache as a slot of
+  its own. The game's wardrobe file, its generator and the editor do not
+  know them.
+- **Cost.** A moustache is 2 to 6 polygons. A beard adds 8 to 44 to the
+  figure, a full beard 12 to 18.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed
