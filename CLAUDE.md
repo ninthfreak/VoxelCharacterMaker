@@ -1,8 +1,8 @@
-# Project: voxel character system (Godot 4)
+# Project: character system for a JRPG-style game (Godot 4). Low-poly; formerly voxel
 
-**Direction change (2026-11): the project is moving from voxels to low-poly.** Read `SPEC.md` section 0 first;
-`lowpoly/README.md` says where that work stands. The voxel system below still runs and is the reference for what
-the low-poly version keeps.
+**The characters are low-poly (owner's decision, 2026-11). That is the project, not an experiment or a study:** build
+it as product work, say so in plain terms, and commit as you go. Read `SPEC.md` section 0 first; `lowpoly/README.md`
+says what exists. The voxel system described below still runs and is the reference for what carries over.
 
 Read `SPEC.md` before any work; it holds every decision made so far. If something there seems wrong, raise it rather
 than silently changing course.

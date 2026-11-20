@@ -62,7 +62,7 @@ def prepare_coloured(groups):
 
 
 def render(prep, yaw_deg=0.0, pitch_deg=0.0, scale=15.0, width=26.0, z_range=(-0.5, 43.0), colour=(206, 190, 172),
-           mode="facet", ss=3, centre_x=12.0, line=(58, 50, 46)):
+           mode="facet", ss=3, centre_x=12.0, centre_y=12.0, line=(58, 50, 46)):
     px = scale * ss
     yaw, pitch = np.radians(yaw_deg), np.radians(pitch_deg)
     fwd = np.array([-np.sin(yaw) * np.cos(pitch), np.cos(yaw) * np.cos(pitch), -np.sin(pitch)])
@@ -70,7 +70,7 @@ def render(prep, yaw_deg=0.0, pitch_deg=0.0, scale=15.0, width=26.0, z_range=(-0
     up = np.cross(right, fwd); up /= np.linalg.norm(up)
     if up[2] < 0: up = -up
     W = int(width * px); H = int((z_range[1] - z_range[0]) * px)
-    centre = np.array([centre_x, 12.0, (z_range[0] + z_range[1]) / 2.0])
+    centre = np.array([centre_x, centre_y, (z_range[0] + z_range[1]) / 2.0])
     key = (-0.45 * right + 0.55 * up - 0.7 * fwd); key /= np.linalg.norm(key)
     fill = (0.6 * right + 0.1 * up - 0.75 * fwd); fill /= np.linalg.norm(fill)
 

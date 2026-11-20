@@ -1,8 +1,9 @@
 """Review sheets for the low-poly bodies.
 
-  python3 lowpoly/sheets.py look      the first look test: the feminine average at two polygon budgets, beside its clay
+  python3 lowpoly/sheets.py look      the first cut: the feminine average at two polygon budgets, beside its clay
   python3 lowpoly/sheets.py male      the masculine average (budget A), beside its clay and the feminine one
   python3 lowpoly/sheets.py regions   the bodies the clothing system uses: their regions, then starter outfits
+  python3 lowpoly/sheets.py joints    the comparison behind the joints decision: rigid pieces, or one bending skin
   python3 lowpoly/sheets.py all
 
 Sheets are written to lowpoly/renders/. The clay is drawn by ray marching (about 40 s a view), so those pictures are
@@ -13,7 +14,7 @@ kept in lowpoly/_work/ and reused. "regions" needs the project's starter wardrob
 import os, shutil, subprocess, sys, time
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-import clay, rings as ring_tools, body as lb, dress as ld, picture as mr
+import clay, rings as ring_tools, body as lb, dress as ld, picture as mr, pose as ps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -82,8 +83,8 @@ def clay_tiles(sex, kind):
     return out
 
 
-def look_test(sex, spec):
-    """A look-test body (rings.py LIGHT / FULL), checked before it is drawn."""
+def first_cut(sex, spec):
+    """One of the first cuts (rings.py LIGHT / FULL), checked before it is drawn."""
     ring_tools.use(clay.BODIES[(sex, "average")])
     parts, _ = ring_tools.build(spec)
     sdfs = dict(skin=ring_tools.sdf_skin, arms=ring_tools.sdf_arm, feet=ring_tools.sdf_foot, head=ring_tools.sdf_head)
@@ -143,7 +144,7 @@ def wardrobe_path():
 def sheet_look():
     built = {}
     for tag, spec in (("A", ring_tools.LIGHT), ("B", ring_tools.FULL)):
-        parts = look_test("female", spec)
+        parts = first_cut("female", spec)
         built[tag] = (mr.prepare(parts), ring_tools.counts(parts)["all"])
         print(f"female {tag}: {built[tag][1][0]} polygons, {built[tag][1][1]} triangles")
     rows = [("1. The clay model (the starting point)", "the smooth body this is cut from; nothing here is polygons yet",
@@ -167,7 +168,7 @@ def sheet_look():
 
 
 def sheet_male():
-    fem = look_test("female", ring_tools.LIGHT); masc = look_test("male", ring_tools.LIGHT_MASC)
+    fem = first_cut("female", ring_tools.LIGHT); masc = first_cut("male", ring_tools.LIGHT_MASC)
     n = ring_tools.counts(masc)["all"]; print(f"male A: {n[0]} polygons, {n[1]} triangles")
     pm, pf = mr.prepare(masc), mr.prepare(fem)
     rows = [("1. The male clay model (first pass)", "same height, head and joint heights as the female clay",
@@ -251,9 +252,51 @@ def sheet_regions():
     save_sheet(rows, "regions_and_outfits.png")
 
 
+def sheet_joints(sex="female"):
+    S = 13.0; frame = dict(scale=S, width=38.0, z_range=(-0.5, 45.5))
+    w = ld.Wardrobe(wardrobe_path())
+    b = lb.build(sex); ok, text = lb.check(b)
+    assert ok, text
+    # the robe top's own colours are near-black, which hides its folds on this background: show it in teal and bone
+    w.items["robe_top"]["colourways"]["shown"] = {"cloth": "teal", "trim": "bone"}
+    worn = [("boots", "default"), ("trousers", "default"), ("robe_top", "shown")]
+    looks = {"bare": ld.dress(b, w, [], detail=True)[0], "dressed": ld.dress(b, w, worn, detail=True)[0]}
+    made = {}; added = {}
+    for look, polys in looks.items():
+        for pname, pose in (("walk", ps.WALK), ("big", ps.BIG)):
+            rigid, extra = ps.posed_rigid(b, polys, pose)
+            made[(look, pname, "rigid")] = mr.prepare_coloured({"all": rigid})
+            made[(look, pname, "bend")] = mr.prepare_coloured({"all": ps.posed_bend(b, polys, pose)})
+            added[look] = (len(polys), extra)
+    print("polygons:", {k: f"{v[0]} as one skin, {v[0] + v[1]} as rigid pieces" for k, v in added.items()})
+    names = {"rigid": "rigid pieces", "bend": "bending skin"}
+    rows = []
+    plan = [("1. Walking, bare", "walk", "bare", [("side", 90, 12), ("turned", 35, 15)],
+             f"left: every part a rigid piece with rounded ends ({added['bare'][0] + added['bare'][1]} polygons). Right: one skin that bends ({added['bare'][0]} polygons)."),
+            ("2. Walking, dressed", "walk", "dressed", [("side", 90, 12), ("turned", 35, 15)],
+             "robe top (shown in teal), trousers and boots from the wardrobe file. As rigid pieces every garment piece needs its own rounded ends too."),
+            ("3. A big move, bare", "big", "bare", [("front", 0, 12), ("side", 90, 12)],
+             "a high step, one arm reaching forward with the elbow bent, the other out to the side, the chest leaning and turned, the head turned"),
+            ("4. A big move, dressed", "big", "dressed", [("front", 0, 12), ("side", 90, 12)], "the same pose in the same clothes")]
+    for title, pname, look, views, sub in plan:
+        tl = []; lab = []
+        for way in ("rigid", "bend"):
+            tl += [mr.render(made[(look, pname, way)], y, p, **frame) for _, y, p in views]; lab += [f"{names[way]}: {v[0]}" for v in views]
+        rows.append((title, sub, band(tl, lab, gap_after=(1,))))
+    close = [("knee and hip, from the side", "bare", 90, 12, dict(scale=24.0, width=16.0, z_range=(2.0, 17.0))),
+             ("seat and hip, from behind", "bare", 150, 15, dict(scale=24.0, width=16.0, z_range=(3.0, 18.0))),
+             ("elbow in a sleeve", "dressed", 90, 12, dict(scale=24.0, width=16.0, z_range=(13.0, 28.0), centre_y=5.5))]
+    tl = []; lab = []
+    for name, look, y, p, kw in close:
+        for way in ("rigid", "bend"):
+            tl.append(mr.render(made[(look, "big", way)], y, p, **kw)); lab.append(f"{names[way]}: {name}")
+    rows.append(("5. The big move, close up", "each pair: rigid pieces, then the bending skin", band(tl, lab, gap_after=(1, 3))))
+    save_sheet(rows, "joints_rigid_or_bend.png")
+
+
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
-    jobs = dict(look=sheet_look, male=sheet_male, regions=sheet_regions)
+    jobs = dict(look=sheet_look, male=sheet_male, regions=sheet_regions, joints=sheet_joints)
     if which != "all" and which not in jobs:
         sys.exit(__doc__)
     for name in (jobs if which == "all" else [which]):

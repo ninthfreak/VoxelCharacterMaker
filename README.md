@@ -1,19 +1,19 @@
 # Voxel Character Maker
 
-A voxel character system and in-engine character editor for a 16-bit-JRPG-style
-game, rendered in the spirit of the Voxel Doom mod: chunky, pixel-art-shaded
-figures. Godot 4, GDScript.
+A character system and in-engine character editor for a 16-bit-JRPG-style game.
+Godot 4, GDScript.
+
+**The characters are low-poly** (owner's decision, 2026-11; `SPEC.md` section 0).
+The project began as a voxel system and the repository keeps that name. The
+low-poly bodies, and the scripts that make, dress, pose and check them, are in
+`lowpoly/`; its README says what exists. The Godot code still builds the earlier
+voxel figures until its low-poly replacement is written, and everything below
+describes that voxel system, which stays the reference for what carries over.
 
 `SPEC.md` holds every design decision. Read it before changing anything here.
 `CLAUDE.md` holds the working conventions.
 
-**Direction (2026-11):** the project is moving from voxels to a low-poly style
-(owner's decision, `SPEC.md` section 0). The low-poly bodies, and the scripts
-that make and check them, are in `lowpoly/`; its README says where that work
-stands. Everything below describes the voxel system, which still runs and stays
-the reference for what the low-poly version keeps.
-
-## What works now
+## What works now (the voxel system)
 
 | Area | State |
 |---|---|

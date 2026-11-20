@@ -1,6 +1,7 @@
-# Voxel Character System — Spec
+# Character System — Spec
 
-**Read section 0 first: the project is moving from voxels to low-poly (owner, 2026-11).**
+**The characters are low-poly (owner's decision, 2026-11). Read section 0 first.** Sections 1 to 13 describe the
+earlier voxel system and stay as the reference for everything that carries over.
 
 Status: figure definition settled; software not started. This document is the hand-off from the design session to the
 build session. Where it says *recommended* it is a recommendation, not a decision; everything else was decided.
@@ -11,10 +12,10 @@ red/green colour blind, dyslexic and has ADHD — see *Accessibility* under the 
 
 ---
 
-## 0. Direction change: low-poly (owner, 2026-11)
+## 0. The direction: low-poly (owner, 2026-11)
 
-**The project is moving from voxels to a low-poly style.** The owner had taken the voxel look as far as it would go,
-here and in earlier attempts of their own, and it kept ending short of the goal. Decided:
+**The characters are low-poly. This is the project's direction, not an experiment.** The owner had taken the voxel
+look as far as it would go, here and in earlier attempts of their own, and it kept ending short of the goal. Decided:
 
 - **Style:** low-poly figures at about the level of detail of Final Fantasy VII, without that game's variety of
   character models.
@@ -26,11 +27,15 @@ here and in earlier attempts of their own, and it kept ending short of the goal.
 - **Editor:** it no longer edits bodies. It is for making clothing and items only.
 - **Bodies come from smooth "clay" models**, cut into polygons by script. The feminine average clay is the approved
   starting point; the masculine average is a first pass the owner called decent.
+- **Joints: the body is one skin that bends.** Each corner follows one part, or several in a fixed share (blended
+  skinning). Rigid pieces with rounded ends were built and compared, and rejected for the body
+  (`lowpoly/renders/joints_rigid_or_bend.png`). **Clothing may need to be different** from the body at the joints;
+  that is not settled.
 
 **Where this stands:** `lowpoly/README.md`. In short: the feminine and masculine average bodies exist, cut so that
-their polygons follow the region map of section 3.4, and a prototype puts ordinary garments from the wardrobe file
-onto them. Nothing in `core/`, `runtime/` or `editor/` builds polygons yet; the Godot project still runs the voxel
-system.
+their polygons follow the region map of section 3.4, with the shares and pivots that make them bend; ordinary garments
+from the wardrobe file go onto them and bend with them. All of that is built in Python so far. Nothing in `core/`,
+`runtime/` or `editor/` builds polygons yet; the Godot project still runs the voxel system.
 
 **How to read the rest of this document.** Sections 1 to 13 describe the voxel system as designed and built. They
 stay the reference for everything the low-poly version keeps and has not yet rebuilt: the part hierarchy and pivots
@@ -39,9 +44,15 @@ accessibility (8). What they say about voxel geometry (grids, baked shading, the
 body editor) is superseded as the low-poly version replaces it. Each section is to be rewritten when its replacement
 is built. Until then, where this section and a later one disagree, this section wins.
 
-**Carried over unchanged, and already shown to work on the low-poly bodies:** the band table and its heights (the
-clay's unit is the old voxel, so rows are heights), the 32 regions a side, the 11 rigid parts and their pivot heights,
-and the wardrobe file with its garment parameters (coverage, roles, bulk, mirror, draw order).
+**Carried over, and already shown to work on the low-poly bodies:** the band table and its heights (the clay's unit
+is the old voxel, so rows are heights), the 32 regions a side, the 11 parts and their hierarchy, and the wardrobe file
+with its garment parameters (coverage, roles, bulk, mirror, draw order).
+
+**Changed with the bending skin:** the 11 parts are no longer rigid pieces but what the skin's corners follow. The
+hinge joints (neck, waist, elbow, knee) sit in their one-row trim bands: the band's two edge loops share the bend
+75/25 and 25/75 and the pivot is at the middle of the band. The hip bends on the leg-opening loop. The shoulder is a
+ball: the arm is a separate piece turning about the centre of its shoulder. Section 3.2's pivot table is the voxel
+bodies'; the low-poly pivots are in each body file.
 
 **Three places where a region now follows the body instead of a level line** (calls made while cutting the bodies;
 they are easy to change):
@@ -51,9 +62,9 @@ they are easy to change):
 2. Front / back: split along the side seam, within half a unit of the depth centre.
 3. The arm's top and the foot's top stand a little past their bands' heights and belong to "shoulder" and "foot".
 
-**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): the polygon budget, flat or smooth
-shading, how far one step of bulk stands off the body, how joints are handled when the figure moves, what becomes of
-edge style, and the final shape of the masculine clay.
+**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): how clothing behaves at the joints,
+the polygon budget, flat or smooth shading, how far one step of bulk stands off the body, what becomes of edge style,
+and the final shape of the masculine clay.
 
 ---
 

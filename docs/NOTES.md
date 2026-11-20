@@ -541,7 +541,7 @@ the upper chest is a quarter of it. So:
   checks after it never run, yet the tally could still say "0 failed".
   `tests/run.sh` now fails the run if any script error is printed.
 
-## 4i. Moving to low-poly (owner's decision)
+## 4i. Low-poly is the direction (owner's decision)
 
 - **What led there.** The bodies' shapes were being reworked from a smooth
   "clay" model turned into voxels at 4, 2 and 1.5 times the resolution, and
@@ -563,9 +563,20 @@ the upper chest is a quarter of it. So:
   the head only glanced at. Every mesh now goes through a geometry check
   before it is shown (`lowpoly/check.py`; the rule is in `CLAUDE.md`).
 - **A deliberate duplication.** `lowpoly/dress.py` applies the bulk rules to
-  polygons. That is a second copy of logic the project keeps in one place
-  (`core/`). It is a prototype that proves the parameters carry over, and it
-  should go, or shrink to a cross-check, when the Godot side builds polygons.
+  polygons. The project keeps that logic in one place, `core/`, which today
+  only knows voxels. When the Godot side builds polygons the rules move
+  there, and `dress.py` goes or shrinks to a cross-check.
+- **Joints** (difficulty medium; confidence high on the look, medium on the
+  Godot work, which is not started). Two ways were built on the same body and
+  poses: rigid pieces with rounded ends, and one skin that bends. Rigid
+  showed seams at every joint, steps wherever a joint twists (two faceted
+  rims stop lining up), garment ends poking through, and about 60 per cent
+  more polygons, with every garment piece needing its own ends. The owner
+  chose the bending skin for the body, and expects clothing may need to be
+  different. The bends sit in the one-row trim bands, so the bodies needed
+  no new edges. Shares and pivots are in the body files (format version 2).
+- **Not an experiment.** The owner corrected the framing: low-poly is the
+  project. It is built as product work and committed as it goes.
 
 ## 5. Still open, for the owner
 

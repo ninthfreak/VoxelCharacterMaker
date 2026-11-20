@@ -7,8 +7,8 @@ clay are kept at every ring.
 The torso, neck and both legs are one continuous skin (the legs branch from the hip ring). Each arm, each foot and
 the head are their own closed pieces that overlap it.
 
-This file also still holds the first look test (LIGHT / FULL: bodies "A" and "B" of the review sheets), cut for
-shape alone. The bodies the clothing system uses are built in body.py, with their edges on the clothing regions.
+This file also holds the first two cuts (LIGHT / FULL: bodies "A" and "B" of the first sheets), made for shape
+alone, which the look was approved from. The bodies the clothing system uses are built in body.py, with their edges on the clothing regions.
 
 Units are the clay's (24 to the metre). x across (mirror plane x = 12), y depth (front is -y), z up.
 """
@@ -342,7 +342,7 @@ LIGHT = dict(
     head_arc=[22.5, 67.5], head_round=1.0,
 )
 
-# The masculine look test: the same rings and columns, with the torso rings moved to its own landmarks.
+# The masculine first cut: the same rings and columns, with the torso rings moved to its own landmarks.
 LIGHT_MASC = dict(LIGHT, torso_z=[(26.5, 0.35), (25.1, 0.5), (23.9, 0.6), (22.75, 0.45), (21.6, 0.3), (20.4, 0.3), (18.4, 0.25),
                                   (15.4, 0.05), (12.6, 0.3)])
 

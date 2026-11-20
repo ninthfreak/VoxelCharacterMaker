@@ -1,4 +1,4 @@
-"""A prototype: put garments from the project's wardrobe file onto a region-tagged low-poly body.
+"""Garments from the project's wardrobe file onto a region-tagged low-poly body.
 
 It reads the project's own wardrobe JSON (palette, items with coverage = {region key: {role, bulk}}, mirror flag, draw
 order, colourways, outfits) and applies the parametric rules of SPEC 7.3 to polygons instead of voxels:
@@ -11,9 +11,8 @@ order, colourways, outfits) and applies the parametric rules of SPEC 7.3 to poly
   8  nothing on a leg or foot grows toward the other leg
 Not done here: rule 7 (soft or hard edge style) and every special shape (skirt, cape, hood, straps...).
 
-This is a second copy of rules whose home is core/ (the project keeps garment logic in exactly one place). It exists
-to prove the regions and parameters carry over to polygons; once the Godot side builds polygons, the rules belong
-there and this file should go, or shrink to a cross-check.
+The project keeps garment logic in exactly one place, and that place is core/ (GDScript), which today only knows
+voxels. When the Godot side builds polygons these rules move there, and this file goes or shrinks to a cross-check.
 """
 import json
 import numpy as np
@@ -57,9 +56,11 @@ def _normal(p):
     return n
 
 
-def dress(body, wardrobe, worn, skin=SKIN, paint=None):
+def dress(body, wardrobe, worn, skin=SKIN, paint=None, detail=False):
     """worn: [(item id, colourway)]. paint: optional {region key: rgb} to colour bare regions (for the region map).
-    Returns ({group: [(polygon, rgb)]}, [notes])."""
+    Returns ({group: [(polygon, rgb)]}, [notes]).
+    detail=True returns a flat list of dicts instead of the groups, for posing: each has pts, rgb, the rigid part it
+    belongs to, its piece, and src: for every corner, the body corner it came from (itself, unless it was lifted)."""
     polys = body["polys"]; notes = []
     layers = []
     for item_id, cw in worn:
@@ -109,17 +110,21 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None):
             d[0] = max(d[0], 0.0) if r["side"] == "L" else min(d[0], 0.0)
         return v + d
 
-    groups = {}
+    groups = {}; flat = []
+
+    def put(r, pts, rgb, src):
+        groups.setdefault(r["piece"], []).append((pts, rgb))
+        flat.append(dict(pts=pts, rgb=rgb, src=src, part=r["part"], piece=r["piece"], hidden=r["hidden"]))
+
     for i, r in enumerate(polys):
-        g = groups.setdefault(r["piece"], [])
         w = win[i]
         if w is None:
-            g.append((r["pts"], paint.get(r["key"], skin) if (paint and not r["hidden"]) else skin)); continue
+            put(r, r["pts"], paint.get(r["key"], skin) if (paint and not r["hidden"]) else skin, r["pts"]); continue
         bulk, _, rgb = w
         if bulk == 0:
-            g.append((r["pts"], rgb)); continue
+            put(r, r["pts"], rgb, r["pts"]); continue
         p = r["pts"]
-        g.append((np.array([moved(r, v, bulk) for v in p]), rgb))
+        put(r, np.array([moved(r, v, bulk) for v in p]), rgb, p)
         for a in range(len(p)):                                                           # hems: a step down to a lower neighbour
             va, vb = p[a], p[(a + 1) % len(p)]
             others = [j for j in across[frozenset((key(r["piece"], va), key(r["piece"], vb)))] if j != i]
@@ -130,5 +135,5 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None):
             if m >= bulk: continue
             hem = [moved(r, va, bulk), moved(r, vb, bulk), moved(q, vb, m), moved(q, va, m)]
             if max(np.linalg.norm(hem[0] - hem[3]), np.linalg.norm(hem[1] - hem[2])) > 1e-6:
-                g.append((np.array(hem), rgb))
-    return groups, notes
+                put(r, np.array(hem), rgb, np.array([va, vb, vb, va]))
+    return (flat if detail else groups), notes

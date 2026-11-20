@@ -6,6 +6,8 @@ edge loop, every polygon lies in exactly one region, and each polygon is tagged 
 
 Heights are the voxel rows: the clay's unit is one voxel, so the band table is the same table.
 
+The body is one skin that bends at its joints (see "joints" below); each corner's shares are in the body file.
+
 Three places where a region follows the body rather than a level line:
   - hips / upper thigh: the boundary is the leg opening, level 11 at the outside of the hip and dropping to the crotch,
     so "hips" covers the whole pelvis (on the voxel body the pelvis simply ended at row 11);
@@ -215,6 +217,70 @@ def build_head():
     return [r for r in out if r is not None]
 
 
+# ------------------------------------------------------------------------------------------------- joints ---
+# The body is one skin that bends (owner's decision). Each corner follows one part, or more than one in a fixed
+# share, and moves by the blend of their movements: plain blended skinning, which Godot's Skeleton3D does.
+#
+# Every joint except the hip and the shoulder sits in a one-row trim band. The band's upper edge loop follows the part
+# above it 75/25, its lower loop 25/75, and the pivot is at the middle of the band. The hip bends on the leg-opening
+# loop, half and half, and the line between the legs follows mostly the pelvis. The shoulder is a ball: the arm is a
+# separate piece that turns as a whole about the centre of its shoulder.
+JOINT_BANDS = {"neck": ("head", "chest"), "waist": ("chest", "pelvis"), "elbow": ("upper_arm", "forearm"), "knee": ("thigh", "shin")}
+
+
+def joint_pivots(model):
+    def on_line(a, b, z):
+        (ca, _), (cb, _) = model[a], model[b]
+        t = (z - ca[2]) / (cb[2] - ca[2])
+        return (CX + ca[0] + t * (cb[0] - ca[0]), CY + ca[1] + t * (cb[1] - ca[1]), z)
+    mid = lambda band: 0.5 * (BANDS[band][0] + BANDS[band][1])
+    d = model["deltoid"][0]; th = model["thigh"][0]
+    p = {"pelvis": (CX, CY, float(BANDS["hips"][0])), "chest": (CX, CY + 0.1, mid("waist")), "head": (CX, CY + 0.4, mid("neck")),
+         "upper_arm_L": (CX + d[0], CY + d[1], d[2]), "forearm_L": on_line("upper_arm", "forearm", mid("elbow")),
+         "thigh_L": (CX + th[0], CY + th[1], float(BANDS["hips"][0])), "shin_L": on_line("thigh", "calf", mid("knee"))}
+    for k in list(p):
+        if k.endswith("_L"):
+            x, y, z = p[k]; p[k[:-1] + "R"] = (2 * CX - x, y, z)
+    return {k: tuple(float(v) for v in p[k]) for k in PARENT}
+
+
+def share_key(piece, v):
+    return (piece, tuple(float(x) for x in np.round(v, 4)))
+
+
+def corner_shares(polys):
+    """For every corner: the parts it follows and in what share. Keyed by share_key(piece, position)."""
+    at = {}
+    for r in polys:
+        for v in r["pts"]:
+            at.setdefault(share_key(r["piece"], v), set()).add(r["part"])
+    edge = lambda band: (float(BANDS[band][1]), float(BANDS[band][0]))     # upper loop, lower loop
+    shares = {}
+    for (piece, pos), parts in at.items():
+        x, _, z = pos
+        side = "L" if x > CX else "R"
+        on_centre = abs(x - CX) < 1e-6
+        at_height = lambda h: abs(z - h) < 1e-6
+
+        def band_share(band, s=""):
+            up, low = edge(band); above, below = (f"{f}{s}" for f in JOINT_BANDS[band])
+            if at_height(up): return {above: 0.75, below: 0.25}
+            if at_height(low): return {above: 0.25, below: 0.75}
+            return None
+
+        w = None
+        if piece.startswith("arm"):
+            w = band_share("elbow", "_" + piece[-1])
+        elif piece == "skin" and any(p.startswith(("thigh", "shin")) for p in parts):
+            if on_centre: w = {"pelvis": 0.6, "thigh_L": 0.2, "thigh_R": 0.2}      # the line between the legs
+            elif "pelvis" in parts: w = {"pelvis": 0.5, f"thigh_{side}": 0.5}       # the leg opening
+            else: w = band_share("knee", "_" + side)
+        elif piece == "skin":
+            w = band_share("waist") or band_share("neck")
+        shares[(piece, pos)] = w or {sorted(parts)[0]: 1.0}
+    return shares
+
+
 SDF = dict(skin=lambda p: ring_tools.sdf_skin(p), arm_L=lambda p: ring_tools.sdf_arm(p), arm_R=lambda p: ring_tools.sdf_arm(p),
            foot_L=lambda p: ring_tools.sdf_foot(p), foot_R=lambda p: ring_tools.sdf_foot(p), head=lambda p: ring_tools.sdf_head(p))
 
@@ -229,14 +295,7 @@ def build(sex, build="average"):
         d = SDF[r["piece"]](np.array([c + 0.25 * n, c - 0.25 * n]))
         if d[0] < d[1]:
             r["pts"] = r["pts"][::-1].copy()
-    M = spec["model"]
-    arm_x = CX + M["upper_arm"][0][0]; leg_x = CX + M["thigh"][0][0]
-    pivots = {"pelvis": (CX, CY, 11.0), "chest": (CX, CY, 15.0), "head": (CX, CY, 25.0),
-              "upper_arm_L": (arm_x, CY, 24.0), "forearm_L": (arm_x, CY, 17.0), "thigh_L": (leg_x, CY, 11.0), "shin_L": (leg_x, CY, 6.0)}
-    for k in list(pivots):
-        if k.endswith("_L"):
-            x, y, z = pivots[k]; pivots[k[:-1] + "R"] = (2 * CX - x, y, z)
-    return dict(sex=sex, build=build, polys=polys, pivots=pivots, info=info)
+    return dict(sex=sex, build=build, polys=polys, pivots=joint_pivots(spec["model"]), shares=corner_shares(polys), info=info)
 
 
 # ---------------------------------------------------------------------------------------------------- checks ---
@@ -286,6 +345,10 @@ def check(body):
     bad = [s for s in stray if s[0].split(".")[0] not in allowed]
     ok &= not bad
     lines.append(f"  polygons outside their band's heights: {len(stray)} by design (leg opening, arm and foot ends, head ends)" + (f" | UNEXPECTED: {bad}" if bad else ""))
+    bad = [k for k, w in body["shares"].items() if abs(sum(w.values()) - 1.0) > 1e-9 or not set(w) <= set(PARENT) or len(w) > 4]
+    blended = sum(1 for w in body["shares"].values() if len(w) > 1)
+    ok &= not bad and set(body["pivots"]) == set(PARENT)
+    lines.append(f"  joints: {len(body['shares'])} corners, {blended} of them shared between parts" + (f" | BAD SHARES: {bad[:5]}" if bad else ""))
     return ok, "\n".join(lines)
 
 
@@ -298,23 +361,23 @@ def counts(body):
 
 def to_data(body):
     """The body file's contents: corners (welded within each piece), polygons with their region and part, pivots, bands."""
-    index = {}; verts = []
+    index = {}; verts = []; shares = []
 
     def vid(piece, v):
-        k = (piece, tuple(np.round(v, 4)))
+        k = share_key(piece, v)
         if k not in index:
-            index[k] = len(verts); verts.append([round(float(x), 4) for x in v])
+            index[k] = len(verts); verts.append([round(float(x), 4) for x in v]); shares.append(body["shares"][k])
         return index[k]
 
     polys = [dict(v=[vid(r["piece"], v) for v in r["pts"]], region=r["key"], part=r["part"], piece=r["piece"], hidden=bool(r["hidden"]))
              for r in body["polys"]]
     return {
-        "format": "lowpoly_body", "version": 1, "units_per_metre": 24, "facing": "-y", "mirror_plane_x": CX, "depth_centre_y": CY,
+        "format": "lowpoly_body", "version": 2, "units_per_metre": 24, "facing": "-y", "mirror_plane_x": CX, "depth_centre_y": CY,
         "sex": body["sex"], "build": body["build"],
-        "note": "Generated by lowpoly/body.py; regenerate rather than hand-edit. Heights are the old voxel rows. 'hidden' polygons are ends buried inside a neighbouring piece.",
+        "note": "Generated by lowpoly/body.py; regenerate rather than hand-edit. Heights are the old voxel rows. 'hidden' polygons are ends buried inside a neighbouring piece. 'shares' has one entry per corner: the parts that corner follows when the figure moves, and in what share.",
         "parts": {k: {"parent": PARENT[k], "pivot": [float(x) for x in body["pivots"][k]]} for k in PARENT},
         "regions": {k: {"z0": v[0], "z1": v[1] - 1, "part": v[2], "trim": v[3]} for k, v in BANDS.items()},
-        "vertices": verts, "polygons": polys,
+        "vertices": verts, "shares": shares, "polygons": polys,
     }
 
 
