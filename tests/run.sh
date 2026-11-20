@@ -21,6 +21,15 @@ if command -v python3 >/dev/null 2>&1; then
   python3 tools/verify_assets.py
 fi
 
+# The low-poly bodies (lowpoly/) are rebuilt and checked too, where numpy is
+# installed to build them. Without it this step is skipped, not failed.
+if command -v python3 >/dev/null 2>&1 && python3 -c "import numpy" >/dev/null 2>&1; then
+  echo "== checking the low-poly bodies =="
+  python3 lowpoly/check.py
+else
+  echo "== low-poly bodies: skipped (python3 with numpy not found) =="
+fi
+
 # Global class names (class_name) live in .godot/global_script_class_cache.cfg,
 # which only an import pass writes. A fresh clone has no .godot at all, and
 # adding a script with a new class_name leaves the cache stale.

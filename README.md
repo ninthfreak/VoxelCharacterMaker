@@ -7,6 +7,12 @@ figures. Godot 4, GDScript.
 `SPEC.md` holds every design decision. Read it before changing anything here.
 `CLAUDE.md` holds the working conventions.
 
+**Direction (2026-11):** the project is moving from voxels to a low-poly style
+(owner's decision, `SPEC.md` section 0). The low-poly bodies, and the scripts
+that make and check them, are in `lowpoly/`; its README says where that work
+stands. Everything below describes the voxel system, which still runs and stays
+the reference for what the low-poly version keeps.
+
 ## What works now
 
 | Area | State |

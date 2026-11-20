@@ -19,3 +19,6 @@ __pycache__/
 
 # build_bodies.py also writes .npz debug dumps beside the assets
 assets/*.npz
+
+# lowpoly/sheets.py keeps slow intermediate pictures and the exported starter wardrobe here
+lowpoly/_work/

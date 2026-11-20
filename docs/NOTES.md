@@ -541,7 +541,39 @@ the upper chest is a quarter of it. So:
   checks after it never run, yet the tally could still say "0 failed".
   `tests/run.sh` now fails the run if any script error is printed.
 
+## 4i. Moving to low-poly (owner's decision)
+
+- **What led there.** The bodies' shapes were being reworked from a smooth
+  "clay" model turned into voxels at 4, 2 and 1.5 times the resolution, and
+  then with straight-sided limbs at 2x. The owner had been down the same road
+  before this project, more than once, and it ended in the same compromises
+  each time. They dropped the voxel look for a low-poly one (`SPEC.md`
+  section 0). None of that voxel rework was committed.
+- **What carried over** (difficulty low; confidence high): the clay model
+  became the source of the bodies. Its unit is the voxel, so the band table,
+  the regions, the parts and the pivot heights apply as they are, and the
+  wardrobe file needs no change. A check holds the low-poly band table equal
+  to the voxel bodies' region table.
+- **What was built:** `lowpoly/`; its README has the state, the method and
+  what is still to decide. Nothing in `core/`, `runtime/` or `editor/` has
+  changed.
+- **A bug worth remembering.** On the first low-poly sheet the stand-in head
+  was built with its corner points joined in the wrong order, so some faces
+  ran through the inside of the head. The body had been checked up close and
+  the head only glanced at. Every mesh now goes through a geometry check
+  before it is shown (`lowpoly/check.py`; the rule is in `CLAUDE.md`).
+- **A deliberate duplication.** `lowpoly/dress.py` applies the bulk rules to
+  polygons. That is a second copy of logic the project keeps in one place
+  (`core/`). It is a prototype that proves the parameters carry over, and it
+  should go, or shrink to a cross-check, when the Godot side builds polygons.
+
 ## 5. Still open, for the owner
+
+Since the move to low-poly (4i), the open questions for that work are listed
+in `lowpoly/README.md`. The items below come from the voxel system. Items 6
+and 7 are overtaken by the move: baked lighting becomes the choice between
+flat and smooth shading, and hoods wait for the special shapes to be rebuilt
+as polygons.
 
 Carried from `SPEC.md` section 13, plus what building raised:
 

@@ -1,11 +1,59 @@
 # Voxel Character System — Spec
 
+**Read section 0 first: the project is moving from voxels to low-poly (owner, 2026-11).**
+
 Status: figure definition settled; software not started. This document is the hand-off from the design session to the
 build session. Where it says *recommended* it is a recommendation, not a decision; everything else was decided.
 
 Owner preferences that apply to every decision: the owner assesses risk and tradeoffs personally, wants accurate
 feasibility reads and visible uncertainty, and prefers to be asked when a choice is genuinely theirs. The owner is
 red/green colour blind, dyslexic and has ADHD — see *Accessibility* under the editor.
+
+---
+
+## 0. Direction change: low-poly (owner, 2026-11)
+
+**The project is moving from voxels to a low-poly style.** The owner had taken the voxel look as far as it would go,
+here and in earlier attempts of their own, and it kept ending short of the goal. Decided:
+
+- **Style:** low-poly figures at about the level of detail of Final Fantasy VII, without that game's variety of
+  character models.
+- **Bodies:** the same conventions (masculine and feminine, three builds each), **plus a "short" body for each**, to
+  use for dwarfs. Eight bodies.
+- **Heads and faces:** nearly the same system as sections 4 and 5, not voxelised.
+- **Clothing:** the same system as section 7 (regions with a colour role and a bulk, plus special shapes), not
+  voxelised.
+- **Editor:** it no longer edits bodies. It is for making clothing and items only.
+- **Bodies come from smooth "clay" models**, cut into polygons by script. The feminine average clay is the approved
+  starting point; the masculine average is a first pass the owner called decent.
+
+**Where this stands:** `lowpoly/README.md`. In short: the feminine and masculine average bodies exist, cut so that
+their polygons follow the region map of section 3.4, and a prototype puts ordinary garments from the wardrobe file
+onto them. Nothing in `core/`, `runtime/` or `editor/` builds polygons yet; the Godot project still runs the voxel
+system.
+
+**How to read the rest of this document.** Sections 1 to 13 describe the voxel system as designed and built. They
+stay the reference for everything the low-poly version keeps and has not yet rebuilt: the part hierarchy and pivots
+(3.1, 3.2), the region map (3.4), faces (5), the wardrobe file, items, bulk rules and special items (7), and
+accessibility (8). What they say about voxel geometry (grids, baked shading, the mesher, the body and head files, the
+body editor) is superseded as the low-poly version replaces it. Each section is to be rewritten when its replacement
+is built. Until then, where this section and a later one disagree, this section wins.
+
+**Carried over unchanged, and already shown to work on the low-poly bodies:** the band table and its heights (the
+clay's unit is the old voxel, so rows are heights), the 32 regions a side, the 11 rigid parts and their pivot heights,
+and the wardrobe file with its garment parameters (coverage, roles, bulk, mirror, draw order).
+
+**Three places where a region now follows the body instead of a level line** (calls made while cutting the bodies;
+they are easy to change):
+
+1. Hips / upper thigh: the boundary is the leg opening, level 11 at the outside of the hip and dropping to the crotch,
+   so "hips" covers the whole pelvis.
+2. Front / back: split along the side seam, within half a unit of the depth centre.
+3. The arm's top and the foot's top stand a little past their bands' heights and belong to "shoulder" and "foot".
+
+**Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): the polygon budget, flat or smooth
+shading, how far one step of bulk stands off the body, how joints are handled when the figure moves, what becomes of
+edge style, and the final shape of the masculine clay.
 
 ---
 
