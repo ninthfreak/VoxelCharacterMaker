@@ -91,7 +91,8 @@ DRESSED = [("female_average", "round", outfit, [("short_crop", "black")])
             [("short_crop", "default"), ("full_beard", "default"), ("long_beard", "default")]),
            ("female_short", "boxy", [("bodice", "default"), ("test_beard_long", "default"), ("test_ponytail_high", "default")],
             [("short_crop", "black")]),
-           ("male_slim", "heart", [("shirt", "default"), ("test_bun_nape", "default")], [])]
+           ("male_slim", "heart", [("shirt", "default"), ("test_bun_nape", "default")], []),
+           ("female_heavy", "oval", [("tunic", "default"), ("test_hood_shaped", "default")], [("short_crop", "auburn")])]
 CLOTH_POSES_ALL = ("female_average",)        # every test pose; the others: standing, sitting and mid stride
 CLOTH_POSES = ("rest", "sitting", "mid_stride")
 # Not a game pose: every part turned about all three axes, the pelvis too, so that cloth is laid over a figure turned
@@ -127,8 +128,10 @@ def test_items(wardrobe):
         "test_cape_narrow": like("cloak", "cape", width="narrow", length="to_ankle", flare=0),
         "test_straps_wide": like("suspenders", "straps", width=2),
         "test_hood_up": like("cloak", "hood", raised=True),
-        "test_hood_lined": like("cloak", "hood", raised=True, lined=True, opening=3, depth=3),
-        "test_hood_down": like("cloak", "hood", raised=False, depth=2, lined=True),
+        "test_hood_lined": like("cloak", "hood", raised=True, lined=True, opening=3, depth=3, brim=3, fullness=0, peak=3,
+                                cowl_length=3),
+        "test_hood_down": like("cloak", "hood", raised=False, depth=2, lined=True, cowl_length=0),
+        "test_hood_shaped": like("cloak", "hood", raised=True, opening=0, brim=0, fullness=3, peak=2, cowl_length=2),
         "test_beard_long": own("long_beard", length=5, width=1, point=3, jut=2),
         "test_ponytail_high": own("ponytail", height=3, length=5, thickness=1, tie=False),
         "test_bun_top": own("bun", position="top", size=3),

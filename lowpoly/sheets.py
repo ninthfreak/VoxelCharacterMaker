@@ -740,7 +740,7 @@ def sheet_hood():
     rows = []
     tl = tiles(cloak(raised=True), "female", "average", "round", five)
     rows.append(("1. Raised hood: the cloak with its hood up (female, round head)",
-                 "a loose shell over the head: a brim over the brows, room at the back, the face left open, falling to a short cowl on the shoulders. Shown in green; its own colours are near-black.",
+                 "a loose shell over the head: a round top, a brim over the brows, room at the back, the face left open, falling to a short cowl on the shoulders. Shown in green; its own colours are near-black.",
                  band(tl, names)))
     who = [("male", "average", "boxy"), ("male", "heavy", "strong"), ("female", "slim", "oval"), ("male", "short", "heart"), ("female", "heavy", "heart")]
     tl = []; lab = []
@@ -750,9 +750,17 @@ def sheet_hood():
     tl = [tiles(cloak(raised=True, depth=d), "female", "average", "round", [(35, 10)])[0] for d in (1, 2, 3)]
     tl += [tiles(cloak(raised=True, depth=d), "female", "average", "round", [(90, 8)])[0] for d in (1, 3)]
     tl += [tiles(cloak(raised=True, opening=o), "female", "average", "round", [(0, 8)])[0] for o in (0, 1, 2, 3)]
-    rows.append(("3. Settings: thickness (read here as how loose the hood is) and the face opening",
-                 "thickness 1 to 3 stands the hood further off the head. The opening setting moves the edge out past the eyes, and its arch up.",
-                 band(tl, ["thickness 1", "thickness 2", "thickness 3", "thickness 1: side", "thickness 3: side", "opening 0", "opening 1", "opening 2", "opening 3"], gap_after=(2, 4))))
+    rows.append(("3. Settings: looseness and the face opening",
+                 "looseness 1 to 3 stands the hood further off the head. The opening setting moves the edge out past the eyes, and its arch up.",
+                 band(tl, ["looseness 1", "looseness 2", "looseness 3", "looseness 1: side", "looseness 3: side", "opening 0", "opening 1", "opening 2", "opening 3"], gap_after=(2, 4))))
+    side = (90, 8)
+    plan = [("peak 0 (round)", dict(peak=0), side), ("peak 1", dict(peak=1), side), ("peak 2", dict(peak=2), side), ("peak 3", dict(peak=3), side),
+            ("brim 0", dict(brim=0), side), ("brim 3", dict(brim=3), side), ("fullness 0", dict(fullness=0), side), ("fullness 3", dict(fullness=3), side),
+            ("cowl length 0", dict(cowl_length=0), (35, 10)), ("cowl length 3", dict(cowl_length=3), (35, 10))]
+    tl = [tiles(cloak(raised=True, **kw), "female", "average", "round", [view])[0] for _, kw, view in plan]
+    rows.append(("3b. Settings for its shape: peak, brim, fullness at the back, cowl length (0 to 3)",
+                 "the owner's hand-tuning. Defaults: peak 0 (a round top), brim 1, fullness 1, cowl length 1. Cowl length also sets a lowered hood's collar.",
+                 band(tl, [n for n, _, _ in plan], gap_after=(3, 5, 7))))
     tl = tiles(cloak(raised=True, lined=True), "male", "average", "round", [(0, 8), (35, 10)])
     tl += tiles(cloak(raised=True), "female", "average", "round", [(145, 12)], features=[("ponytail", "default")])
     tl += tiles(cloak(raised=True), "male", "average", "round", [(0, 8)], features=[(w.facial_hair(("moustache", "goatee", "sideburns", "cheeks"), "short"), "default"), ("short_crop", "default")])

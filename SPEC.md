@@ -462,7 +462,8 @@ that make it asymmetric, both aimed at one **side** (the character's own left or
 at a body anchor. *On the low-poly figure: skirt, cape, straps and facial hair; skirts and capes are hanging cloth
 laid afresh for every pose, not cloth panels (section 0). The hood: raised, a loose shell over the head with the face
 open, falling to a cowl on the shoulders; lowered, a collar with the empty hood lying on the back (settings raised,
-looseness, opening, lined). The drawn shape is replaced by shapes of their own, each fixed at a place on the figure
+looseness, opening, lined, and for its shape peak, brim, fullness at the back and cowl length; the top is round
+unless peaked). The drawn shape is replaced by shapes of their own, each fixed at a place on the figure
 with a few settings (owner, 2026-11): long beard (under the chin: length, width, point, jut), ponytail (back of the
 head: height, length, thickness, tie), bun (top, back or nape; size), horns (a pair from the brow: length, curve,
 spread, thickness), pauldrons (a pair on the shoulders: size, drop). An old file's drawn shape under the chin becomes a

@@ -21,7 +21,10 @@ A lowered hood (raised off) is a cowl closed round the neck, with the empty hood
 its opening turned up (in the lining colour when the hood is lined).
 
 Settings, with the game's names (core/specials/special_item.gd): raised, depth (shown as "Looseness": how far the hood
-stands off the head, 1 to 3), opening (how far past the eye box the opening reaches, 0 to 3), lined.
+stands off the head, 1 to 3), opening (how far past the eye box the opening reaches, 0 to 3), lined, and four for its
+shape, each 0 to 3 (the owner's hand-tuning): brim (how far it comes forward over the brows), fullness (how much room
+at the back), peak (0 a round dome over the crown, 3 a point drawn up and back) and cowl_length (how far the cowl comes
+down over the shoulders; for a lowered hood, its collar).
 """
 import numpy as np
 import body as lb
@@ -38,6 +41,11 @@ WIDE = 31.0                     # the head's widest row: below it the hood falls
 JAW = 28.6                      # where the opening's sides turn in under the chin
 SHOULDER = 0.95                 # where the cowl lies on the shoulder, against the shoulder's width
 POUCH_ROWS, POUCH_COLUMNS = 5, 6  # a lowered hood's pouch: rows down the back, quads across
+# the shape settings, 0 to 3 (1 is the first pass's shape, but for the top: peak 0 is a round dome)
+BRIM = (0.0, 1.0, 1.7, 2.4)     # how far the brim comes forward over the brows, against the first pass's
+FULLNESS = (0.3, 1.0, 1.6, 2.2)  # how much room the back of the hood has, against the first pass's
+COWL_DROP = (0.9, 1.6, 2.6, 3.8)  # how far the cowl's hem comes below the shoulder line
+CAP = (65.0, 35.0)              # the dome over the crown: two rings, at these angles from level (top first)
 
 
 def _unit(v):
@@ -216,6 +224,10 @@ class _Shell:
         return polys
 
 
+def _setting(p, key):
+    return int(np.clip(int(p[key]), 0, 3))
+
+
 def _colours(p, colours):
     cloth = colours.get("cloth", (128, 128, 128))
     return cloth, (colours.get("lining", cloth) if bool(p["lined"]) else cloth)
@@ -227,13 +239,15 @@ def raised(fit, p, colours, name="hood"):
     loose = LOOSE.get(int(np.clip(int(p["depth"]), 1, 3)), LOOSE[1])
     cloth, inside = _colours(p, colours)
     half, top, arch = _opening(p)
+    brim_k, full_k, peak = BRIM[_setting(p, "brim")], FULLNESS[_setting(p, "fullness")], _setting(p, "peak")
+    m.hem = m.shoulder - COWL_DROP[_setting(p, "cowl_length")]
 
     def gap(theta, zh):
         back = 0.5 * (1.0 - np.cos(theta)); front = 1.0 - back
         crown = float(np.clip((zh - 34.0) / 5.0, 0.0, 1.0))
         bag = float(np.clip(1.0 - abs(zh - 35.0) / 7.0, 0.3, 1.0))
-        brim = (0.5 + 0.4 * loose) * front ** 2 * (0.4 + 0.6 * float(np.clip((zh - 32.0) / 4.0, 0.0, 1.0)))
-        return loose * (0.45 + 0.75 * back ** 1.5 * bag + 0.45 * crown) + brim
+        brim = brim_k * (0.5 + 0.4 * loose) * front ** 2 * (0.4 + 0.6 * float(np.clip((zh - 32.0) / 4.0, 0.0, 1.0)))
+        return loose * (0.45 + 0.75 * full_k * back ** 1.5 * bag + 0.45 * crown) + brim
 
     def on_shoulder(theta):
         return m.lying(theta, m.shoulder, SHOULDER * m.shoulder_w + 0.2, 0.5 * loose)
@@ -254,8 +268,7 @@ def raised(fit, p, colours, name="hood"):
         if all(abs(z - h) > 0.6 for h in head_rows): head_rows.append(z)
     head_rows = sorted(set(head_rows), reverse=True)
     bottom = m.neck - dz
-    sh = _Shell(); grid = []; opened = []
-    crown = sh.add(m.crown_top + np.array([0.0, 1.0 * loose, 0.8 * loose]), {"head": 1.0})
+    rows = []                                                        # (points, open?, follows) per row of the head
     for zh in head_rows + [bottom]:
         zw = zh + dz
         w = _edge_half(zh, half, top, arch, bottom)
@@ -268,8 +281,19 @@ def raised(fit, p, colours, name="hood"):
                 else: hi = mid
             t0 = hi
         thetas = [t0 + k * (2.0 * np.pi - 2.0 * t0) / SEGMENTS for k in range(SEGMENTS + (1 if w > 0.0 else 0))]
-        pts = [np.array([CX, CY, zw]) + radius(t, zh, zw) * _direction(t) for t in thetas]
-        grid.append(sh.ring(pts, {"head": 1.0} if zh > bottom else {"head": 0.5, "chest": 0.5}, w == 0.0)); opened.append(w > 0.0)
+        rows.append(([np.array([CX, CY, zw]) + radius(t, zh, zw) * _direction(t) for t in thetas], w > 0.0,
+                     {"head": 1.0} if zh > bottom else {"head": 0.5, "chest": 0.5}))
+    # the top: a dome from the highest row over the crown, or, with a peak, drawn up and back to a point
+    apex = m.crown_top + np.array([0.0, loose * (0.35 + 0.3 * peak), loose * (0.45 + 0.25 * peak)])
+    sharp = peak / 3.0
+    sh = _Shell(); grid = []; opened = []
+    crown = sh.add(apex, {"head": 1.0})
+    for deg in CAP:
+        c = float(np.cos(np.radians(deg))); up = (1.0 - sharp) * float(np.sin(np.radians(deg))) + sharp * (1.0 - c)
+        pts = [np.array([apex[0] + c * (r[0] - apex[0]), apex[1] + c * (r[1] - apex[1]), r[2] + up * (apex[2] - r[2])]) for r in rows[0][0]]
+        grid.append(sh.ring(pts, {"head": 1.0}, True)); opened.append(False)
+    for pts, is_open, follows in rows:
+        grid.append(sh.ring(pts, follows, not is_open)); opened.append(is_open)
     for zw, ring in ((m.shoulder, on_shoulder), (m.hem, lambda t: m.lying(t, m.hem, m.shoulder_w + 0.9, 0.5 * loose + 0.4))):
         thetas = [k * 2.0 * np.pi / SEGMENTS for k in range(SEGMENTS)]
         grid.append(sh.ring([np.array([CX, CY, zw]) + ring(t) * _direction(t) for t in thetas], {"chest": 1.0}, True)); opened.append(False)
@@ -291,6 +315,7 @@ def lowered(fit, p, colours, name="hood"):
     m = _Measure(fit)
     loose = LOOSE.get(int(np.clip(int(p["depth"]), 1, 3)), LOOSE[1])
     cloth, inside = _colours(p, colours)
+    m.hem = m.shoulder - COWL_DROP[_setting(p, "cowl_length")]
     full = [k * 2.0 * np.pi / SEGMENTS for k in range(SEGMENTS)]
     cowl = _Shell()
     neck = cowl.ring([np.array([CX, CY, m.neck]) + (m.body(t, m.neck) + 0.45 * loose) * _direction(t) for t in full],

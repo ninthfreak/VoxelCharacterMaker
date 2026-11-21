@@ -143,6 +143,13 @@ static func param_spec(type: String) -> Array:
 			{"name": "opening", "label": "Face opening", "type": "int", "default": 1, "min": 0, "max": 3,
 				"hint": "How far past the eye box the opening reaches"},
 			{"name": "lined", "label": "Separate lining colour", "type": "bool", "default": false},
+			{"name": "brim", "label": "Brim", "type": "int", "default": 1, "min": 0, "max": 3,
+				"hint": "How far it comes forward over the brows"},
+			{"name": "fullness", "label": "Fullness at the back", "type": "int", "default": 1, "min": 0, "max": 3},
+			{"name": "peak", "label": "Peak", "type": "int", "default": 0, "min": 0, "max": 3,
+				"hint": "0 is a round top; 3 draws it up and back to a point"},
+			{"name": "cowl_length", "label": "Cowl length", "type": "int", "default": 1, "min": 0, "max": 3,
+				"hint": "How far it comes down over the shoulders (lowered: its collar)"},
 		]
 		"shape": return [
 			{"name": "anchor", "label": "Anchored at", "type": "enum", "default": "chest", "options": anchor_names()},

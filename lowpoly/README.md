@@ -373,8 +373,8 @@ All of these are the owner's to settle. Recommendations are recommendations.
      room at the back and over the crown, the face left open, falling to a short cowl on the shoulders; lowered: a
      cowl closed round the neck and the empty hood lying on the upper back. Its "Looseness" setting (`depth` in the
      file, "Thickness" before) is how far it stands off the head: 1.3, 1.9 or 2.5 units. The owner's plan was to
-     generate a looser hood, then hand-tune it; the hand-tuning is not built (recommendation: a few more shape
-     settings, brim, fullness at the back, peak, cowl length, rather than moving points by hand);
+     generate a looser hood, then hand-tune it: the hand-tuning is four shape settings, 0 to 3 (peak, 0 a round top
+     and the default; brim; fullness at the back; cowl length, which for a lowered hood is its collar's);
    - **the shapes of their own** replace the voxel drawn shape (owner's choice: fixed types with a few settings, over
      hand-set sections or the cell drawing; `renders/drawn_shapes.png` is the comparison it was chosen from, and the
      code that drew it is in commit `a8ef07e`). Five so far: long beard, ponytail, bun, horns, pauldrons. A new type

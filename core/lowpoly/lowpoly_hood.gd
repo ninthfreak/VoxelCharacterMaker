@@ -15,8 +15,9 @@ extends RefCounted
 ## Lowered: a cowl closed round the neck, and the empty hood lying as a pouch on the upper back over it, its opening
 ## turned up.
 ##
-## Settings (SpecialItem): raised, depth (how loose: 1.3, 1.9 or 2.5 units off the head), opening (how far past the eye
-## box the opening reaches), lined.
+## Settings (SpecialItem): raised, depth (shown as Looseness: 1.3, 1.9 or 2.5 units off the head), opening (how far
+## past the eye box the opening reaches), lined, and four for its shape, 0 to 3 (the owner's hand-tuning): brim,
+## fullness (at the back), peak (0 a round dome over the crown, 3 a point drawn up and back), cowl_length.
 
 const SEGMENTS := 14                 ## quads in each row of the shell, round from one edge of the opening to the other
 const THICK := 0.35                  ## how far the inside is from the outside
@@ -30,6 +31,11 @@ const HEAD_BOTTOM := 26.0            ## the bottom of every head (the head libra
 const SHOULDER := 0.95               ## where the cowl lies on the shoulder, against the shoulder's width
 const POUCH_ROWS := 5
 const POUCH_COLUMNS := 6
+## the shape settings, 0 to 3 (1 is the first pass's shape, but for the top: peak 0 is a round dome)
+const BRIM := [0.0, 1.0, 1.7, 2.4]          ## how far the brim comes forward, against the first pass's
+const FULLNESS := [0.3, 1.0, 1.6, 2.2]      ## how much room the back of the hood has, against the first pass's
+const COWL_DROP := [0.9, 1.6, 2.6, 3.8]     ## how far the cowl's hem comes below the shoulder line
+const CAP := [65.0, 35.0]                    ## the dome over the crown: two rings, at these angles from level (top first)
 const CX := 12.0
 const CY := 12.0
 const GREY := Color8(128, 128, 128)
@@ -69,6 +75,10 @@ static func _clip(x: float, lo: float, hi: float) -> float:
 
 static func _loose(p: Dictionary) -> float:
 	return float(LOOSE[clampi(LowpolyShapes._whole(p["depth"], 1), 1, 3)])
+
+
+static func _setting(p: Dictionary, key: String) -> int:
+	return clampi(LowpolyShapes._whole(p[key], int(SpecialItem.default_params("hood")[key])), 0, 3)
 
 
 static func _colours(p: Dictionary, colours: Dictionary) -> Array:
@@ -435,14 +445,18 @@ static func raised(fit: LowpolyShapes.Fit, p: Dictionary, colours: Dictionary) -
 	var half := cut[0]
 	var top := cut[1]
 	var arch := cut[2]
+	var brim_k: float = BRIM[_setting(p, "brim")]
+	var full_k: float = FULLNESS[_setting(p, "fullness")]
+	var peak := _setting(p, "peak")
+	m.hem = m.shoulder - float(COWL_DROP[_setting(p, "cowl_length")])
 
 	var gap := func(theta: float, zh: float) -> float:
 		var back := 0.5 * (1.0 - cos(theta))
 		var front := 1.0 - back
 		var crown := _clip((zh - 34.0) / 5.0, 0.0, 1.0)
 		var bag := _clip(1.0 - absf(zh - 35.0) / 7.0, 0.3, 1.0)
-		var brim := (0.5 + 0.4 * loose) * front * front * (0.4 + 0.6 * _clip((zh - 32.0) / 4.0, 0.0, 1.0))
-		return loose * (0.45 + 0.75 * pow(back, 1.5) * bag + 0.45 * crown) + brim
+		var brim := brim_k * (0.5 + 0.4 * loose) * front * front * (0.4 + 0.6 * _clip((zh - 32.0) / 4.0, 0.0, 1.0))
+		return loose * (0.45 + 0.75 * full_k * pow(back, 1.5) * bag + 0.45 * crown) + brim
 	var on_shoulder := func(theta: float) -> float:
 		return m.lying(theta, m.shoulder, SHOULDER * m.shoulder_w + 0.2, 0.5 * loose)
 	var on_head := func(theta: float, zh: float) -> float:
@@ -471,10 +485,7 @@ static func raised(fit: LowpolyShapes.Fit, p: Dictionary, colours: Dictionary) -
 	head_rows.sort()
 	head_rows.reverse()
 	var bottom := m.neck - dz
-	var sh := Shell.new()
-	var grid: Array = []
-	var opened: Array = []
-	var crown := sh.add(Vec64.add(m.crown_top, Vec64.v(0.0, 1.0 * loose, 0.8 * loose)), {"head": 1.0})
+	var made: Array = []                         # [points, open?, follows] per row of the head
 	for z in head_rows + [bottom]:
 		var zh := float(z)
 		var zw := zh + dz
@@ -494,8 +505,26 @@ static func raised(fit: LowpolyShapes.Fit, p: Dictionary, colours: Dictionary) -
 		for k in SEGMENTS + (1 if w > 0.0 else 0):
 			var t := t0 + k * (2.0 * PI - 2.0 * t0) / SEGMENTS
 			pts.append(Vec64.add(Vec64.v(CX, CY, zw), Vec64.mul(direction(t), float(radius.call(t, zh, zw)))))
-		grid.append(sh.ring(pts, {"head": 1.0} if zh > bottom else {"head": 0.5, "chest": 0.5}, w == 0.0))
-		opened.append(w > 0.0)
+		made.append([pts, w > 0.0, {"head": 1.0} if zh > bottom else {"head": 0.5, "chest": 0.5}])
+	# the top: a dome from the highest row over the crown, or, with a peak, drawn up and back to a point
+	var apex := Vec64.add(m.crown_top, Vec64.v(0.0, loose * (0.35 + 0.3 * peak), loose * (0.45 + 0.25 * peak)))
+	var sharp := peak / 3.0
+	var sh := Shell.new()
+	var grid: Array = []
+	var opened: Array = []
+	var crown := sh.add(apex, {"head": 1.0})
+	for deg in CAP:
+		var c := cos(deg_to_rad(float(deg)))
+		var up := (1.0 - sharp) * sin(deg_to_rad(float(deg))) + sharp * (1.0 - c)
+		var cap: Array = []
+		for r in made[0][0]:
+			var q: PackedFloat64Array = r
+			cap.append(Vec64.v(apex[0] + c * (q[0] - apex[0]), apex[1] + c * (q[1] - apex[1]), q[2] + up * (apex[2] - q[2])))
+		grid.append(sh.ring(cap, {"head": 1.0}, true))
+		opened.append(false)
+	for row in made:
+		grid.append(sh.ring(row[0], row[2], not bool(row[1])))
+		opened.append(bool(row[1]))
 	for row in [[m.shoulder, SHOULDER * m.shoulder_w + 0.2, 0.5 * loose], [m.hem, m.shoulder_w + 0.9, 0.5 * loose + 0.4]]:
 		var pts: Array = []
 		for k in SEGMENTS:
@@ -529,6 +558,7 @@ static func lowered(fit: LowpolyShapes.Fit, p: Dictionary, colours: Dictionary) 
 	var m := Measure.of(fit)
 	var loose := _loose(p)
 	var pair := _colours(p, colours)
+	m.hem = m.shoulder - float(COWL_DROP[_setting(p, "cowl_length")])
 	var cowl := Shell.new()
 	var rows: Array = []
 	for r in 3:

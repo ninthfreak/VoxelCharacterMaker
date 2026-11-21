@@ -1371,6 +1371,22 @@ drawing, as best for the long term, and agreed the first set of five.
   40 ms; the push-out pass and the opening's search are most of it. Fine for the editor and for building a character
   once; worth a look if characters are rebuilt often in the game.
 
+## 4zc. The hood's shape settings, and a round top (owner's direction)
+
+The owner's plan for the hood was to generate a looser one, then hand-tune it; they chose four more settings over
+moving points by hand, and did not care for the pointed top.
+
+- **Peak** (0-3, default 0): 0 is a round dome over the crown, two more rings of points between the highest row and
+  the top; higher settings draw the top up and back and blend the rings toward a straight cone, so 3 comes to a point
+  (sharper than the first pass's, which was a single top point joined straight to the highest row).
+- **Brim** (0-3, default 1): how far the front comes forward over the brows (0 none; 1 is the first pass's).
+- **Fullness at the back** (0-3, default 1): how much room the back of the hood has (1 is the first pass's).
+- **Cowl length** (0-3, default 1): how far the cowl comes down over the shoulders, 0.9 to 3.8 below the shoulder line
+  (1 is the first pass's 1.6). For a lowered hood it is the collar's length.
+- So the default hood changed in one way only: its top is round. Sheet: `lowpoly/renders/hood.png` row 3b. The
+  cross-check has one more figure (a hood with every shape setting away from its default) and the lined test hood now
+  uses the far ends; 22 dressed figures match, 409 Godot checks pass.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed
@@ -1402,5 +1418,5 @@ Carried from `SPEC.md` section 13, plus what building raised:
    setting on the assembler, since the game assembles characters anyway.
 7. **Hoods are on hold.** The current hood is a skin-tight shell and does
    not read as a hood. The owner chose: generate a looser hood, then
-   hand-tune it. The looser hood is built and in the game (4za, 4zb);
-   hand-tuning is not.
+   hand-tune it. Done: the looser hood (4za, 4zb), and the hand-tuning as
+   four shape settings (4zc).
