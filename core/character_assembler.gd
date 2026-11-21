@@ -58,6 +58,8 @@ class Request extends RefCounted:
 	## The lid state over the eyes, by name (EyeLids.STATES). EyeLids.OFF
 	## draws the eye exactly as drawn: no lids, no brow.
 	var lids: String = EyeLids.DEFAULT
+	## The mouth, by name (Mouths.STATES); Mouths.OFF for none. Only the low-poly face draws a mouth.
+	var mouth: String = Mouths.DEFAULT
 	## The character's skin tone (Palette.SKIN_TONE_NAMES).
 	var skin_tone: String = Palette.DEFAULT_SKIN
 	## The brow colour. Transparent (the default) means "follow the hair": the

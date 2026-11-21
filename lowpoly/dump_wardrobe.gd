@@ -4,7 +4,7 @@ extends SceneTree
 #   --tables <file>  the test poses (runtime/poses.gd); every special shape's settings with their defaults; the eyes
 #                    (the eye box, the lid states, and every eye set's cells with each lid state applied); and the
 #                    colours the game works out: each skin tone with its lid colour (and the tones' order), and for
-#                    every palette colour the brow and the stubble it gives as a hair colour
+#                    every palette colour the brow and the stubble it gives as a hair colour; and the mouths (Mouths)
 #
 #   godot --headless --path . --script lowpoly/dump_wardrobe.gd -- --out lowpoly/_work/starter_wardrobe.json \
 #         --tables lowpoly/_work/game_tables.json
@@ -40,7 +40,8 @@ func _init() -> void:
 			tones.append(String(tone))
 		_write(tables, {"format": "lowpoly_game_tables", "poses": poses, "specials": specials,
 			"eyes": _eyes(w), "skin": _skin(), "skin_order": tones, "default_skin": Palette.DEFAULT_SKIN,
-			"hair": _hair(w), "default_brow_hair": Palette.DEFAULT_BROW_HAIR})
+			"hair": _hair(w), "default_brow_hair": Palette.DEFAULT_BROW_HAIR,
+			"mouths": {"order": Mouths.names(), "default": Mouths.DEFAULT, "states": Mouths.STATES}})
 	quit()
 
 

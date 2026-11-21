@@ -52,12 +52,37 @@ class Body extends RefCounted:
 
 
 ## One head as its file has it: every corner follows the head part alone.
+##
+## Facial hair is cut out of the head's own polygons and the face is drawn on its flat patches
+## (LowpolyFacialHair, LowpolyFace). Those work in full precision, as lowpoly/ does, so the head keeps its corners
+## and its rings as doubles too: Godot's vectors are single precision, and a cut made from them lands a little apart
+## from the cut the Python makes.
 class Head extends RefCounted:
 	var shape := ""
 	var points := PackedVector3Array()
-	## {corners: PackedInt32Array, region: String, at: Array}; `at` says where on the head the polygon is:
-	## ["ring", ring band, place round it], ["crown", place], ["base", quarter] or ["ear", side]
+	## the same corners in full precision: x, y, z of each in turn
+	var points64 := PackedFloat64Array()
+	## {corners: PackedInt32Array, region: String, at: Array, at_key: String}; `at` says where on the head the
+	## polygon is: ["ring", ring band, place round it], ["crown", place], ["base", quarter] or ["ear", side];
+	## at_key is the same as one word ("ring|3|0")
 	var polygons: Array = []
+	## the seven rings, top to bottom: each fourteen points from the front centre round the figure's left, x, y, z
+	## of each in turn, in full precision
+	var ring_points: Array[PackedFloat64Array] = []
+	## the rings' heights, top to bottom
+	var ring_z := PackedFloat64Array()
+	var mirror_x := 12.0
+	var depth_centre_y := 12.0
+	## the face: flat between these heights, two patches turned outward by bend_degrees that meet down the middle,
+	## where they are at depth plane_y; the eye boxes reach half_width either side of the middle
+	var face_flat := PackedFloat64Array([29.0, 37.0])
+	var face_half_width := 6.0
+	var plane_y := 5.0
+	var bend_degrees := 15.0
+
+	## How deep the face is at x (across): the depth of its patch there. lowpoly/heads.py face_y.
+	func face_y(x: float) -> float:
+		return plane_y + absf(x - mirror_x) * tan(deg_to_rad(bend_degrees))
 
 
 static func body_path(sex: String, build: String) -> String:
@@ -189,10 +214,35 @@ static func _read_head(data: Dictionary, shape: String) -> Head:
 	var h := Head.new()
 	h.shape = shape
 	h.points = _points(data["vertices"])
+	for v in data["vertices"]:
+		var a: Array = v
+		h.points64.append_array(PackedFloat64Array([float(a[0]), float(a[1]), float(a[2])]))
 	for p in data.get("polygons", []):
 		var poly: Dictionary = p
 		var corners := _corners(poly.get("v", []), h.points.size())
 		if corners.size() < 3:
 			return null
-		h.polygons.append({"corners": corners, "region": String(poly.get("region", "")), "at": poly.get("at", [])})
+		var at: Array = poly.get("at", [])
+		var words: Array[String] = []
+		for k in at.size():
+			words.append(String(at[k]) if k == 0 else str(int(at[k])))
+		h.polygons.append({"corners": corners, "region": String(poly.get("region", "")), "at": at,
+			"at_key": "|".join(words)})
+	for ring in data.get("ring_points", []):
+		var flat := PackedFloat64Array()
+		for v in ring:
+			var a: Array = v
+			flat.append_array(PackedFloat64Array([float(a[0]), float(a[1]), float(a[2])]))
+		h.ring_points.append(flat)
+	for ring in data.get("rings", []):
+		h.ring_z.append(float((ring as Dictionary)["z"]))
+	h.mirror_x = float(data.get("mirror_plane_x", 12.0))
+	h.depth_centre_y = float(data.get("depth_centre_y", 12.0))
+	var face: Dictionary = data.get("face", {})
+	if face.has("flat"):
+		h.face_flat = PackedFloat64Array([float(face["flat"][0]), float(face["flat"][1])])
+	h.face_half_width = float(face.get("half_width", 6.0))
+	var box: Dictionary = data.get("eye_box", {})
+	h.plane_y = float(box.get("plane_y", 5.0))
+	h.bend_degrees = float(box.get("bend_degrees", 15.0))
 	return h

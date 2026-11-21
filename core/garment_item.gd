@@ -387,10 +387,10 @@ static func from_json(p_id: String, data: Dictionary, p_slot: String = CLOTHES) 
 
 	for entry in (data.get("specials", []) as Array):
 		var e: Dictionary = entry
-		item.specials.append({
-			"type": String(e.get("type", "")),
-			"params": JsonIO.normalise_numbers(e.get("params", {})) as Dictionary,
-		})
+		var params := JsonIO.normalise_numbers(e.get("params", {})) as Dictionary
+		if String(e.get("type", "")) == "facial_hair":
+			params = FacialHairGenerator.migrate(params)       # saved before the four parts and the length
+		item.specials.append({"type": String(e.get("type", "")), "params": params})
 
 	# Version 1 files: an item was either parametric or special, never both.
 	if String(data.get("kind", "")) == "special" and data.has("special_type"):

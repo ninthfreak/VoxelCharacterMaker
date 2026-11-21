@@ -5,9 +5,8 @@ extends RefCounted
 ## A low-poly character put together: its corners, the parts each corner follows, and its polygons.
 ##
 ## This is what the game and the editor draw and pose (runtime/lowpoly_rig.gd). It is built once per change of
-## body, head or clothing; posing never rebuilds it. Phase 1 of the editor's move to low-poly puts a bare body and
-## head together in a skin colour. Clothing, faces and the special shapes are added to it in the later phases, by
-## the rules that lowpoly/dress.py and its neighbours hold in Python today.
+## body, head or clothing; posing never rebuilds it. make() puts a bare body and head together in a skin colour;
+## LowpolyAssembler dresses it and draws its face, by the rules lowpoly/dress.py and its neighbours hold in Python.
 ##
 ## Units and axes are the asset files' (LowpolyLibrary): x across, y depth (the figure faces -y), z up.
 
@@ -19,7 +18,8 @@ var points := PackedVector3Array()
 var weights: Array = []
 ## {corners: PackedInt32Array (into points), colour: Color, region: String, part: String, piece: String,
 ##  hidden: bool, by: String (the worn item that made it, "" for bare skin), at: String (on a head: "ring",
-##  "crown", "base" or "ear"; "" elsewhere)}
+##  "crown", "base" or "ear"; "" elsewhere)}; a hem also has hem: true. The face's polygons are piece "face",
+##  with role (white, pupil, line, lid, brow or mouth) and unlit: true for those drawn in their own colour.
 var polygons: Array = []
 ## part -> {"parent": String, "pivot": Vector3}, every part after its parent (LowpolyLibrary.PARTS)
 var parts: Dictionary = {}

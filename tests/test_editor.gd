@@ -195,6 +195,38 @@ static func _face_hair(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(_owners(fh.view.assembled).has("full_beard"),
 		"they stay on when the head changes")
 
+	# The low-poly model: the beard is cut from the head's own polygons, and the eyes are drawn from the eye set.
+	fh._model_pick.select(1)
+	fh._model_pick.item_selected.emit(1)
+	var frig := fh.view.lowpoly_rig
+	var beard_polys := 0
+	var eye_roles := {}
+	for poly in frig.figure.polygons:
+		beard_polys += 1 if String(poly["by"]) == "full_beard" else 0
+		if String(poly["piece"]) == LowpolyAssembler.FACE_PIECE:
+			eye_roles[String(poly["role"])] = true
+	t.check(fh.view.showing_lowpoly and beard_polys > 0 and frig.figure.warnings.is_empty(),
+		"the Face & Hair tab shows the low-poly figure with its beard, and nothing it cannot show",
+		"%d beard polygons; %s" % [beard_polys, ", ".join(frig.figure.warnings)])
+	t.check(eye_roles.has("white") and eye_roles.has("pupil") and eye_roles.has("brow"),
+		"and its eyes, pupils and brows", str(eye_roles.keys()))
+	var beard := ed.wardrobe.item("full_beard")
+	var names: Array = []
+	for e in FacialHairGenerator.param_spec():
+		names.append(String(e["name"]))
+	t.check(names == ["moustache", "sideburns", "goatee", "cheeks", "length"]
+		and beard.special_params(0).has("moustache") and String(beard.special_params(0)["length"]) == "medium",
+		"facial hair is set as four parts and a length; the full beard is all four, medium")
+	beard.set_special_param(0, "moustache", false)
+	fh.rebuild()
+	var without := 0
+	for poly in frig.figure.polygons:
+		without += 1 if String(poly["by"]) == "full_beard" else 0
+	t.check(without < beard_polys, "turning the moustache off takes it off the figure (%d polygons, %d with it)" % [without, beard_polys])
+	beard.set_special_param(0, "moustache", true)
+	fh._model_pick.select(0)
+	fh._model_pick.item_selected.emit(0)
+
 	# Drawing the eye changes the face and is undoable.
 	var eyes := ed.wardrobe.eye_set(fh.eye_set_id)
 	var before := eyes.role_at(EyeSet.EYE_LEFT, 0, 0)
@@ -305,7 +337,7 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	var skin_ok := true
 	for poly in lp.figure.polygons:
 		on[String(poly["by"])] = true
-		if String(poly["by"]).is_empty() and not bool(poly["hidden"]):
+		if String(poly["by"]).is_empty() and not bool(poly["hidden"]) and String(poly["piece"]) != LowpolyAssembler.FACE_PIECE:
 			skin_ok = skin_ok and (poly["colour"] as Color).is_equal_approx(Palette.skin_tones("deep")[1])
 	for id in ["tunic", "trousers", "boots", "ponytail"]:
 		t.check(on.has(id), "low-poly: %s is on the character" % id)
@@ -313,6 +345,27 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	var named := " ".join(lp.figure.warnings)
 	t.check(named.contains("cloak") and named.contains("long_beard"),
 		"low-poly: what it cannot show yet (the cloak's cape, the long beard) is named in the warnings")
+	var face_roles := func() -> Dictionary:
+		var roles := {}
+		for poly in lp.figure.polygons:
+			if String(poly["piece"]) == LowpolyAssembler.FACE_PIECE:
+				roles[String(poly["role"])] = int(roles.get(String(poly["role"]), 0)) + 1
+		return roles
+	var lids_were := pv.lids
+	pv._choose("lids", EyeLids.DEFAULT)
+	pv._choose("mouth", "open")
+	var with_mouth: Dictionary = face_roles.call()
+	pv._choose("mouth", Mouths.OFF)
+	var no_mouth: Dictionary = face_roles.call()
+	t.check(with_mouth.has("mouth") and with_mouth.has("white") and with_mouth.has("brow") and not no_mouth.has("mouth"),
+		"low-poly: the face is drawn, and the Mouth choice reaches it (none drawn for no mouth)",
+		"%s / %s" % [with_mouth, no_mouth])
+	pv._choose("lids", "blink")
+	var closed: Dictionary = face_roles.call()
+	t.check(not closed.has("white") and not closed.has("pupil") and closed.has("lid"),
+		"low-poly: blink closes the eyes", str(closed))
+	pv._choose("lids", lids_were)
+	pv._choose("mouth", Mouths.DEFAULT)
 	pv._shading_pick.select(1)
 	pv._shading_pick.item_selected.emit(1)
 	t.check(not lp.flat_shading, "the shading switch reaches the figure")

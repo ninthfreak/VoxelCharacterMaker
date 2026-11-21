@@ -18,7 +18,7 @@ import hang
 CX, CY = lb.CX, lb.CY
 
 DEFAULTS = {
-    "facial_hair": {"style": "stubble"},
+    "facial_hair": {"moustache": True, "sideburns": True, "goatee": True, "cheeks": True, "length": "stubble"},
     "straps": {"width": 1},
     "skirt": {"length": "to_knee", "flare": 1, "panels": "four", "slant": 0, "opening": "none", "side": "left",
               "waistband": True, "hem_trim": True},

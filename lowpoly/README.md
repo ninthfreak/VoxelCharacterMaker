@@ -2,11 +2,11 @@
 
 The characters are low-poly (owner's decision, `SPEC.md` section 0). This folder holds what exists of them so far:
 the bodies and heads, and the Python that makes, dresses, poses and checks them. The Godot side is moving over in
-five phases (owner's go-ahead, 2026-11; `docs/NOTES.md` 4t, 4u). Phases 1 and 2 are done: the game reads the
-bodies and heads from `assets/lowpoly/`, dresses them in ordinary clothing and hair made of regions
-(`core/lowpoly/`), and draws them bending (`runtime/lowpoly_rig.gd`); the editor's Preview and Clothes tabs show
-them, and in the Clothes tab a click on the figure picks a region. Everything else in the game still runs on the
-earlier voxel system.
+five phases (owner's go-ahead, 2026-11; `docs/NOTES.md` 4t, 4u, 4v). Phases 1 to 3 are done: the game reads the
+bodies and heads from `assets/lowpoly/`, dresses them in ordinary clothing and hair made of regions, grows facial
+hair on them and draws their faces (`core/lowpoly/`), and draws them bending (`runtime/lowpoly_rig.gd`); the
+editor's Preview, Clothes and Face & Hair tabs show them, and in the Clothes tab a click on the figure picks a region.
+Everything else in the game still runs on the earlier voxel system.
 
 Godot ignores this folder (`.gdignore`), so nothing here is imported into the project.
 
@@ -48,14 +48,14 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Joints: one bending skin over the same 11 parts | done: every corner's shares and every pivot are in the body files; posed in Python |
 | Ordinary garments from the wardrobe file (regions, roles, bulk, mirror, layering) | built in Python, on all eight bodies; they bend with the body |
 | Special shapes: straps, skirt, cape | built, with every setting the voxel ones have; all seven starter outfits dress all eight bodies, in every test pose (`renders/special_shapes.png`, `renders/special_shapes_moving.png`, `renders/bodies_builds.png`) |
-| Facial hair: four parts, each on or off, and one length (stubble, short, medium, long) | built, on every head; colours follow the hair and the skin as in the game (`renders/facial_hair.png`). The game's three facial hair items are read as parts and a length. The parts and the length are not in the game's wardrobe file or editor yet |
+| Facial hair: four parts, each on or off, and one length (stubble, short, medium, long) | built, on every head; colours follow the hair and the skin as in the game (`renders/facial_hair.png`). The parts and the length are the game's own settings now (wardrobe file and editor); its three facial hair items were converted to them |
 | Special shapes: hood, drawn (anchored) shapes | not started. The cloak is worn without its hood; the long beard and the ponytail's tail are drawn shapes |
 | Hair | not rebuilt. The wardrobe's short crop goes on by the ordinary region rules, which is enough to show brows and beards following it |
 | Edge style (soft / hard) | not carried over. The boots ask for "hard" and are built soft |
 | Heads | all five (round, boxy, oval, strong, heart) as rounded forms: 114 polygons each, same layout; any head goes on any body (`renders/heads.png`) |
 | Faces: eyes, lids, lashes, eyebrows, skin tones | built: oval eyes from the wardrobe's eye sets and their colourways, the game's ten lid states, lids from the skin tone, a thin lash line, eyebrows from the hair, all six skin tones (`renders/faces.png`) |
-| The mouth | a first pass: a short line, straight or curved, or a small open oval. New here; the voxel faces have none |
-| Building polygons in Godot (assembler, editor, runtime) | phases 1 and 2 of 5 done: bodies and heads bending on a skeleton; ordinary clothing and hair made of regions (`LowpolyAssembler`); the Preview and Clothes tabs ("Model: Low-poly"), flat or smooth shading, picking regions on polygons. Godot's posed corners and dressed polygons are checked against the Python's. Next: faces and facial hair (3), straps, skirts and capes (4), switching over and removing the voxel code (5) |
+| The mouth | a first pass: a short line, straight or curved, or a small open oval (four: neutral, smile, frown, open). New here; the voxel faces have none. The game's table of them is `core/mouths.gd`, next to the lid states; which mouth goes with which lid state is open |
+| Building polygons in Godot (assembler, editor, runtime) | phases 1 to 3 of 5 done: bodies and heads bending on a skeleton; ordinary clothing and hair made of regions (`LowpolyAssembler`); faces and facial hair (`LowpolyFace`, `LowpolyFacialHair`, in full precision); the Preview, Clothes and Face & Hair tabs ("Model: Low-poly"), flat or smooth shading, picking regions on polygons, a mouth picker. Godot's posed corners, dressed polygons and faces are checked against the Python's. Next: straps, skirts and capes (4), switching over and removing the voxel code (5) |
 
 ## How a body is made
 
@@ -185,10 +185,12 @@ are joined back together where their colours match, and the ordinary garment rul
 facial hair follows each head's shape. A moustache that is more than stubble hangs over the mouth, so the mouth is cut
 where the moustache is. Hair colour comes from the worn hair; on a bald head it is dark brown.
 
-The game's three facial hair items (`style`: stubble, chinstrap, full beard) are read as parts and a length
-(`GAME_STYLES`): stubble is every part at stubble; chinstrap is the Amish parts at medium, since a narrow strap is not
-a part; full beard is every part at medium. The four toggles and the length are not in the game's wardrobe file yet:
-`Wardrobe.facial_hair` in `dress.py` makes such an item for the pictures and checks.
+The game's facial hair settings are these four toggles and the length (`core/specials/facial_hair_generator.gd`).
+Its three facial hair items, once a `style` (stubble, chinstrap, full beard), are now parts and a length, and a
+wardrobe file saved with `style` is read the same way (`GAME_STYLES` here, `FacialHairGenerator.FROM_STYLE` there):
+stubble is every part at stubble; chinstrap is the Amish parts at medium, since a narrow strap is not a part; full
+beard is every part at medium. `Wardrobe.facial_hair` in `dress.py` makes an item for any other set of parts, for the
+pictures and checks.
 
 ## How clothing moves
 

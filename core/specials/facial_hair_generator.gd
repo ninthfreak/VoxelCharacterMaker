@@ -29,12 +29,54 @@ const STYLES: Array[String] = ["stubble", "chinstrap", "full_beard"]
 const ROLE_STUBBLE := "stubble"
 const ROLE_HAIR := "hair"
 
+## The settings (owner, 2026-11; lowpoly/facial_hair.py): four parts, each on or off, and one length for all of
+## them. Stubble is a tint flush with the face, short is opaque and still flush, medium and long grow out. The
+## low-poly figure draws exactly that; this voxel generator shows the nearest of its three styles (voxel_style) until
+## the editor's move to low-poly retires it.
+const PARTS: Array[String] = ["moustache", "sideburns", "goatee", "cheeks"]
+const LENGTHS: Array[String] = ["stubble", "short", "medium", "long"]
+## The three voxel styles as parts and a length: how a wardrobe file saved with "style" is read now.
+const FROM_STYLE := {
+	"stubble": [["moustache", "sideburns", "goatee", "cheeks"], "stubble"],
+	"chinstrap": [["sideburns", "goatee", "cheeks"], "medium"],
+	"full_beard": [["moustache", "sideburns", "goatee", "cheeks"], "medium"],
+}
+
 
 static func param_spec() -> Array:
 	return [
-		{"name": "style", "label": "Style", "type": "enum", "default": "stubble",
-			"options": STYLES},
+		{"name": "moustache", "label": "Moustache", "type": "bool", "default": true},
+		{"name": "sideburns", "label": "Sideburns", "type": "bool", "default": true},
+		{"name": "goatee", "label": "Goatee", "type": "bool", "default": true},
+		{"name": "cheeks", "label": "Cheeks (between sideburns and goatee)", "type": "bool", "default": true},
+		{"name": "length", "label": "Length", "type": "enum", "default": "stubble", "options": LENGTHS},
 	]
+
+
+## Settings as parts and a length, from a file saved with the old "style" setting (or as they are).
+static func migrate(params: Dictionary) -> Dictionary:
+	if not params.has("style"):
+		return params
+	var style := String(params["style"])
+	var out := params.duplicate()
+	out.erase("style")
+	if FROM_STYLE.has(style):
+		var parts: Array = FROM_STYLE[style][0]
+		for part in PARTS:
+			out[part] = parts.has(part)
+		out["length"] = FROM_STYLE[style][1]
+	return out
+
+
+## The voxel style nearest to a set of parts and a length.
+static func voxel_style(params: Dictionary) -> String:
+	if String(params.get("length", "stubble")) == "stubble":
+		return "stubble"
+	if bool(params.get("moustache", false)) and bool(params.get("cheeks", false)):
+		return "full_beard"
+	if bool(params.get("sideburns", false)) or bool(params.get("cheeks", false)) or bool(params.get("goatee", false)):
+		return "chinstrap"
+	return "full_beard"
 
 
 ## The rows the layers use, all from the shared layout.
@@ -62,7 +104,7 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 	if head.is_empty():
 		out.warnings.append("no head to grow facial hair on")
 		return out
-	var style := String(params.get("style", "stubble"))
+	var style := voxel_style(params)
 	if not (style in STYLES):
 		out.warnings.append("unknown facial hair style '%s'" % style)
 		return out

@@ -1132,6 +1132,39 @@ keeps working until then. Phase 1 is done.
   at the shoulder).
 - **Tests:** 1717 Godot checks; 228 Python checks.
 
+## 4v. The editor moves to low-poly: phase 3, faces and facial hair
+
+- **The face in GDScript** (`core/lowpoly/lowpoly_face.gd`; difficulty medium; confidence high). The eyes as
+  `lowpoly/faces.py` draws them: a rounded oval filling the cells the eye set's drawing fills, an oval pupil over its
+  pupil cells, the lid state cutting it straight across (on a slope when tilted), a thin lash line along the top of the
+  open eye, a brow bar that moves with the lid, and the mouth. White, pupil and lash line are drawn in their own colour,
+  untouched by the light; the rig's shader reads that from the vertex colour's alpha. Lid colour from the skin tone,
+  brow colour from the hair, as the voxel face has them.
+- **Facial hair in GDScript** (`core/lowpoly/lowpoly_facial_hair.gd`; difficulty medium-high; confidence high). The
+  four parts are cut out of the head's own polygons, along the same planes as `lowpoly/facial_hair.py`, and the pieces
+  claim the head as a worn item claims a region: stubble and short recolour, medium and long lift by half a step and a
+  step, with hems. A moustache longer than stubble hides the part of the mouth under it.
+- **Why full precision.** Godot's vectors are single precision; the Python's are double. A cut made in single
+  precision lands a little apart from the Python's, and a corner that should be shared by two pieces can come out as
+  two corners. So the face and the cutting work in doubles (packed float arrays), and the head files now carry their
+  rings and face in full precision (`assets/lowpoly/head_*.json`, version 4) for the cutting planes.
+- **Checked against the Python, polygon by polygon.** `lowpoly/expected.py` adds six characters across the bodies,
+  heads, lid states, mouths and skin tones, with five kinds of facial hair (none, a full beard grown medium, an Amish
+  beard grown long, a moustache and goatee, stubble, sideburns into the hair). Godot makes the same head and face
+  polygons in the same order, colours and items, every corner within 0.001 units. Broken on purpose (the lash line
+  0.005 thicker, the goatee's floor 0.08 higher), the check fails on all six.
+- **The wardrobe file changed** (as planned with the owner). A facial hair item's settings are now the four parts and a
+  length; the old `style` setting is read as parts and a length when a file is opened, and the three starter items are
+  stored that way. The voxel figure draws the nearest of its three styles: stubble for any stubble, the full beard for
+  a moustache with cheeks, the chinstrap for the rest. In the editor the facial hair item shows four switches and a
+  length.
+- **Mouths** are a small table next to the lid states (`core/mouths.gd`): neutral, smile, frown, open, and none. The
+  Preview tab has a Mouth choice; the voxel faces have no mouth, so it shows on the low-poly model only. How mouths pair
+  with lid states stays open (owner).
+- **In the editor:** the Face & Hair tab has the Model switch too. On the low-poly model the Clothes tab shows the first
+  eye set's face with its eyelids at rest. Building a dressed figure with a full beard takes about 35 ms.
+- **Tests:** 1737 Godot checks; 229 Python checks (among them, the game's mouth table is the one drawn).
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

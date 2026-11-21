@@ -158,8 +158,8 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
     brow      a brow colour, instead of the one the hair gives
     mouth     None for no mouth, or the name of one of faces.MOUTHS
     paint     optional {region key: rgb} to colour bare regions (for the region map)
-    special_shapes  False: leave every special shape out (facial hair too), as the game's low-poly figure does until its
-              phases bring them (lowpoly/expected.py)"""
+    special_shapes  which special shapes to build: True for all, False for none, or a list of kinds ("facial_hair",
+              "straps", ...): what the game's low-poly figure builds so far, a phase at a time (lowpoly/expected.py)"""
     notes = []
     tables = []
 
@@ -194,7 +194,7 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
     for it, item_id, cw in wearing:
         colours = {role: colour_of(name) for role, name in it["colourways"][cw].items() if name.startswith("@") or name in wardrobe.palette}
         cov = resolve(it)
-        for sp in (it.get("specials", []) if special_shapes else []):
+        for sp in [s for s in it.get("specials", []) if special_shapes is True or (special_shapes and s["type"] in special_shapes)]:
             kind = sp["type"]
             if kind == "facial_hair":                                # it claims the head's own polygons: see below
                 parts, length, more = facial_hair.read(sp.get("params", {}))

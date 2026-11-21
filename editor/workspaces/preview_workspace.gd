@@ -12,6 +12,7 @@ var body_id: String = "male_average"
 var head_shape: String = "round"
 var pose: String = Poses.REST
 var lids: String = EyeLids.DEFAULT
+var mouth: String = Mouths.DEFAULT
 var skin_tone: String = Palette.DEFAULT_SKIN
 ## A hair palette colour whose brow to use; "" = follow the hair worn.
 var brow_hair: String = ""
@@ -29,6 +30,7 @@ var _body_pick: OptionButton = null
 var _head_pick: OptionButton = null
 var _pose_pick: OptionButton = null
 var _lid_pick: OptionButton = null
+var _mouth_pick: OptionButton = null
 var _skin_pick: OptionButton = null
 var _brow_pick: OptionButton = null
 var _eye_pick: OptionButton = null
@@ -52,9 +54,9 @@ func _build() -> void:
 	heading(side, "The whole character")
 	note(side, "Put together anything made in the other tabs. Nothing is edited "
 		+ "here.")
-	model_controls(side, "Low-poly so far: bodies, heads, skin tones, hair and clothing made of regions. "
-		+ "Not yet: eyes and facial hair, and the special shapes (straps, skirts, capes, the hood, drawn shapes): "
-		+ "those show on the voxel model only.")
+	model_controls(side, "Low-poly so far: bodies, heads, skin tones, the face (eyes, lids, brows and a mouth), "
+		+ "hair and clothing made of regions, and facial hair. Not yet: the special shapes (straps, skirts, capes, "
+		+ "the hood, drawn shapes such as the long beard): those show on the voxel model only.")
 
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void: _choose("body_id", value))
@@ -67,7 +69,7 @@ func _build() -> void:
 	_skin_pick = picker(side, "Skin tone", Palette.SKIN_TONE_NAMES, [],
 		func(value: String) -> void: _choose("skin_tone", value))
 
-	heading(side, "Eyes")
+	heading(side, "Face")
 	var lid_labels: Array = []
 	for state in EyeLids.names():
 		lid_labels.append(EyeLids.display_name(state))
@@ -75,6 +77,13 @@ func _build() -> void:
 		func(value: String) -> void: _choose("lids", value))
 	note(side, "Eyelids and the brow are drawn over the open eye. The brow leads "
 		+ "the upper lid down; it is the hair colour one shade darker.")
+	var mouth_labels: Array = []
+	for state in Mouths.names():
+		mouth_labels.append(Mouths.display_name(state))
+	_mouth_pick = picker(side, "Mouth", Mouths.names() + [Mouths.OFF], mouth_labels + [Mouths.display_name(Mouths.OFF)],
+		func(value: String) -> void: _choose("mouth", value))
+	note(side, "The mouth is the low-poly face's own: the voxel faces have none. Which mouth goes with which "
+		+ "eyelids is not decided, so the two are chosen apart.")
 	_brow_pick = picker(side, "Brows", [], [], func(value: String) -> void:
 		_choose("brow_hair", value))
 	_eye_pick = picker(side, "Eye set", [], [], func(value: String) -> void:
@@ -134,6 +143,7 @@ func make_request() -> CharacterAssembler.Request:
 	request.eye_set_id = eye_set_id
 	request.eye_colourway = eye_colourway
 	request.lids = lids
+	request.mouth = mouth
 	request.skin_tone = skin_tone
 	if not brow_hair.is_empty() and editor.wardrobe.palette.has(brow_hair):
 		request.brow_colour = Palette.brow_from_hair(editor.wardrobe.colour(brow_hair))
@@ -161,6 +171,7 @@ func refresh() -> void:
 	select_value(_pose_pick, pose)
 	select_value(_skin_pick, skin_tone)
 	select_value(_lid_pick, lids)
+	select_value(_mouth_pick, mouth)
 	var brow_values: Array = [""]
 	var brow_labels: Array = ["follow the hair (dark brown if bald)"]
 	for key in w.palette.keys():
@@ -305,6 +316,7 @@ func _refresh_summary() -> void:
 		"follow the hair" if brow_hair.is_empty() else "like %s hair" % brow_hair.trim_prefix("hair_")])
 	lines.append("Eyes: %s, %s" % [eyes.name if eyes != null else "basic",
 		eye_colourway if not eye_colourway.is_empty() else "-"])
+	lines.append("Mouth: %s (low-poly only)" % Mouths.display_name(mouth))
 	var hair := w.item(hair_id) if not hair_id.is_empty() else null
 	var facial := w.item(facial_id) if not facial_id.is_empty() else null
 	lines.append("Hair: %s" % ("%s (%s)" % [hair.name, hair_colourway] if hair != null

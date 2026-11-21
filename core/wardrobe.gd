@@ -309,21 +309,18 @@ func _add_starter_features() -> void:
 	tail.set_special_param(at, "cells", cells)
 	add_item(tail)
 
-	# Facial hair follows each head's own surface (FacialHairGenerator), and
-	# takes its colours from the character: "@stubble" is always darker than
-	# the skin, "@hair" is the hair worn. The owner chose these three styles.
-	for style in [["stubble", "Stubble", ["stubble"]],
-			["chinstrap", "Chinstrap", ["hair"]],
-			["full_beard", "Full beard", ["stubble", "hair"]]]:
+	# Facial hair follows each head's own surface, and takes its colours from
+	# the character: "@stubble" is always darker than the skin, "@hair" is the
+	# hair worn. Four parts, each on or off, and one length (FacialHairGenerator);
+	# the three starter items are the owner's three original styles, so named.
+	for style in [["stubble", "Stubble"], ["chinstrap", "Chinstrap"], ["full_beard", "Full beard"]]:
 		var fh := GarmentItem.create_feature(String(style[0]), String(style[1]), "facial_hair")
-		fh.roles = []
-		var way := {}
-		for role in style[2]:
-			fh.roles.append(String(role))
-			way[String(role)] = Palette.REF_STUBBLE if role == "stubble" else Palette.REF_HAIR
-		fh.colourways = {"default": way}
+		fh.roles = ["hair", "stubble"]
+		fh.colourways = {"default": {"hair": Palette.REF_HAIR, "stubble": Palette.REF_STUBBLE}}
 		var at_fh := fh.add_special("facial_hair")
-		fh.set_special_param(at_fh, "style", String(style[0]))
+		var settings := FacialHairGenerator.migrate({"style": String(style[0])})
+		for key in settings.keys():
+			fh.set_special_param(at_fh, String(key), settings[key])
 		add_item(fh)
 
 	# A face accessory, not a facial hair style: optional, hung under the chin,

@@ -35,6 +35,11 @@ void fragment() {
 	vec3 up = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
 	float light = 0.34 + 0.52 * clamp(dot(n, key), 0.0, 1.0) + 0.16 * clamp(dot(n, fill), 0.0, 1.0)
 		+ 0.06 * clamp(dot(n, up), 0.0, 1.0);
+	// A vertex colour with no alpha marks a polygon drawn in its own colour, untouched by the light: the eye's
+	// white, pupil and lash line, as the voxel face has them. Nothing here writes ALPHA, so all of it is opaque.
+	if (COLOR.a < 0.5) {
+		light = 1.0;
+	}
 	ALBEDO = clamp(COLOR.rgb * light, vec3(0.0), vec3(1.0));
 }
 """
@@ -271,10 +276,12 @@ func _make_mesh() -> ArrayMesh:
 		var corners: PackedInt32Array = p["corners"]
 		var base := verts.size()
 		var own := VoxelAxes.direction_to_godot(_newell(corners)).normalized()
+		var colour: Color = p["colour"]
+		colour.a = 0.0 if bool(p.get("unlit", false)) else 1.0
 		for k in corners:
 			verts.push_back(VoxelAxes.point_to_godot(figure.points[k]))
 			normals.push_back(own if flat_shading else VoxelAxes.direction_to_godot(sums[k]).normalized())
-			colours.push_back(p["colour"])
+			colours.push_back(colour)
 			_push_weights(bones, weights, figure.weights[k])
 		# A fan from the first corner, each triangle reversed: Godot's front faces are clockwise (see Mesher).
 		for i in range(1, corners.size() - 1):

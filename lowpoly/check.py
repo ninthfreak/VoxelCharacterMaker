@@ -146,8 +146,8 @@ else:
     import expected                                                  # what the Godot side is checked against
     on_disk = json.load(open(expected.OUT)) if os.path.exists(expected.OUT) else {}
     fresh = json.loads(json.dumps(expected.data(tables, ld.Wardrobe(game.wardrobe_path()))))
-    expect(all(on_disk.get(k) == fresh[k] for k in ("cases", "dressed", "tolerance")),
-           f"tests/lowpoly_expected.json ({len(fresh['cases'])} posed figures and {len(fresh['dressed'])} dressed ones, for the Godot tests) "
+    expect(all(on_disk.get(k) == fresh[k] for k in ("cases", "dressed", "faces", "tolerance")),
+           f"tests/lowpoly_expected.json ({len(fresh['cases'])} posed figures, {len(fresh['dressed'])} dressed, {len(fresh['faces'])} faces, for the Godot tests) "
            f"is what a rebuild gives (run: python3 lowpoly/expected.py)")
     known = lambda note: "edge style" in note or "'hood' not built" in note      # not built yet; see the README
     chest = lambda q: q["piece"] == "skin" and q["band"] in ("waist", "belly", "lower_chest", "upper_chest", "collar", "neck")
@@ -307,12 +307,20 @@ else:
            and all(tuple(tables["skin"][t]["lid"]) != tuple(tables["skin"][t]["mid"]) for t in tones)
            and all(set(v["stubble"]) == set(tones) for v in tables["hair"].values()),
            f"the game's {len(tones)} skin tones: each has its own lid colour, and every hair colour gives a stubble for each")
+    plain = lambda v: [plain(x) for x in v] if isinstance(v, (list, tuple)) else v
+    game_mouths = tables.get("mouths", {})
+    expect(game_mouths.get("order") == list(fc.MOUTHS) and game_mouths.get("states") == {k: plain(v) for k, v in fc.MOUTHS.items()}
+           and game_mouths.get("default") in fc.MOUTHS,
+           f"the game's mouth table (core/mouths.gd) is the one drawn here: {', '.join(fc.MOUTHS)}")
     # ---- facial hair: four parts, each on or off, and one length (facial_hair.py)
     print("== facial hair ==")
     import itertools, facial_hair as fh
     theirs = {e["name"]: e for e in tables["specials"]["facial_hair"]}
-    expect(sorted(fh.GAME_STYLES) == sorted(theirs["style"]["options"]) and sp.DEFAULTS["facial_hair"]["style"] == theirs["style"]["default"],
-           f"the game's {len(fh.GAME_STYLES)} facial hair styles each read as parts and a length; its default is the game's")
+    starters = {i: fh.read(w.features[i][1]["specials"][0]["params"])[:2] for i in fh.GAME_STYLES if i in w.features}
+    expect(set(theirs) == set(fh.PARTS) | {"length"} and theirs["length"]["options"] == list(fh.LENGTHS)
+           and starters == {k: (tuple(v[0]), v[1]) for k, v in fh.GAME_STYLES.items()},
+           f"the game's facial hair settings are the four parts and a length ({', '.join(fh.LENGTHS)}); its {len(starters)} starter items "
+           f"are the three original styles as parts and a length")
     heads_on = {n: lb.build("male", head=n) for n in hd.NAMES}
     area3 = lambda p: 0.5 * float(np.linalg.norm(sum(np.cross(p[i], p[(i + 1) % len(p)]) for i in range(len(p)))))
     combos = [c for k in range(1, len(fh.PARTS) + 1) for c in itertools.combinations(fh.PARTS, k)]

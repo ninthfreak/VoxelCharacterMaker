@@ -2,11 +2,11 @@
 class_name LowpolyAssembler
 extends RefCounted
 
-## A low-poly character, dressed: the garment rules of SPEC.md section 7.3, for polygons.
+## A low-poly character, dressed: the garment rules of SPEC.md section 7.3, for polygons, then its face.
 ##
 ## It takes the same request the voxel assembler takes (CharacterAssembler.Request: body, head, skin tone, the
-## wardrobe, the clothes worn and the features), so a tab builds one request and either model can draw it. Body ids
-## are the low-poly ones (LowpolyLibrary), which add a short body for each sex.
+## wardrobe, the clothes worn, the features, the eye set and lid state, and a mouth), so a tab builds one request and
+## either model can draw it. Body ids are the low-poly ones (LowpolyLibrary), which add a short body for each sex.
 ##
 ## The rules, as lowpoly/dress.py has them, which this is checked against (tests/test_lowpoly.gd):
 ##
@@ -21,26 +21,41 @@ extends RefCounted
 ## Ears stay skin: nothing made of regions covers them. Where a lifted polygon meets a neighbour with less bulk, a
 ## hem polygon closes the step between them, in the lifted polygon's colour.
 ##
-## The editor's move to low-poly, phase 2: ordinary clothing and hair made of regions. Special shapes (straps,
-## skirts, capes, facial hair, drawn shapes, the hood) come later; an item that has one is worn without it, and the
-## figure's warnings say so.
+## Facial hair (LowpolyFacialHair) is cut out of the head's own polygons before anything is lifted, and claims them
+## as a worn item claims a region: stubble and short recolour, medium and long lift by half a step and a step. The
+## face (LowpolyFace: eyes, lids, brows, mouth) is drawn last, on the head's flat patches; a moustache longer than
+## stubble hides the mouth under it.
+##
+## The editor's move to low-poly, phase 3: ordinary clothing, hair made of regions, facial hair and the face. The
+## other special shapes (straps, skirts, capes, drawn shapes, the hood) come later; an item that has one is worn
+## without it, and the figure's warnings say so.
 
 const BULK_UNIT := 1.0              ## how far one step of bulk stands off the body, in the files' units (lowpoly/README.md)
+const FACE_PIECE := "face"
 
 
 static func assemble(library: LowpolyLibrary, req: CharacterAssembler.Request) -> LowpolyFigure:
 	var skin: Color = Palette.skin_tones(req.skin_tone)[1]
 	var base := LowpolyFigure.make(library, req.body_id, req.head_shape, skin)
-	if base == null or req.wardrobe == null:
-		return base
-	var layers := _layers(req, base.warnings)
-	if layers.is_empty():
-		return base
-	return _dress(base, layers)
+	if base == null:
+		return null
+	var head := library.head(req.head_shape)
+	var raise := library.body(req.body_id).head_raise
+	var f := base
+	var whiskers: Array = []
+	if req.wardrobe != null:
+		var layers := _layers(req, base.warnings, whiskers)
+		if not whiskers.is_empty():
+			_grow_facial_hair(base, head, raise, whiskers, _wears_hair(req))
+		if not layers.is_empty():
+			f = _dress(base, layers)
+	_draw_face(f, head, raise, req, skin, whiskers)
+	return f
 
 
 ## Every worn item and feature, in the order worn: {cov: region -> {role, bulk}, order, colours: role -> Color, id}.
-static func _layers(req: CharacterAssembler.Request, warnings: Array[String]) -> Array:
+## Facial hair is added to `whiskers` as well: {parts, length, claim: [bulk, draw order, colour, item]}.
+static func _layers(req: CharacterAssembler.Request, warnings: Array[String], whiskers: Array) -> Array:
 	var out: Array = []
 	for entry in req.worn + req.features:
 		var e: Dictionary = entry
@@ -54,20 +69,86 @@ static func _layers(req: CharacterAssembler.Request, warnings: Array[String]) ->
 		var way := String(e.get("colourway", ""))
 		if not it.has_colourway(way):
 			way = it.first_colourway()
-		for type in it.special_types():
-			warnings.append("%s: its %s is not on the low-poly figure yet" % [it.id, type.replace("_", " ")])
 		var colours := {}
 		for role in it.roles:
 			colours[role] = CharacterAssembler.role_tones(req, it.id, way, role)[1]
+		for index in it.specials.size():
+			var type := String((it.specials[index] as Dictionary).get("type", ""))
+			if type != "facial_hair":
+				warnings.append("%s: its %s is not on the low-poly figure yet" % [it.id, type.replace("_", " ")])
+				continue
+			var got := LowpolyFacialHair.read(it.special_params(index))
+			for note in got[2]:
+				warnings.append("%s: %s" % [it.id, note])
+			var length := String(got[1])
+			var colour: Color = colours.get("stubble" if length == "stubble" else "hair", Color.MAGENTA)
+			whiskers.append({"parts": got[0], "length": length,
+				"claim": [float(LowpolyFacialHair.STEPS[length]), it.draw_order, colour, it.id]})
 		out.append({"cov": it.effective_coverage(), "order": it.draw_order, "colours": colours, "id": it.id})
 	return out
+
+
+## Whether hair is worn: a hair feature in a colour of its own (the sideburns then run up into it).
+static func _wears_hair(req: CharacterAssembler.Request) -> bool:
+	for entry in req.features:
+		var e: Dictionary = entry
+		var it := req.wardrobe.item(String(e.get("item", "")))
+		if it == null or it.slot != "hair" or not it.roles.has("hair"):
+			continue
+		if not req.solo_item.is_empty() and it.id != req.solo_item:
+			continue
+		var way := String(e.get("colourway", ""))
+		if not it.has_colourway(way):
+			way = it.first_colourway()
+		var key := it.palette_key_for(way, "hair")
+		if not key.is_empty() and not Palette.is_reference(key):
+			return true
+	return false
+
+
+## Facial hair: the head's polygons cut along each item's parts, in full precision, and the pieces it covers given
+## its claim. The head's corners are then made again from the pieces, welded where they meet (to a ten-thousandth,
+## as the garment rules weld corners).
+static func _grow_facial_hair(f: LowpolyFigure, head: LowpolyLibrary.Head, raise: float, whiskers: Array,
+		hair: bool) -> void:
+	var first_poly := f.polygons.size() - head.polygons.size()
+	var first_point := f.points.size() - head.points.size()
+	var recs: Array = []
+	for i in head.polygons.size():
+		var hp: Dictionary = head.polygons[i]
+		var pts := PackedFloat64Array()
+		for k in hp["corners"]:
+			pts.append_array(PackedFloat64Array([head.points64[3 * k], head.points64[3 * k + 1], head.points64[3 * k + 2] + raise]))
+		recs.append({"pts": pts, "at_key": hp["at_key"], "poly": f.polygons[first_poly + i], "claims": []})
+	for w in whiskers:
+		recs = LowpolyFacialHair.on_head(recs, head, w["parts"], w["claim"], hair, raise)
+	f.points.resize(first_point)
+	f.weights.resize(first_point)
+	f.polygons.resize(first_poly)
+	var index := {}
+	for r in recs:
+		var pts: PackedFloat64Array = r["pts"]
+		var corners := PackedInt32Array()
+		for i in pts.size() / 3:
+			var key := Vector3i(roundi(pts[3 * i] * 1e4), roundi(pts[3 * i + 1] * 1e4), roundi(pts[3 * i + 2] * 1e4))
+			if not index.has(key):
+				index[key] = f.points.size()
+				f.points.push_back(Vector3(pts[3 * i], pts[3 * i + 1], pts[3 * i + 2]))
+				f.weights.append({"head": 1.0})
+			corners.push_back(index[key])
+		var poly: Dictionary = (r["poly"] as Dictionary).duplicate()
+		poly["corners"] = corners
+		if not (r["claims"] as Array).is_empty():
+			poly["claims"] = r["claims"]
+		f.polygons.append(poly)
 
 
 static func _dress(base: LowpolyFigure, layers: Array) -> LowpolyFigure:
 	var polys := base.polygons
 	var points := base.points
 
-	# rule 6: which worn item wins each polygon. Ears stay skin.
+	# rule 6: which worn item wins each polygon, then what claims the head's own polygons (facial hair). Ears stay
+	# skin.
 	var win: Array = []                 ## per polygon: [] or [bulk, draw order, colour, item]
 	for p in polys:
 		var best: Array = []
@@ -77,10 +158,15 @@ static func _dress(base: LowpolyFigure, layers: Array) -> LowpolyFigure:
 				if not cov.has(p["region"]):
 					continue
 				var e: Dictionary = cov[p["region"]]
-				var bulk := int(e["bulk"])
+				var bulk := float(int(e["bulk"]))
 				var order := int(layer["order"])
-				if best.is_empty() or bulk > int(best[0]) or (bulk == int(best[0]) and order > int(best[1])):
+				if best.is_empty() or bulk > float(best[0]) or (bulk == float(best[0]) and order > int(best[1])):
 					best = [bulk, order, (layer["colours"] as Dictionary).get(String(e["role"]), Color.MAGENTA), layer["id"]]
+			for c in p.get("claims", []):
+				var claim: Array = c
+				if best.is_empty() or float(claim[0]) > float(best[0]) \
+						or (float(claim[0]) == float(best[0]) and int(claim[1]) > int(best[1])):
+					best = claim
 		win.append(best)
 
 	# Each corner's normal (the sum of its visible polygons' area-weighted normals), and who is across each edge.
@@ -112,9 +198,9 @@ static func _dress(base: LowpolyFigure, layers: Array) -> LowpolyFigure:
 
 	var corner_of := func(i: int, k: int) -> int:
 		var w: Array = win[i]
-		if w.is_empty() or int(w[0]) == 0:
+		if w.is_empty() or float(w[0]) == 0.0:
 			return k
-		var at := _moved(polys[i], points[k], normals[k], int(w[0]))
+		var at := _moved(polys[i], points[k], normals[k], float(w[0]))
 		var key := "%d|%.4f|%.4f|%.4f" % [k, at.x, at.y, at.z]
 		if not welded.has(key):
 			welded[key] = f.points.size()
@@ -127,14 +213,14 @@ static func _dress(base: LowpolyFigure, layers: Array) -> LowpolyFigure:
 		var w: Array = win[i]
 		var corners: PackedInt32Array = p["corners"]
 		if w.is_empty():
-			f.polygons.append(p.duplicate())
+			f.polygons.append(_poly(p, corners, p["colour"], ""))
 			continue
-		var bulk := int(w[0])
+		var bulk := float(w[0])
 		var lifted := PackedInt32Array()
 		for k in corners:
 			lifted.push_back(corner_of.call(i, k))
 		f.polygons.append(_poly(p, lifted, w[2], w[3]))
-		if bulk == 0:
+		if bulk == 0.0:
 			continue
 		# rule 2: a hem steps down to each neighbour that has less bulk
 		for a in corners.size():
@@ -147,7 +233,7 @@ static func _dress(base: LowpolyFigure, layers: Array) -> LowpolyFigure:
 					break
 			if o < 0 or bool(polys[o]["hidden"]):
 				continue
-			var m := 0 if (win[o] as Array).is_empty() else int(win[o][0])
+			var m := 0.0 if (win[o] as Array).is_empty() else float(win[o][0])
 			if m >= bulk:
 				continue
 			# wound to face out over the step, toward the neighbour: this polygon runs ka to kb, so the hem runs the
@@ -166,6 +252,7 @@ static func _edge(a: int, b: int) -> Vector2i:
 
 static func _poly(like: Dictionary, corners: PackedInt32Array, colour: Color, by: String) -> Dictionary:
 	var out := like.duplicate()
+	out.erase("claims")
 	out["corners"] = corners
 	out["colour"] = colour
 	out["by"] = by
@@ -173,9 +260,9 @@ static func _poly(like: Dictionary, corners: PackedInt32Array, colour: Color, by
 
 
 ## Where a corner goes when its polygon is lifted by that much bulk (rules 2, 3 and 8).
-static func _moved(p: Dictionary, v: Vector3, normal: Vector3, bulk: int) -> Vector3:
+static func _moved(p: Dictionary, v: Vector3, normal: Vector3, bulk: float) -> Vector3:
 	var ln := normal.length()
-	if bulk == 0 or ln < 1e-9:
+	if bulk == 0.0 or ln < 1e-9:
 		return v
 	var n := normal / ln
 	var step := bulk * BULK_UNIT
@@ -190,3 +277,37 @@ static func _moved(p: Dictionary, v: Vector3, normal: Vector3, bulk: int) -> Vec
 		var left := RegionMap.key_side(String(p["region"])) == RegionMap.SIDE_LEFT
 		d.x = maxf(d.x, 0.0) if left else minf(d.x, 0.0)
 	return v + d
+
+
+# ---------------------------------------------------------------------------------------------- the face ---
+
+## The eyes with their lids and brows (when the wardrobe has an eye set: the one asked for, or its first) and the
+## mouth, as their own polygons on the head's flat patches: piece "face", following the head.
+static func _draw_face(f: LowpolyFigure, head: LowpolyLibrary.Head, raise: float, req: CharacterAssembler.Request,
+		skin: Color, whiskers: Array) -> void:
+	var face: Array = []
+	if req.wardrobe != null:
+		var eyes := req.wardrobe.eye_set(req.eye_set_id)
+		if eyes == null and not req.wardrobe.first_eye_set_id().is_empty():
+			eyes = req.wardrobe.eye_set(req.wardrobe.first_eye_set_id())
+		if eyes != null:
+			var way := req.eye_colourway if eyes.colourways.has(req.eye_colourway) else eyes.first_colourway()
+			var colours := {}
+			for role in LowpolyFace.UNLIT_ROLES:
+				colours[role] = req.wardrobe.eye_colour(eyes.id, way, role)
+			face = LowpolyFace.eyes(head, eyes, colours, req.lids, Palette.lid_colour(req.skin_tone),
+				CharacterAssembler.brow_colour(req))
+	if Mouths.has_state(req.mouth):
+		var hides := false
+		for w in whiskers:
+			hides = hides or ((w["parts"] as Array).has("moustache") and String(w["length"]) != "stubble")
+		face.append_array(LowpolyFace.mouth(head, req.mouth, skin, LowpolyFacialHair.cover() if hides else []))
+	for q in face:
+		var pts: PackedFloat64Array = q["pts"]
+		var corners := PackedInt32Array()
+		for i in pts.size() / 3:
+			corners.push_back(f.points.size())
+			f.points.push_back(Vector3(pts[3 * i], pts[3 * i + 1], pts[3 * i + 2] + raise))
+			f.weights.append({"head": 1.0})
+		f.polygons.append({"corners": corners, "colour": q["colour"], "region": "", "part": "head",
+			"piece": FACE_PIECE, "hidden": false, "by": "", "at": "", "unlit": q["unlit"], "role": q["role"]})

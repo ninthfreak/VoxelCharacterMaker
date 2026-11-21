@@ -56,6 +56,9 @@ func _build() -> void:
 	heading(side, "Face and hair")
 	note(side, "Eyes, hair and facial hair work like clothes, but every character "
 		+ "has exactly one of each. Change the head to check a style fits them all.")
+	model_controls(side, "Low-poly so far: the eyes (drawn from the eye set: an oval filling the cells it fills, "
+		+ "a pupil over its pupil cells), the brows, hair made of regions, and facial hair (its four parts and length). "
+		+ "Not yet: face accessories and other drawn shapes, which show on the voxel model only.")
 	_head_pick = cycler(side, "Head", editor.library.head_shapes(), [],
 		func(value: String) -> void:
 			head_shape = value
@@ -144,8 +147,9 @@ func refresh() -> void:
 	hair.validate()
 	facial_hair.validate()
 	face_accessory.validate()
+	refresh_model_controls()
 	select_value(_head_pick, head_shape)
-	select_value(_body_pick, body_id)
+	body_id = refill_bodies(_body_pick, body_id)
 	# The eye panel works on this tab's own state rather than a selection, so
 	# nothing else tells it when that state has moved on.
 	if _eyes_panel != null:
@@ -162,6 +166,13 @@ func status_text(assembled: CharacterAssembler.Assembled) -> String:
 	if face_accessory.item() != null:
 		bits.append("accessory: %s" % face_accessory.item().name)
 	return "   |   ".join(bits)
+
+
+func status_extra() -> String:
+	var eyes := editor.wardrobe.eye_set(eye_set_id)
+	return "   |   eyes: %s, wide open   |   hair: %s   |   facial hair: %s" % [eyes.name if eyes != null else "basic",
+		hair.item().name if hair.item() != null else "none",
+		facial_hair.item().name if facial_hair.item() != null else "none"]
 
 
 func _on_region_picked(region: String) -> void:
