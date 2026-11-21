@@ -1048,6 +1048,33 @@ factors and a squash, not modelled anew.)
 Open, for the owner: the six new bodies' shapes are a first pass, and
 every build has the same head.
 
+## 4s. Slim made slimmer (owner's decision)
+
+The owner agreed with the recommendation after 4r: slim was hard to tell
+from the average once dressed, so it is pushed further.
+
+- **About 0.78 of the average's widths** (was 0.86): chest, waist, hips,
+  arms and legs, with depth, neck, feet and the feminine bust and seat in
+  proportion (`BUILD_FACTORS`). Torso widths, chest / waist / hips:
+  feminine 7.4 / 6.6 / 7.9 (was 8.1 / 7.2 / 8.6; average 9.4 / 8.3 /
+  10.0), masculine 8.6 / 8.1 / 8.4 (was 9.4 / 8.8 / 9.1; average 11.0 /
+  9.8 / 9.9). The arms still hang clear of the torso (0.38 and 0.40 units)
+  and the legs apart. Difficulty low; confidence medium on the look, which
+  is the owner's to judge.
+- **The masculine slim's chest muscle shrinks with its chest** (bust
+  0.78). Left at the average's size it stood out sideways past the slimmer
+  ribcage, and the cut came out with two polygons buried in the body.
+- **A small fix to the cutter, on every body** (difficulty low; confidence
+  high). Where the shoulder is cut off flat for the arm, the ring's side
+  corner was whichever point of the flat came first round the outline,
+  often its front edge. It is now the middle of the flat, so the side seam
+  keeps to the ring's centre depth (`README` says within half a unit; it
+  was up to 1.4 off at the shoulder line, and on the new masculine slim
+  about 2).
+  On the averages this moves two corners, by 0.17 (feminine) and 0.75
+  (masculine) units. `check.py` now holds the seam to half a unit: the
+  furthest on any body is 0.26.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

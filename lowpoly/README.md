@@ -13,6 +13,8 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 - **The other builds work off the average** (owner, 2026-11: they must be compatible enough with the average body
   that every clothing rule still works). Slim, heavy and short are made from each sex's average clay and cut the same
   way, so each is the average body with its corners moved.
+- **Slim is clearly slimmer** (owner): about 0.78 of the average's widths. The first pass's 0.86 was hard to tell
+  from the average once dressed.
 - **Joints: the body is one skin that bends.** Rigid pieces were built, compared and rejected for the body
   (`renders/joints_rigid_or_bend.png`). Clothing may need to be different from the body at the joints; see "How
   clothing moves" below for what is built, and "Not decided yet" for what is the owner's to judge.
@@ -87,7 +89,8 @@ Three places where a region follows the body instead of a level line:
 - **Hips / upper thigh:** the boundary is the leg opening, level 11 at the outside of the hip (a short body: its own
   height there) and dropping to the crotch. A level line would leave the crotch outside "hips", because this pelvis hangs lower between the legs than
   the voxel one, which simply ended at row 11.
-- **Front / back:** split along the side seam (the widest point of each ring), within half a unit of the depth centre.
+- **Front / back:** split along the side seam (the widest point of each ring; where the shoulder is cut off flat, the
+  middle of the flat), within half a unit of the ring's centre depth. `check.py` holds this.
 - **Arm top and foot top:** they stand a little past their bands' heights and are tagged "shoulder" and "foot".
 
 ## How a head is made
@@ -291,8 +294,11 @@ All of these are the owner's to settle. Recommendations are recommendations.
 6. **The masculine clay** is a first pass: shoulder width (about 20% wider than the feminine), the amount of chest
    muscle, the slight belly and arm thickness are the parts most open to change.
    **The slim, heavy and short bodies** are a first pass too (`renders/bodies_builds.png`, and their clays in
-   `renders/bodies_builds_clay.png`): how far apart the builds are (the voxel bodies' builds were hard to tell apart
-   once dressed), and the short bodies' proportions. Calls made while building them, each easy to change:
+   `renders/bodies_builds_clay.png`): their shapes, and the short bodies' proportions. Slim has been made slimmer
+   once already (owner): from 0.86 of the average's widths to about 0.78. Calls made while building them, each easy
+   to change:
+   - **the masculine slim's chest muscle shrinks with its chest** (the others keep the average's): left at the
+     average's size, it stood out sideways past the slimmer ribs;
    - **the short bodies have heights of their own**: the same bands, lower, so `SPEC.md` 3.3's "identical row
      boundaries" holds for the voxel bodies and for the low-poly slim, average and heavy, not for the short ones.
      Garments are made of regions, so they fit; everything that used a height directly now reads it from the body.

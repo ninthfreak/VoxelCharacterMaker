@@ -61,6 +61,7 @@ HIP_SEAT_Z = 11.6                       # one extra ring through the fullest par
 HOLE = dict(side=11.0, oblique=10.6, lift=0.7)   # the leg opening: its height at the side, at the front/back obliques, above the crotch
 LEG_Z = [9, 7, 6, 3, 2, 1.2]            # band boundaries down the leg; the last ring is hidden inside the foot
 ARM_Z = [21, 18, 17, 15, 13, 12]        # band boundaries down the arm, between the shoulder's rings and the hand's
+FLAT = 1e-6                             # where the shoulder is cut off flat, a ring's side corner is the middle of the flat
 
 
 def bands_of(at):
@@ -115,7 +116,7 @@ def build_skin(spec, bands):
     out = []
     at = spec["heights"]
     zs = [at(z) for z, _ in spec["torso"]]
-    halves = [ring_tools.torso_ring(z, TORSO_COLS, yc) for z, (_, yc) in zip(zs, spec["torso"])]
+    halves = [ring_tools.torso_ring(z, TORSO_COLS, yc, flat=FLAT) for z, (_, yc) in zip(zs, spec["torso"])]
     neck_top = bands["neck"][1]
     for i in range(len(halves) - 1):
         u, l = halves[i], halves[i + 1]

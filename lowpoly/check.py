@@ -7,7 +7,8 @@
    (slim, average, heavy, short, for each sex) have the same corners in the same order and the same polygons,
    regions, parts and joint shares: each is the female average with its corners moved. Each has the same bands, each
    on the one below, at the voxel rows' heights or (short) at its own; the head sits on the neck; the crotch stands
-   clear above the ring at the bottom of the upper thigh.
+   clear above the ring at the bottom of the upper thigh; the side seam lies within half a unit of each torso ring's
+   centre depth.
 3. The joints: every corner has shares that add up to one, over known parts; standing still the bending skin is the
    body as built; in a big move nothing flies off.
 4. The heads: closed, on their regions, the right size, the same layout of polygons on all five, and a flat patch
@@ -81,6 +82,13 @@ for sex, build_name in lb.BODIES:
             if heights else "the bands at the voxel rows' heights") + f"; the head sits on the neck ({head_low:.2f})")
     gap = b["info"]["crotch"][1] - bands["upper_thigh"][0]
     expect(gap >= 0.25, f"the crotch is {gap:.2f} above the thigh's ring at the bottom of the upper thigh (at least 0.25)")
+    seam = 0.0                                                       # each torso ring's side corner, against the ring's centre depth
+    spec = lb.BODIES[(sex, build_name)]
+    for z0, yc in spec["torso"][1:]:
+        z = spec["heights"](z0)
+        ring = np.array([v for r in b["polys"] if r["piece"] == "skin" for v in r["pts"] if abs(v[2] - z) < 1e-6 and v[0] > lb.CX])
+        seam = max(seam, abs(ring[np.argmax(ring[:, 0])][1] - (lb.CY + yc)))
+    expect(seam <= 0.5, f"the side seam lies within half a unit of each torso ring's centre depth (furthest: {seam:.2f})")
     bare = [dict(pts=r["pts"], rgb=(0, 0, 0), part=r["part"], piece=r["piece"],
                  shares=[b["shares"][lb.share_key(r["piece"], v)] for v in r["pts"]]) for r in b["polys"]]
     still = ps.posed_bend(b, bare, ps.REST)

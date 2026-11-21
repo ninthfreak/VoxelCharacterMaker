@@ -98,9 +98,11 @@ MASC_AVERAGE = dict(
 # Slim, heavy and short are made from each sex's average clay, so that a change to the average carries over. First
 # pass, for the owner to judge (2026-11). The low-poly bodies are cut from them (body.py).
 #
-#   slim, heavy   the same heights; widths and girths change (factors against the average). Heavy is more mass
-#                 everywhere, not obesity: the belly never comes forward of the chest, and the seat grows little
-#                 (SPEC 3.3: a protruding belly or rear was tried and rejected twice).
+#   slim, heavy   the same heights; widths and girths change (factors against the average). Slim is about 0.78 of the
+#                 average's widths (owner, 2026-11: slimmer than the first pass's 0.86, which once dressed was hard
+#                 to tell from the average). Heavy is more mass everywhere, not obesity: the belly never comes
+#                 forward of the chest, and the seat grows little (SPEC 3.3: a protruding belly or rear was tried
+#                 and rejected twice).
 #   short         for dwarfs: broader than average, then shorter. Every band of height keeps its place in the order,
 #                 but the shins and lower thighs lose the most, the torso less, and the feet and the upper thighs
 #                 nothing. The head is the same head, set on the shorter neck. 42 tall becomes 36.
@@ -108,10 +110,10 @@ MASC_AVERAGE = dict(
 import copy
 
 BUILD_FACTORS = {
-    ("female", "slim"): dict(chest=0.86, waist=0.85, hips=0.86, depth=0.92, arm=0.85, leg=0.85, bust=0.8, neck=0.92, feet=0.95, seat=0.85),
+    ("female", "slim"): dict(chest=0.78, waist=0.77, hips=0.78, depth=0.85, arm=0.78, leg=0.78, bust=0.72, neck=0.86, feet=0.92, seat=0.78),
     ("female", "heavy"): dict(chest=1.18, waist=1.25, hips=1.18, depth=1.2, arm=1.25, leg=1.25, bust=1.25, neck=1.12, feet=1.08, seat=1.1),
     ("female", "short"): dict(chest=1.1, waist=1.15, hips=1.1, depth=1.12, arm=1.2, leg=1.2, bust=1.1, neck=1.12, feet=1.12, seat=1.05),
-    ("male", "slim"): dict(chest=0.85, waist=0.9, hips=0.92, depth=0.85, arm=0.82, leg=0.85, neck=0.9, feet=0.95),
+    ("male", "slim"): dict(chest=0.78, waist=0.82, hips=0.85, depth=0.8, arm=0.76, leg=0.78, bust=0.78, neck=0.84, feet=0.92),
     ("male", "heavy"): dict(chest=1.17, waist=1.3, hips=1.25, depth=1.2, arm=1.3, leg=1.3, neck=1.15, feet=1.08),
     ("male", "short"): dict(chest=1.12, waist=1.2, hips=1.15, depth=1.15, arm=1.25, leg=1.25, neck=1.2, feet=1.12),
 }

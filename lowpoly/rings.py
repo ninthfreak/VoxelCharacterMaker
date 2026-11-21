@@ -85,10 +85,14 @@ def outline(sdf, origin, u=FRONT, v=OUT, n=360, rmax=12.0, step=0.03, half=False
     return origin[None, :] + t[:, None] * dirs
 
 
-def support(pts, deg, u=FRONT, v=OUT):
-    """The outline point that sticks out furthest in the direction deg."""
+def support(pts, deg, u=FRONT, v=OUT, flat=None):
+    """The outline point that sticks out furthest in the direction deg. flat: where several stick out as far as each
+    other, within this much (a face cut flat), the middle one of them; otherwise whichever comes first."""
     a = np.radians(deg); d = np.cos(a) * u + np.sin(a) * v
-    return pts[np.argmax(pts @ d)].copy()
+    s = pts @ d
+    if flat is None: return pts[np.argmax(s)].copy()
+    tied = np.where(s >= s.max() - flat)[0]                      # in order round the outline
+    return pts[tied[len(tied) // 2]].copy()
 
 
 def snap(ring, pts, axes=(0, 1)):
@@ -199,14 +203,16 @@ def sdf_torso_cut(p):
     return np.where(p[:, 2] > CUT_Z, np.maximum(d, np.abs(p[:, 0] - CX) - SHOULDER_CUT), d)
 
 
-def torso_ring(z, cols, yc=0.25):
+def torso_ring(z, cols, yc=0.25, flat=None):
+    """flat: see support. The bodies (body.py) put a ring's side corner in the middle of the flat face where the
+    shoulder is cut off; the first cuts took whichever point came first."""
     o = np.array([CX, CY + yc, z])
     if sdf_skin(o[None, :])[0] >= 0:
         o = inside_centre(sdf_skin, (CX, CY + yc), z, 2.0)
     pts = outline(sdf_torso_cut, o)
     side = pts[pts[:, 0] >= CX - 1e-6]
     half = [pts[0].copy()]                                        # front centre: straight ahead of the axis
-    half += [support(side, a) for a in cols]
+    half += [support(side, a, flat=flat) for a in cols]
     half.append(pts[len(pts) // 2])                               # back centre
     half = snap(half, side, axes=(1,))
     half[0][0] = CX; half[-1][0] = CX
