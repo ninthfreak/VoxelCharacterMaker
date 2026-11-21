@@ -1258,6 +1258,34 @@ low to medium, confidence medium (the order of the corners round a corner where 
   editor would forget the last file opened; renaming the format would need every saved file migrated. Both are easy
   to do if wanted.
 
+## 4z. Review of phases 4 and 5 (owner's request)
+
+An independent read again. The port held: the reviewer made eight more characters in Python (a cape over a skirt, a
+cape drawn under one, two skirts at once, straps with a skirt and a cape, right-side openings, a two-panel front at
+the steepest slant, fractional flare and slant, no waistband, a wide ankle-length cape) and looked at each in eight
+poses, two of them turning every part about all three axes; Godot matched every piece of cloth and every polygon
+exactly. Nothing a wardrobe file holds is lost by the switch-over. Found, and fixed (difficulty low; confidence high):
+
+- **Hanging cloth was drawn from one side only.** The Python draws a cape's inside and a skirt's inside; Godot hid
+  back faces, so from the front a cape vanished and the inside of an open skirt showed the background. Cloth now has
+  its own material that draws both sides, lit as the side seen.
+- **Cloth was laid twice on every rebuild** (once for the pose kept, once more for the pose set straight after). The
+  figure is now built in its pose, and the cloth laid once. Laying cloth takes about 10 to 30 ms per pose change: fine
+  for the editor and for a game that changes pose now and then; animating every frame would want it faster.
+- **A shape setting of the wrong type** (a number for a skirt's length, "false" as text for a switch, an empty value),
+  as a hand-edited file might have, stopped the shape with a script error. Settings are now read as the Python reads
+  them, and a shape that still cannot be built is named in the figure's warnings.
+- **The editor still offered what phase 5 removed:** the face accessory note pointed at a drawing grid that is gone,
+  Add shape offered a drawn shape with nothing to draw it in (no longer offered; the hood is marked "not shown yet"),
+  and the edge style hint described an effect the figure does not have (it now says the setting is kept and not used;
+  the tabs' notes list it).
+- **Cross-check gaps:** the reference cases now include two hanging items at once (a cape over a skirt; two skirts,
+  each over the one before, with straps) and a pose that is not the game's, every part turned about all three axes,
+  for every case with cloth. All pass.
+- **Documents:** the low-poly README, `specials.py`, `check.py`, `body.py`, `runtime/poses.gd`, SPEC and the project
+  description still named deleted files or the Model switch, or said the bodies were rigid.
+- **Tests:** 357 Godot checks.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

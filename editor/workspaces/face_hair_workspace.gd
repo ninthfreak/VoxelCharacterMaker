@@ -97,8 +97,8 @@ func _build() -> void:
 	add_panel(ColourPanel.new(), facial_hair, facial_box)
 
 	var accessory_box := _tab("Face accessory")
-	note(accessory_box, "Optional, one at a time: a long beard and the like. Drawn "
-		+ "by hand, so it can be tweaked in the shape grid.")
+	note(accessory_box, "Optional, one at a time: a long beard and the like. These are "
+		+ "drawn shapes, which the figure does not show yet; their drawings are kept in the file.")
 	add_panel(ItemListPanel.new(), face_accessory, accessory_box)
 	_accessory_garment = GarmentPanel.new()
 	_accessory_garment.families = ["head"]

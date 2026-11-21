@@ -23,14 +23,16 @@ signal rebuilt
 
 const SHADER_CODE := """
 shader_type spatial;
-render_mode unshaded, cull_back;
+render_mode unshaded, CULL_MODE;
 
 // Vertex colours are the palette's own values, lit as the review sheets light them, and shown as they are: the
 // project renders with the Compatibility renderer, which passes them straight through.
 
 // The mesh's normals already say flat or smooth (LowpolyRig._make_mesh); they bend with the skin.
 void fragment() {
-	vec3 n = normalize(NORMAL);
+	// hanging cloth is seen from both sides (the inside of a skirt, a cape from in front): its inside is lit as the
+	// side it is
+	vec3 n = normalize(FRONT_FACING ? NORMAL : -NORMAL);
 	// lowpoly/picture.py: a key light from the upper left, a soft fill from the right, a little from above
 	vec3 key = normalize(vec3(-0.45, 0.55, 0.7));
 	vec3 fill = normalize(vec3(0.6, 0.1, 0.75));
@@ -56,15 +58,23 @@ var laid_cloth: Array = []
 var flat_shading := true: set = set_flat_shading
 
 var _material: ShaderMaterial = null
+## the same, drawn from both sides: for hanging cloth, whose inside shows (lowpoly/picture.py draws it so too)
+var _cloth_material: ShaderMaterial = null
 var _pose: Dictionary = {}
 var _bone: Dictionary = {}          ## part -> bone index
 
 
 func _init() -> void:
+	_material = _make_material("cull_back")
+	_cloth_material = _make_material("cull_disabled")
+
+
+static func _make_material(cull: String) -> ShaderMaterial:
 	var shader := Shader.new()
-	shader.code = SHADER_CODE
-	_material = ShaderMaterial.new()
-	_material.shader = shader
+	shader.code = SHADER_CODE.replace("CULL_MODE", cull)
+	var m := ShaderMaterial.new()
+	m.shader = shader
+	return m
 
 
 ## Flat or smooth: the normals change, so the mesh is made again (it is under a thousand triangles).
@@ -81,8 +91,11 @@ func material() -> ShaderMaterial:
 	return _material
 
 
-## Replace the whole figure. The pose is kept.
-func build(p_figure: LowpolyFigure) -> void:
+## Replace the whole figure, in this pose (part -> degrees), or in the pose it had. Its cloth is laid once, for that
+## pose.
+func build(p_figure: LowpolyFigure, pose: Variant = null) -> void:
+	if pose != null:
+		_pose = (pose as Dictionary).duplicate()
 	figure = p_figure
 	_clear()
 	if figure == null:
@@ -164,7 +177,7 @@ func _show_cloth() -> void:
 	if cloth_instance == null:
 		cloth_instance = MeshInstance3D.new()
 		cloth_instance.name = "Cloth"
-		cloth_instance.material_override = _material
+		cloth_instance.material_override = _cloth_material
 		add_child(cloth_instance)
 	cloth_instance.visible = true
 	var sums := {}

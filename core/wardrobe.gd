@@ -322,7 +322,7 @@ func _add_starter_features() -> void:
 		add_item(fh)
 
 	# A face accessory, not a facial hair style: optional, hung under the chin,
-	# and drawn by hand so it can be tweaked in the shape grid. b is how far
+	# a drawn shape (the low-poly figure does not draw these yet). b is how far
 	# below the chin, c how far forward of the anchor (the column just behind
 	# the face plane); mirrored, so a = 0..4 is ten wide.
 	var long_beard := GarmentItem.create_feature("long_beard", "Long beard", "face_accessory")

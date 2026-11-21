@@ -5,8 +5,9 @@ extends RefCounted
 ## Test poses for checking part splits and pivots (SPEC.md section 8).
 ##
 ## A pose is a Dictionary of part name -> Vector3 of Euler angles in DEGREES,
-## in Godot space, applied to the joint at that part's pivot. No skinning: the
-## parts are rigid and the pivots are the whole animation rig (SPEC section 9).
+## in Godot space, applied to the joint at that part's pivot. The low-poly
+## figure is one skin that bends at its joints (runtime/lowpoly_rig.gd): each
+## corner follows the parts it belongs to, by its shares.
 ##
 ## Reading the axes, in Godot space (+X is the character's RIGHT, +Y up,
 ## -Z the way the figure faces):

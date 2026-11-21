@@ -54,8 +54,8 @@ func _build() -> void:
 	heading(side, "The whole character")
 	note(side, "Put together anything made in the other tabs. Nothing is edited "
 		+ "here.")
-	figure_controls(side, "Skirts and capes hang afresh in every pose. Not shown yet: the hood and drawn shapes "
-		+ "such as the long beard (their settings are kept).")
+	figure_controls(side, "Skirts and capes hang afresh in every pose. Not shown yet: the hood, drawn shapes such "
+		+ "as the long beard, and edge style (their settings are kept).")
 
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void: _choose("body_id", value))
@@ -74,8 +74,8 @@ func _build() -> void:
 		lid_labels.append(EyeLids.display_name(state))
 	_lid_pick = picker(side, "Eyelids", EyeLids.names(), lid_labels,
 		func(value: String) -> void: _choose("lids", value))
-	note(side, "Eyelids and the brow are drawn over the open eye. The brow leads "
-		+ "the upper lid down; it is the hair colour one shade darker.")
+	note(side, "Eyelids are drawn over the open eye, and the brow above it moves "
+		+ "with the lid. The brow is the hair colour one shade darker.")
 	var mouth_labels: Array = []
 	for state in Mouths.names():
 		mouth_labels.append(Mouths.display_name(state))

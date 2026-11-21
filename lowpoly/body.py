@@ -1,7 +1,8 @@
 """The low-poly bodies the clothing system uses: cut so that their polygons follow the clothing regions.
 
 The clothing parameters address the body by REGION: a band of height on a part family, split left/right, and for the
-head and torso also front/back (SPEC 3.4; core/body_layout.gd, core/region_map.gd). So every band boundary here is an
+head and torso also front/back (SPEC 3.4; the game reads this band table from assets/lowpoly/regions.json, written
+below, into core/region_map.gd). So every band boundary here is an
 edge loop, every polygon lies in exactly one region, and each polygon is tagged with its region key and its rigid part.
 
 Heights are the voxel rows: the clay's unit is one voxel, so the band table is the same table.
@@ -27,7 +28,7 @@ import clay, rings as ring_tools
 
 CX, CY = ring_tools.CX, ring_tools.CY
 
-# name: (bottom, top, part family, trim) -- core/body_layout.gd BANDS, rows made into heights
+# name: (bottom, top, part family, trim) -- the region table's bands (SPEC 3.4), rows made into heights
 BANDS = {
     "neck": (25, 26, "head", True), "lower_head": (26, 31, "head", False), "mid_head": (31, 37, "head", False), "crown": (37, 42, "head", False),
     "collar": (24, 25, "chest", True), "upper_chest": (20, 24, "chest", False), "lower_chest": (17, 20, "chest", False), "belly": (15, 17, "chest", False),

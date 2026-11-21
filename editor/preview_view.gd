@@ -116,8 +116,7 @@ func show_lowpoly(figure: LowpolyFigure, flat: bool) -> void:
 	var first := lowpoly_rig.figure == null
 	lowpoly_rig.figure = null           # so that the shading changes without making the old figure's mesh again
 	lowpoly_rig.flat_shading = flat
-	lowpoly_rig.build(figure)
-	lowpoly_rig.apply_pose(pose_name)
+	lowpoly_rig.build(figure, Poses.get_pose(pose_name))       # posed as it is built: the cloth is laid once
 	if first:
 		fit_if_untouched()
 

@@ -4,6 +4,11 @@ extends RefCounted
 
 ## Lids and brows over the open eye (SPEC.md section 5).
 ##
+## The lid states below are what the game shows (the low-poly face, LowpolyFace, draws them: an oval eye cut by the
+## lids, and a brow bar of its own that moves with the upper lid). apply() and the rest of this note are the rule as
+## first made for the voxel face, cell by cell, with one line for brow and lashes; it is kept because lowpoly/check.py
+## holds the low-poly eyes to it (rows covered, where the pupil looks, the tilt).
+##
 ## The eye set draws the eye wide open; a lid state says, per eye, how far the
 ## upper lid has come down and the lower lid up, and where the pupil looks.
 ## From those few numbers:

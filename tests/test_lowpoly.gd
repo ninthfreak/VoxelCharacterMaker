@@ -223,11 +223,18 @@ static func _dressed_against_python(t: TestReport, library: LowpolyLibrary, ward
 		for pose_name in cloths.keys():
 			var want_cloth: Array = cloths[pose_name]
 			var laid: Array = []
-			for pair in LowpolyCloth.lay_all(f, Poses.get_pose(String(pose_name))):
+			var pose := Poses.get_pose(String(pose_name))
+			var custom: Dictionary = case_.get("custom_poses", {})
+			if custom.has(pose_name):                       # not a game pose: listed with the case
+				pose = {}
+				for part in (custom[pose_name] as Dictionary).keys():
+					var deg: Array = custom[pose_name][part]
+					pose[String(part)] = Vector3(float(deg[0]), float(deg[1]), float(deg[2]))
+			for pair in LowpolyCloth.lay_all(f, pose):
 				for made in pair[1]:
 					laid.append([made[0], made[1], (pair[0] as LowpolyCloth)])
 			var cloth_label := "%s, %s, %s: its hanging cloth, %d pieces, as lowpoly/hang.py lays it" % [case_["body"], what,
-				Poses.display_name(String(pose_name)), want_cloth.size()]
+				String(pose_name) if custom.has(pose_name) else Poses.display_name(String(pose_name)), want_cloth.size()]
 			if laid.size() != want_cloth.size():
 				t.check(false, cloth_label, "%d pieces" % laid.size())
 				continue
@@ -334,11 +341,25 @@ static func _cloth_in_the_rig(t: TestReport, library: LowpolyLibrary, wardrobe: 
 			or Vec64.norm(Vec64.sub(Vec64.at(standing[i][0], 2), Vec64.at(rig.laid_cloth[i][0], 2))) > 0.5
 	t.check(moved, "sitting, the skirt is laid again over the lap")
 	rig.apply_pose(Poses.REST)
+	t.check((rig.cloth_instance.material_override as ShaderMaterial).shader.code.contains("cull_disabled")
+		and (rig.mesh_instance.material_override as ShaderMaterial).shader.code.contains("cull_back"),
+		"hanging cloth is drawn from both sides (the inside of a skirt, a cape seen from in front); the skin is not")
 	# a ray at the front of the thigh, under the skirt: the cloth is in front, so nothing is picked
 	var hit := rig.pick(Vector3(0.12, 0.38, -3.0), Vector3(0, 0, 1))
 	t.check(hit == -1, "a click on the skirt picks nothing under it",
 		"picked %s" % (String(f.polygons[hit]["region"]) if hit >= 0 else "nothing"))
 	rig.free()
+	# settings of the wrong type, as a hand-edited file might have them: read as lowpoly/specials.py reads them
+	var odd := Wardrobe.from_json(wardrobe.to_json())
+	var skirt := odd.item("skirt")
+	skirt.specials[0]["params"] = {"length": 3, "waistband": "false", "flare": null, "slant": "2", "panels": "two"}
+	req.wardrobe = odd
+	req.worn = [{"item": "skirt", "colourway": "default"}]
+	var built := LowpolyAssembler.assemble(library, req)
+	t.check(built.cloths.size() == 1 and built.warnings.is_empty(),
+		"a skirt whose settings are of the wrong type still builds (a number for the length, text for a switch)",
+		", ".join(built.warnings))
+	req.wardrobe = wardrobe
 	req.worn = wardrobe.outfit("everyday")
 	var plain := LowpolyRig.new()
 	plain.build(LowpolyAssembler.assemble(library, req))

@@ -8,7 +8,7 @@ extends SceneTree
 ## fits. Needs a real GL context, so not under --headless:
 ##
 ##   xvfb-run -a godot --path . --rendering-driver opengl3 \
-##       --script res://tools/screenshot_editor.gd -- --out docs/renders --tab Bodies
+##       --script res://tools/screenshot_editor.gd -- --out docs/renders --tab Preview
 ##
 ##   --tab NAME        the tab to bring forward (Face & Hair, Clothes, Preview)
 ##   --section NAME    a sub-tab within it (Eyes, Hair, Facial hair; Item, Colours...)

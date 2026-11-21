@@ -157,10 +157,33 @@ static func settings(kind: String, params: Dictionary) -> Dictionary:
 	return out
 
 
+## Settings read as lowpoly/specials.py reads them, so that a hand-edited file of the wrong type still builds: a word
+## from anything (a number that is not one of the options falls back to the default), Python's truth for a flag (any
+## non-empty text is on), and a whole number from a number or a numeric text (anything else: the default).
+static func _text(v: Variant) -> String:
+	return str(v)
+
+
+static func _flag(v: Variant) -> bool:
+	if v is String:
+		return not (v as String).is_empty()
+	if v is bool or v is int or v is float:
+		return bool(v)
+	return v != null
+
+
+static func _whole(v: Variant, fallback: int) -> int:
+	if v is int or v is float or v is bool:
+		return int(v)
+	if v is String and (v as String).is_valid_float():
+		return int(float(v))
+	return fallback
+
+
 ## Regions a shape covers as an ordinary garment would: {region: {role, bulk}}.
 static func coverage(kind: String, params: Dictionary) -> Dictionary:
 	var out := {}
-	if kind == "skirt" and bool(settings(kind, params)["waistband"]):
+	if kind == "skirt" and _flag(settings(kind, params)["waistband"]):
 		for s in ["L", "R"]:
 			for f in ["F", "B"]:
 				out["waist.%s.%s" % [s, f]] = {"role": "cloth", "bulk": 1}     # a one-row band, in the cloth colour
@@ -243,17 +266,17 @@ static func skirt(fit: Fit, params: Dictionary, colours: Dictionary, name: Strin
 		w.append(fit.at(k))
 		sh.append(fit.shares(k))
 	var d := outward(w)
-	var hem_z: float = fit.band(String(SKIRT_LENGTH.get(String(p["length"]), "knee")))[0]
+	var hem_z: float = fit.band(String(SKIRT_LENGTH.get(_text(p["length"]), "knee")))[0]
 	# flare: the hem is that much wider than the hips, all round, widening evenly below them
-	var flare := atan2(float(clampi(int(p["flare"]), 0, 3)), z_hip - hem_z)
-	var four := String(p["panels"]) == "four"
-	var opening := String(p["opening"])
+	var flare := atan2(float(clampi(_whole(p["flare"], 1), 0, 3)), z_hip - hem_z)
+	var four := _text(p["panels"]) == "four"
+	var opening := _text(p["opening"])
 	if not (opening in ["none", "wrap", "front"]):
 		notes.append("%s: unknown opening '%s'" % [name, opening])
 		opening = "none"
-	var left := String(p["side"]) != "right"               # the side the hem rises toward and a wrap opens on
-	var slant := clampf(float(int(p["slant"])), 0.0, minf(MAX_SLANT, maxf(0.0, z_hip - hem_z - MIN_ROWS)))
-	var trim := bool(p["hem_trim"])
+	var left := _text(p["side"]) != "right"               # the side the hem rises toward and a wrap opens on
+	var slant := clampf(float(_whole(p["slant"], 0)), 0.0, minf(MAX_SLANT, maxf(0.0, z_hip - hem_z - MIN_ROWS)))
+	var trim := _flag(p["hem_trim"])
 	var got := fit.points(LowpolyCloth.OVER_SKIRT)
 	var pp: PackedFloat64Array = got[0]
 	var z0: PackedFloat64Array = got[1]
@@ -381,7 +404,7 @@ static func cape(fit: Fit, params: Dictionary, colours: Dictionary, name: String
 	var p := settings("cape", params)
 	var cx := fit.cx
 	var z_top := fit.band("collar")[0]                     # the shoulder line, under the collar
-	var hem_z: float = fit.band(String(CAPE_LENGTH.get(String(p["length"]), "knee")))[0]
+	var hem_z: float = fit.band(String(CAPE_LENGTH.get(_text(p["length"]), "knee")))[0]
 	if hem_z >= z_top:
 		return [null, ["%s: its hem is not below its shoulders" % name]]
 	var ring := fit.ring(z_top)
@@ -395,7 +418,7 @@ static func cape(fit: Fit, params: Dictionary, colours: Dictionary, name: String
 	for i in [2, 3, 4, 5, 6]:                              # shoulder, round the back, shoulder
 		tops.append(fit.at(ring[i]))
 		sh.append(fit.shares(ring[i]))
-	var extra: float = CAPE_WIDTH.get(String(p["width"]), 0.0)
+	var extra: float = CAPE_WIDTH.get(_text(p["width"]), 0.0)
 	for pair in [[0, 1], [4, 3]]:                          # narrower or wider than the shoulders, by a unit
 		var e: int = pair[0]
 		var inner: int = pair[1]
@@ -406,7 +429,7 @@ static func cape(fit: Fit, params: Dictionary, colours: Dictionary, name: String
 			var f := minf(0.9, -extra / maxf(absf(tops[e][0] - tops[inner][0]), 1e-6))
 			tops[e] = Vec64.lerp3(tops[e], tops[inner], f)
 			sh[e] = _mix(sh[e], sh[inner], f)
-	var flare := float(clampi(int(p["flare"]), 0, 3))
+	var flare := float(clampi(_whole(p["flare"], 1), 0, 3))
 	var half := 0.0
 	for t in tops:
 		half = maxf(half, absf(t[0] - cx))
@@ -415,7 +438,7 @@ static func cape(fit: Fit, params: Dictionary, colours: Dictionary, name: String
 	for i in tops.size():
 		var ux: float = (tops[i][0] - cx) / half          # the hem is wider than the shoulders by the flare
 		cols.append(LowpolyCloth.Column.make(tops[i], sh[i], Vec64.v(0.0, 1.0, 0.0), Vec64.v(1.0, 0.0, 0.0), hem_z,
-			bool(p["hem_trim"]), 0.0, [z_top, flare * ux]))
+			_flag(p["hem_trim"]), 0.0, [z_top, flare * ux]))
 		order.append(i)
 	var cloth := LowpolyCloth.make(name, cols, [[order, false]], colours, "chest", LowpolyCloth.OVER_CAPE,
 		Vec64.v(0.0, 1.0, 0.0))
@@ -486,7 +509,7 @@ static func straps(fit: Fit, params: Dictionary, colours: Dictionary, name: Stri
 	var p := settings("straps", params)
 	var cx := fit.cx
 	var cy := 12.0
-	var width := float(clampi(int(p["width"]), 1, 2))
+	var width := float(clampi(_whole(p["width"], 1), 1, 2))
 	var half := 0.5 * width
 	var z0 := fit.band("belly")[0]
 	var z1 := fit.band("collar")[0]

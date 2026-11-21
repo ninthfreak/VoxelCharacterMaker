@@ -1,8 +1,8 @@
 """Special shapes as polygons: straps, skirt, cape. (Facial hair is in facial_hair.py. Hood, hair and drawn shapes
 are still to come.)
 
-Each takes the settings its voxel generator takes (core/specials/*.gd), with the same names, options and defaults;
-check.py holds DEFAULTS below equal to the game's own table. The game builds them the same way
+Each takes the game's own settings for it (core/specials/special_item.gd), with the same names, options and defaults;
+check.py holds DEFAULTS below equal to the game's table. The game builds them the same way
 (core/lowpoly/lowpoly_shapes.gd), checked against this corner by corner. Each is measured from the dressed figure, so it fits any
 body and stands clear of whatever is worn under it.
 

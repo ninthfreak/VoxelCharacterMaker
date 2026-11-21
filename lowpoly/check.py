@@ -1,7 +1,7 @@
 """Checks for the low-poly bodies:  python3 lowpoly/check.py   (needs numpy)
 
-1. The band table in body.py is the project's own (the "regions" block every voxel body file carries, which a Godot
-   test already holds equal to core/body_layout.gd): same bands, rows, part families and trim flags.
+1. The band table in body.py is the one the game reads (assets/lowpoly/regions.json): same bands, rows, part families
+   and trim flags.
 2. Every body rebuilds cleanly: no twisted polygons, no open or doubled edges, nothing standing off the clay, all 64
    regions present, every polygon inside its own band's heights apart from the documented exceptions. All eight
    (slim, average, heavy, short, for each sex) have the same corners in the same order and the same polygons,

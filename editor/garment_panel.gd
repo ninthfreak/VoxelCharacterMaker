@@ -64,7 +64,8 @@ func _build() -> void:
 		it.edge_style = GarmentItem.edge_style_from_name(option_value(_edge))
 		commit("Set edge style on %s" % it.name)
 		refresh())
-	hint(head, "Soft rounds the corners, for cloth. Hard squares them, for plate.")
+	hint(head, "Soft is for cloth, hard for plate. Kept in the file; the figure does "
+		+ "not use it yet.")
 
 	_build_regions()
 	_build_specials()
@@ -105,8 +106,9 @@ func _build_regions() -> void:
 
 func _build_specials() -> void:
 	var box := section("Special shapes")
-	hint(box, "Shapes anchored to the body at a named point, with a form of their "
-		+ "own: skirts, capes, hoods, and anything drawn by hand.")
+	hint(box, "Shapes with a form of their own: skirts, capes, straps, facial hair, "
+		+ "hoods. The hood is kept in the file but not shown yet; drawn shapes (the long "
+		+ "beard, the ponytail's tail) are kept, and cannot be added or drawn for now.")
 	_specials = make_list(box, 90)
 	_specials.item_selected.connect(func(index: int) -> void:
 		if is_guarded():
@@ -117,10 +119,15 @@ func _build_specials() -> void:
 	var add_row := HFlowContainer.new()
 	box.add_child(add_row)
 	_add_type = OptionButton.new()
+	var addable: Array = []
 	var labels: Array = []
 	for type in SpecialItem.types():
-		labels.append(SpecialItem.display_name(type))
-	fill_options(_add_type, SpecialItem.types(), "skirt", labels)
+		if type == "shape":
+			continue                     # nothing to draw it in until the figure draws them
+		addable.append(type)
+		labels.append(SpecialItem.display_name(type)
+			+ ("" if SpecialItem.is_built(type) else " (not shown yet)"))
+	fill_options(_add_type, addable, "skirt", labels)
 	add_row.add_child(_add_type)
 	var add := Button.new()
 	add.text = "Add shape"

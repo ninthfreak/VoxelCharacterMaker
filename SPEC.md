@@ -63,7 +63,7 @@ cut so that their polygons follow the region map of section 3.4, with the shares
 ordinary garments from the wardrobe file go onto them and bend with them. The five heads of section 4 are rebuilt as rounded low-poly
 forms that keep what section 4 says every head shares (size, eye box, ears). The faces of section 5 are rebuilt on
 them: eye sets and their colourways, the ten lid states, lids, brows and the six skin tones. Three of section 7.4's
-special shapes are rebuilt (straps, skirt, cape), so all seven starter outfits dress both bodies, and facial hair is
+special shapes are rebuilt (straps, skirt, cape), so all seven starter outfits dress all eight bodies, and facial hair is
 rebuilt for the new face (four parts and one length); the hood, drawn shapes (the long beard among them) and hair are
 not. All of that is made in Python first (`lowpoly/`), and the game builds it the same way in Godot (`core/lowpoly/`,
 `runtime/lowpoly_rig.gd`), checked against the Python corner by corner. The move happened in five phases (owner's
@@ -525,8 +525,8 @@ docs/        sheet_*.png                             (review renders)
 reference/   earlier editor prototypes (HTML, PySide) and a CLI exporter
 ```
 
-- `tools/build_bodies.py` is the current source of truth for bodies, heads and faces (Python 3 + numpy). Run it from
-  inside `assets/` (`cd assets && python3 ../tools/build_bodies.py`); it rewrites every asset there.
+- `tools/build_bodies.py` was the source of truth for the voxel bodies, heads and faces (Python 3 + numpy), run from
+  inside `assets/`. Removed with them; `lowpoly/` makes the assets now.
 - Body files: per part, parent, pivot, voxel list `[x, y, z]`; head voxels are empty (supplied by the head library);
   the region table is included. The `.vox` files are previews with the round head and baked shading.
 - Head files: head voxels, neck socket, pivot, eye box. Face files: eye box spec, per-eye cells, absolute voxels.

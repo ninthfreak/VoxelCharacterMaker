@@ -185,9 +185,9 @@ are joined back together where their colours match, and the ordinary garment rul
 facial hair follows each head's shape. A moustache that is more than stubble hangs over the mouth, so the mouth is cut
 where the moustache is. Hair colour comes from the worn hair; on a bald head it is dark brown.
 
-The game's facial hair settings are these four toggles and the length (`core/specials/facial_hair_generator.gd`).
+The game's facial hair settings are these four toggles and the length (`core/specials/facial_hair_settings.gd`).
 Its three facial hair items, once a `style` (stubble, chinstrap, full beard), are now parts and a length, and a
-wardrobe file saved with `style` is read the same way (`GAME_STYLES` here, `FacialHairGenerator.FROM_STYLE` there):
+wardrobe file saved with `style` is read the same way (`GAME_STYLES` here, `FacialHairSettings.FROM_STYLE` there):
 stubble is every part at stubble; chinstrap is the Amish parts at medium, since a narrow strap is not a part; full
 beard is every part at medium. `Wardrobe.facial_hair` in `dress.py` makes an item for any other set of parts, for the
 pictures and checks.
@@ -297,7 +297,7 @@ All of these are the owner's to settle. Recommendations are recommendations.
    polygons for the whole character.
 3. **Flat or smooth shading.** It changes the look more than the polygon count does. The voxel system's baked
    light/mid/dark does not carry over as it is, and the owner dislikes baked shading on 3D objects. Both can now be
-   seen in the editor itself: Preview tab, Model "Low-poly", then Shading.
+   seen in the editor itself: every tab has a Shading choice.
 4. **How far one step of bulk stands off the body.** One old voxel (4.2 cm) now; it reads puffy on sleeves. One number
    in `dress.py` (`BULK_UNIT`).
 5. **Edge style.** Soft and hard edges were about which corner voxels to drop; they need a new meaning (see 1) or to

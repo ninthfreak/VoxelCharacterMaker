@@ -16,8 +16,10 @@ the masculine short, the overalls on the masculine heavy, bald; and test items f
 use (two panels, every opening on either side, slant, flare, knee length, no waistband or hem trim, narrow and wide
 capes, wide straps) on the other builds. Corners to a thousandth. Each case lists every polygon dress.py makes, in its
 order: its corners, its colour, and the worn item that made it ("" for bare skin); then, for each test pose it is
-looked at in, its hanging cloth as hang.py lays it: corners, colour, role (cloth or hem) and item. A test item is
-listed in full with its case, so that Godot can make the same item.
+looked at in, its hanging cloth as hang.py lays it: corners, colour, role (cloth or hem) and item. Two cases wear two
+hanging items (a cape over a skirt, two skirts at once), and every case with cloth is also looked at in a pose that is
+not the game's, every part turned about all three axes (TWIST, listed with the case). A test item is listed in full
+with its case, so that Godot can make the same item.
 
 Faces (phase 3: eyes, lids, brows, mouths, facial hair): six characters across the bodies, heads, lid states, mouths,
 skin tones and hair, with five kinds of facial hair (none, a full beard, an Amish beard grown long, a moustache and
@@ -74,9 +76,18 @@ DRESSED = [("female_average", "round", outfit, [("short_crop", "black")])
            ("male_heavy", "boxy", "overalls", []),
            ("female_heavy", "oval", [("test_skirt_two", "default"), ("test_straps_wide", "default")], []),
            ("male_slim", "heart", [("test_wrap_two", "default"), ("test_cape_wide", "default")], [("short_crop", "black")]),
-           ("female_short", "round", [("test_front_two", "default"), ("test_cape_narrow", "default")], [])]
+           ("female_short", "round", [("test_front_two", "default"), ("test_cape_narrow", "default")], []),
+           # two hanging items: a cape over a skirt; two skirts at once (each over the one before), with straps
+           ("female_slim", "oval", [("boots", "default"), ("bodice", "default"), ("skirt", "default"), ("cloak", "default")],
+            [("short_crop", "auburn")]),
+           ("male_average", "boxy", [("shirt", "default"), ("skirt", "default"), ("wrap_skirt", "default"), ("suspenders", "default")], [])]
 CLOTH_POSES_ALL = ("female_average",)        # every test pose; the others: standing, sitting and mid stride
 CLOTH_POSES = ("rest", "sitting", "mid_stride")
+# Not a game pose: every part turned about all three axes, the pelvis too, so that cloth is laid over a figure turned
+# every way (Godot degrees about X, Y, Z, as the game writes poses). Every case with cloth is looked at in it.
+TWIST = {"pelvis": [4, 18, -5], "chest": [-12, 20, 6], "head": [5, -15, 4], "upper_arm_L": [25, 30, -35],
+         "forearm_L": [40, 0, 0], "upper_arm_R": [-20, -25, 30], "forearm_R": [30, 10, 0], "thigh_L": [35, 12, 10],
+         "shin_L": [-45, 0, 0], "thigh_R": [-20, -10, -8], "shin_R": [-25, 6, 0]}
 
 
 def test_items(wardrobe):
@@ -130,6 +141,7 @@ def figure_from_files(body_id, head_name):
 def dressed(tables, wardrobe):
     import pose as ps
     poses = {name: v["parts"] for name, v in tables["poses"].items()}
+    poses["twist"] = TWIST
     extra = test_items(wardrobe)
     wardrobe.items.update(extra)
     rgb = lambda c: "#%02x%02x%02x" % tuple(int(x) for x in c)
@@ -141,7 +153,8 @@ def dressed(tables, wardrobe):
         polys = [{"points": [[round(float(x), 3) for x in v] for v in q["pts"]], "colour": rgb(q["rgb"]), "by": q["by"] or ""}
                  for q in look.polys]
         cloths = {}
-        for pose_name in (sorted(poses) if body_id in CLOTH_POSES_ALL else CLOTH_POSES):
+        game_poses = sorted(p for p in poses if p != "twist")
+        for pose_name in (game_poses if body_id in CLOTH_POSES_ALL else list(CLOTH_POSES)) + ["twist"]:
             if not look.cloths:
                 break
             _, laid = ps.laid(body, look, ps.from_game(poses[pose_name]))
@@ -150,7 +163,8 @@ def dressed(tables, wardrobe):
         out.append({"body": body_id, "head": head_name, "outfit": outfit if isinstance(outfit, str) else "",
                     "worn": [[i, cw] for i, cw in worn], "items": {i: extra[i] for i, _ in worn if i in extra},
                     "hair": features[0][0] if features else "", "hair_colourway": features[0][1] if features else "",
-                    "notes": look.notes, "polygons": polys, "cloths": cloths})
+                    "notes": look.notes, "polygons": polys, "cloths": cloths,
+                    "custom_poses": {"twist": TWIST} if cloths else {}})
     return out
 
 

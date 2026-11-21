@@ -346,11 +346,14 @@ static func _add_shapes(f: LowpolyFigure, body: LowpolyLibrary.Body, surface: Di
 		var kind := String(shape[4])
 		var params: Dictionary = shape[5]
 		var colours: Dictionary = shape[6]
-		var made: Array
+		var made: Array = []
 		match kind:
 			"straps": made = LowpolyShapes.straps(fit, params, colours, item_id)
 			"skirt": made = LowpolyShapes.skirt(fit, params, colours, item_id)
 			"cape": made = LowpolyShapes.cape(fit, params, colours, item_id)
+		if made.size() < 2:
+			f.warnings.append("%s: its %s could not be built" % [item_id, kind])
+			continue
 		for note in made[1]:
 			f.warnings.append(String(note))
 		if not bool(shape[0]):

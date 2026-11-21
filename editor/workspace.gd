@@ -93,7 +93,7 @@ func lowpoly_status_text(figure: LowpolyFigure) -> String:
 	var cloth := view.lowpoly_rig.laid_cloth.size() if view.lowpoly_rig.figure == figure else 0
 	return "%s - %s head   |   %d polygons, %d triangles%s   |   %s shading%s" % [
 		body.display_name() if body != null else figure.body_id, figure.head_shape, figure.visible_polygons(),
-		figure.triangles(), " (and %d of hanging cloth)" % cloth if cloth > 0 else "", shading, status_extra()]
+		figure.triangles(), ", and %d pieces of hanging cloth" % cloth if cloth > 0 else "", shading, status_extra()]
 
 
 ## Override: what a tab adds to its status line ("   |   ...").
