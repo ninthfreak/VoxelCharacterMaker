@@ -4,12 +4,10 @@ extends RefCounted
 
 ## Minimal test reporting, so the suite needs no addon and runs headless.
 ##
-## Every acceptance check in SPEC.md section 12 becomes a test here
-## (CLAUDE.md, Conventions). Expected numbers come from tests/expected.json,
-## which tools/verify_assets.py measures from the shipped assets, so nothing in
-## this suite asserts a figure that was transcribed by hand.
-
-const EXPECTED_PATH := "res://tests/expected.json"
+## Every acceptance check becomes a test here (CLAUDE.md, Conventions). Numbers
+## the low-poly checks compare against come from tests/lowpoly_expected.json,
+## which lowpoly/expected.py works out, so nothing in this suite asserts a
+## figure that was transcribed by hand.
 
 var passed := 0
 var failed := 0
@@ -55,45 +53,3 @@ func summary() -> String:
 
 func ok() -> bool:
 	return failed == 0
-
-
-## The measured facts about the shipped assets.
-static func expected() -> Dictionary:
-	var data := JsonIO.read_dict(EXPECTED_PATH)
-	if data.is_empty():
-		push_error("%s is missing. Run: python3 tools/verify_assets.py" % EXPECTED_PATH)
-	return data
-
-
-# ------------------------------------------------------------- voxel helpers --
-#
-# These delegate to VoxelTopology in core/. The body editor validates a body
-# live while you draw it, using the same code these tests judge the shipped
-# assets with -- otherwise the editor could call a body valid that the suite
-# rejects. The wrappers stay so the tests read the way they always did.
-
-static func components(cells: Dictionary) -> int:
-	return VoxelTopology.components(cells)
-
-
-static func edge_only_contacts(cells: Dictionary) -> Array:
-	return VoxelTopology.edge_only_contacts(cells)
-
-
-static func mirror_of(cells: Dictionary) -> Dictionary:
-	return VoxelTopology.mirrored(cells)
-
-
-static func same_cells(a: Dictionary, b: Dictionary) -> bool:
-	return VoxelTopology.same_cells(a, b)
-
-
-static func face_adjacent(a: Dictionary, b: Dictionary) -> bool:
-	return VoxelTopology.touches(a, b)
-
-
-static func as_set(cells: Variant) -> Dictionary:
-	var out := {}
-	for cell in cells:
-		out[cell] = true
-	return out

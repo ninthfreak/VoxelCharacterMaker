@@ -17,12 +17,15 @@ extends RefCounted
 ## edge, r from its bottom row, and the screen-right eye is mirrored. Only
 ## painted cells are stored -- an absent cell is skin.
 
-## The eye box, shared by every head (SPEC 5), from BodyLayout: 5 wide x 6
-## tall, screen-left eye starting at BOX_X0, bottom row BOX_Z0, on the face plane.
-const BOX_W := BodyLayout.EYE_W
-const BOX_H := BodyLayout.EYE_H
-const BOX_X0 := BodyLayout.EYE_X0
-const BOX_Z0 := BodyLayout.EYE_Z0
+## The eye box, shared by every head (SPEC 5): 5 cells wide and 6 tall. The screen-left eye's box starts BOX_X0
+## across from the figure's side edge (x = 0, in the asset files' units), so its middle is 3.5 from the face's
+## middle; the low-poly face places it there (LowpolyFace).
+const BOX_W := 5
+const BOX_H := 6
+const BOX_X0 := 6
+
+## The game's standard open eye: [c, r, role] for each painted cell, the same for both eyes.
+const STANDARD_CELLS := [[0, 1, "white"], [0, 2, "white"], [0, 3, "white"], [0, 4, "white"], [1, 0, "white"], [1, 1, "white"], [1, 2, "white"], [1, 3, "white"], [1, 4, "white"], [1, 5, "white"], [2, 0, "white"], [2, 1, "white"], [2, 2, "pupil"], [2, 3, "pupil"], [2, 4, "white"], [2, 5, "white"], [3, 0, "white"], [3, 1, "white"], [3, 2, "white"], [3, 3, "white"], [3, 4, "white"], [3, 5, "white"], [4, 1, "white"], [4, 2, "white"], [4, 3, "white"], [4, 4, "white"]]
 
 const ROLE_WHITE := "white"
 const ROLE_PUPIL := "pupil"
@@ -60,23 +63,15 @@ static func default_colours() -> Dictionary:
 	return {ROLE_WHITE: "eye_white", ROLE_PUPIL: "eye_dark", ROLE_LINE: "lid"}
 
 
-## The shipped open eye (assets/face42_open.json) as an eye set.
-static func from_library(library: AssetLibrary, p_id: String = "standard",
-		p_name: String = "Standard") -> EyeSet:
+## The game's standard open eye as an eye set.
+static func standard(p_id: String = "standard", p_name: String = "Standard") -> EyeSet:
 	var eyes := EyeSet.create(p_id, p_name)
-	var face := library.open_face()
-	if face != null:
-		eyes.cells = {EYE_LEFT: _painted(face.screen_left), EYE_RIGHT: _painted(face.screen_right)}
+	for eye in [EYE_LEFT, EYE_RIGHT]:
+		var drawing := {}
+		for cell in STANDARD_CELLS:
+			drawing[Vector2i(int(cell[0]), int(cell[1]))] = String(cell[2])
+		eyes.cells[eye] = drawing
 	return eyes
-
-
-static func _painted(source: Dictionary) -> Dictionary:
-	var out := {}
-	for cell in source.keys():
-		var role := String(source[cell])
-		if role != ROLE_SKIN:
-			out[cell] = role
-	return out
 
 
 # ---------------------------------------------------------------- drawing --
@@ -111,33 +106,6 @@ func set_cell(eye: String, c: int, r: int, role: String, both_eyes: bool = false
 
 func is_symmetric() -> bool:
 	return eye_cells(EYE_LEFT) == eye_cells(EYE_RIGHT)
-
-
-## Box cell -> absolute voxel, for one eye.
-static func cell_to_voxel(c: int, r: int, eye: String) -> Vector3i:
-	var x := (VoxelAxes.MIRROR_X_MAX - BOX_X0) - c if eye == EYE_RIGHT else BOX_X0 + c
-	return Vector3i(x, VoxelAxes.FACE_PLANE_Y, BOX_Z0 + r)
-
-
-## The drawing as absolute voxels: Vector3i -> role.
-func to_absolute() -> Dictionary:
-	var out := {}
-	for eye in [EYE_LEFT, EYE_RIGHT]:
-		var eye_map := eye_cells(eye)
-		for cell in eye_map.keys():
-			var c: Vector2i = cell
-			out[cell_to_voxel(c.x, c.y, eye)] = eye_map[cell]
-	return out
-
-
-## Painted cells that do not land on a head's face plane: an eye drawn there
-## would simply not appear on that head (SPEC 12: "no eye cell falls off").
-func missing_on_head(head: HeadDef) -> Array[Vector3i]:
-	var out: Array[Vector3i] = []
-	for cell in to_absolute().keys():
-		if not head.cells.has(cell):
-			out.append(cell)
-	return out
 
 
 # -------------------------------------------------------------- colours ----

@@ -1,10 +1,11 @@
 # Character System — Spec
 
-**The characters are low-poly (owner's decision, 2026-11). Read section 0 first.** Sections 1 to 13 describe the
-earlier voxel system and stay as the reference for everything that carries over.
+**The characters are low-poly (owner's decision, 2026-11). Read section 0 first: it is the system as built.**
+Sections 1 to 13 are the original design, made for voxel figures. What they decided about parts, regions, faces, the
+wardrobe and the editor carried over; what they say about voxel geometry describes a system that was removed in phase
+5 of the move (2026-11). Where they and section 0 disagree, section 0 wins.
 
-Status: figure definition settled; software not started. This document is the hand-off from the design session to the
-build session. Where it says *recommended* it is a recommendation, not a decision; everything else was decided.
+Where this document says *recommended* it is a recommendation, not a decision; everything else was decided.
 
 Owner preferences that apply to every decision: the owner assesses risk and tradeoffs personally, wants accurate
 feasibility reads and visible uncertainty, and prefers to be asked when a choice is genuinely theirs. The owner is
@@ -57,25 +58,27 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
   from the face. A named style is a set of parts: a full beard has all four, an Amish beard all but the moustache
   (`lowpoly/renders/facial_hair.png`).
 
-**Where this stands:** `lowpoly/README.md`. In short: the feminine and masculine average bodies exist, cut so that
-their polygons follow the region map of section 3.4, with the shares and pivots that make them bend; ordinary garments
-from the wardrobe file go onto them and bend with them. The five heads of section 4 are rebuilt as rounded low-poly
+**Where this stands:** `lowpoly/README.md`. In short: eight bodies (slim, average, heavy and short, for each sex) are
+cut so that their polygons follow the region map of section 3.4, with the shares and pivots that make them bend;
+ordinary garments from the wardrobe file go onto them and bend with them. The five heads of section 4 are rebuilt as rounded low-poly
 forms that keep what section 4 says every head shares (size, eye box, ears). The faces of section 5 are rebuilt on
 them: eye sets and their colourways, the ten lid states, lids, brows and the six skin tones. Three of section 7.4's
 special shapes are rebuilt (straps, skirt, cape), so all seven starter outfits dress both bodies, and facial hair is
 rebuilt for the new face (four parts and one length); the hood, drawn shapes (the long beard among them) and hair are
-not. All of that is built in Python first; the Godot side is moving over in five phases (owner's go-ahead,
-2026-11): 1, bare bodies and heads in the game, bending, shown in the editor (done); 2, ordinary clothing (done); 3, faces
-and facial hair (done); 4, straps, skirts and capes (done); 5, the editor switched over and the voxel code removed. Until then
-the voxel system keeps working beside it. Since phase 3 the facial hair settings in the wardrobe file are the low-poly
-ones (four parts and a length); the voxel figure shows the nearest of its three old styles.
+not. All of that is made in Python first (`lowpoly/`), and the game builds it the same way in Godot (`core/lowpoly/`,
+`runtime/lowpoly_rig.gd`), checked against the Python corner by corner. The move happened in five phases (owner's
+go-ahead, 2026-11), all done: 1, bare bodies and heads in the game, bending; 2, ordinary clothing; 3, faces and facial
+hair; 4, straps, skirts and capes; 5, the editor switched over and the voxel code removed (the last commit with it is
+`fa40fa0`). The editor has three tabs (Face & Hair, Clothes, Preview); bodies and heads are made in Python, not edited
+in the game. Not on the low-poly figure yet, though the wardrobe file keeps their settings: the hood, drawn shapes (the
+long beard, the ponytail's tail) and edge style.
 
-**How to read the rest of this document.** Sections 1 to 13 describe the voxel system as designed and built. They
-stay the reference for everything the low-poly version keeps and has not yet rebuilt: the part hierarchy and pivots
-(3.1, 3.2), the region map (3.4), faces (5), the wardrobe file, items, bulk rules and special items (7), and
-accessibility (8). What they say about voxel geometry (grids, baked shading, the mesher, the body and head files, the
-body editor) is superseded as the low-poly version replaces it. Each section is to be rewritten when its replacement
-is built. Until then, where this section and a later one disagree, this section wins.
+**How to read the rest of this document.** Sections 1 to 13 are the original design, for voxel figures. They stay
+the record of what was decided and still holds: the part hierarchy (3.1), the region map (3.4), faces (5), the
+wardrobe file, items, bulk rules and special items (7), and accessibility (8). What they say about voxel geometry
+(grids, cell counts, baked shading, the mesher, the voxel body, head and face files, the body editor, .vox and STL
+export, cloth panels) describes the system removed in phase 5; each such passage is marked. Where this section and a
+later one disagree, this section wins.
 
 **Carried over, and already shown to work on the low-poly bodies:** the band table and its heights (the clay's unit
 is the old voxel, so rows are heights), the 32 regions a side, the 11 parts and their hierarchy, and the wardrobe file
@@ -209,9 +212,9 @@ pelvis (root)
 ```
 
 - Rows: pelvis z11–14, chest z15–24, head z25–41 (neck at z25, head proper z26–41), upper arm z17–23,
-  forearm+hand z9–16, thigh z6–10, shin+foot z0–5. Every row comes from one band table (§3.4): in
-  `tools/build_bodies.py` (`BANDS`) and, for the Godot side, `core/body_layout.gd`, checked against each other by a
-  test.
+  forearm+hand z9–16, thigh z6–10, shin+foot z0–5. Every row comes from one band table (§3.4): `lowpoly/body.py`
+  (`BANDS`), written for the game to `assets/lowpoly/regions.json` (`lowpoly/check.py` holds the two equal). On the
+  low-poly bodies the rows are heights, in the same unit.
 - **Owner decision (layout B, 2026-11):** the head grew from 14 to 16 rows (and 2 wider and deeper) to give faces and
   expressions more room. The figure stays 42 tall; the two rows came from one belly row and one upper-thigh row, and
   the forearm lost a row so the arms keep their reach relative to the legs.
@@ -223,6 +226,9 @@ pelvis (root)
 - Hands are a 1-voxel-narrower "hint" with rounded fingertip corners; fused to the forearm. Feet fused to the shin.
 
 ### 3.2 Pivots
+
+*Voxel figures (removed in phase 5). The low-poly bodies' pivots are in their files (`assets/lowpoly/`), made by
+`lowpoly/body.py`.*
 
 Each part rotates about its joint with its parent. Measured from the built geometry (so every body is correct):
 
@@ -246,6 +252,8 @@ Upper-arm pivot (x, 12, 24) and thigh pivot (x, 12, 11), left side; right side m
 rotation; forward/back swing is unaffected.
 
 ### 3.3 The six bodies
+
+*Voxel figures (removed in phase 5); the eight low-poly bodies replace them (section 0).*
 
 All six share **identical row boundaries** (so one region map serves all) and the same head socket. (The low-poly
 short bodies keep the same bands at lower heights: section 0.) Widths (chest / waist / hips) and depths:
@@ -283,11 +291,13 @@ also split **front/back** at the depth centre. They never use absolute x, so the
 | shin | shin 3–5, ankle 2 *(trim)*, foot 0–1 |
 
 32 regions per side (the owner settled 32: the head and torso split front/back, including the neck and waist trims).
-The band table also lives in every body file under `"regions"`.
+The game reads the band table from `assets/lowpoly/regions.json`.
 
 ---
 
 ## 4. Heads
+
+*Voxel heads (removed in phase 5); the five low-poly heads keep the five shapes and what every head shares (section 0).*
 
 Five unisex shapes: **round, boxy, oval, strong, heart** (14–16 wide, 14 deep, 16 tall + 4×4 neck). Every head shares:
 the neck socket (4×4 at z25, x10–13, y10–13), pivot (12, 12, 25), height z26–41, depth (so one face plane), ear rows,
@@ -303,7 +313,8 @@ rounded crown; boxy stays boxy.
 ## 5. Faces: eyes, lids and brows
 
 Eyes with a lid-and-brow system; **no mouths**. (Owner, 2026-11: the original "no brows" became one brow line that
-the lids drive; see below.)
+the lids drive; see below.) *The low-poly face (section 0) keeps the eye sets, colourways, lid states, lid and brow
+colours and skin tones, draws the eye as an oval with a lash line and a brow of its own, and adds a mouth.*
 
 - A face is a **skin-tight overlay** (bulk 0) on the face plane **y = 5**: it recolours head voxels, never adds volume.
 - **The eyes are the same size on every head, always** (owner). Every head must give both eye boxes *and the brow
@@ -331,8 +342,8 @@ the lids drive; see below.)
 - **Roles:** white, pupil (= eye colour; a colourway), line (paintable, optional), lid and brow (from the lid state).
 - **No drawn expressions** (owner, 2026-11: retired completely). An eye set is the open eye, drawn **once per eye in box
   cells** (c from the eye's outer edge, r from its bottom row) in the Face & Hair tab, plus its colourways; every look
-  is a lid state over it. Older wardrobe files load their "neutral" drawing as the eye. The shipped face is one file,
-  `face42_open.json`. No ^ ^ (happy arcs) for now (owner).
+  is a lid state over it. Older wardrobe files load their "neutral" drawing as the eye. The game's standard eye is
+  `EyeSet.STANDARD_CELLS` (`core/eye_set.gd`). No ^ ^ (happy arcs) for now (owner).
 - Draw order: the face draws **under** hair and hats.
 
 ### 5.1 Facial hair (owner, 2026-11)
@@ -340,7 +351,7 @@ the lids drive; see below.)
 *For the low-poly figures, section 0 replaces this: facial hair is four parts (moustache, sideburns, goatee, cheeks),
 each on or off, and one length (stubble, short, medium, long). Those are the generator's settings in the wardrobe file
 now (`moustache`, `sideburns`, `goatee`, `cheeks`, `length`; a file saved with the old `style` is read as parts and a
-length). The voxel generator below draws the nearest of its three styles for them (`FacialHairGenerator.voxel_style`).*
+length; `FacialHairSettings`). The voxel generator described below was removed in phase 5.*
 
 At this resolution facial hair is coverage and depth, not detail. Kept: **stubble**, **chinstrap**, **full beard**;
 rejected: goatee, moustache, moustache + goatee, a volumetric full beard, flat sideburns.
@@ -359,6 +370,9 @@ rejected: goatee, moustache, moustache + goatee, a volumetric full beard, flat s
   anchor (under the chin, hanging down), so it can be tweaked in the shape grid. Its colour is `@hair`.
 
 ## 6. Shading and colour
+
+*The baked tones and the thin-cloth rule are voxel shading (removed in phase 5). The low-poly figure is lit flat or
+smooth, which is still the owner's call (section 0); the skin tones, garment tones and the colour-blind rule hold.*
 
 - **Baked tones** (Voxel Doom style), lit from the viewer's upper-left-front. Per voxel, from its six neighbours:
   **light** if the top is exposed, or both left (−x, viewer's left) and front (−y) are exposed; else **mid** if the
@@ -443,8 +457,10 @@ that make it asymmetric, both aimed at one **side** (the character's own left or
   *front* opens it down the middle (two columns at the hips, four at the hem) as two flaps, each following its own leg
   forward and hanging when that leg goes back. A narrow slit was tried and dropped: at this size it reads as a stripe.
 
-**Built so far:** skirt (above), cape, hood, shoulder straps, facial hair (§5.1), and a hand-drawn shape placed at a
-body anchor. **Straps** run up the chest, across the top beside the neck and straight down the back, one voxel proud, in a
+**Built so far (voxel):** skirt (above), cape, hood, shoulder straps, facial hair (§5.1), and a hand-drawn shape placed
+at a body anchor. *On the low-poly figure: skirt, cape, straps and facial hair; skirts and capes are hanging cloth
+laid afresh for every pose, not cloth panels (section 0). The hood and drawn shapes keep their settings in the file
+and are not built yet.* **Straps** run up the chest, across the top beside the neck and straight down the back, one voxel proud, in a
 column halfway between the neck and the chest's edge, so they fit every body. Worn over a shirt they are suspenders.
 **Overalls are an outfit, not a garment** (owner): trousers, a bib of zones, and suspenders, all in one colour —
 the same idea as the dress.
@@ -457,8 +473,8 @@ would stop them fitting other bodies). Decals (buttons, emblems) are deferred; t
 ## 8. Editor (in Godot)
 
 Built **inside the game's Godot project** — an editor plugin or a tool scene — sharing the runtime's
-**CharacterAssembler** module. The assembler (body + head + face + worn items → per-part voxels and meshes, with
-bulk generation and shading) must exist **exactly once**; the editor and the game both call it. This is the main
+assembler, now **LowpolyAssembler** (`core/lowpoly/`). The assembler (body + head + face + worn items → a dressed
+figure) must exist **exactly once**; the editor and the game both call it. This is the main
 reason for building the editor in-engine: two implementations of bulk generation would drift.
 
 Features (roughly in priority order):
@@ -468,17 +484,22 @@ Features (roughly in priority order):
 - **Garment editing:** pick regions on the figure or from a list; set role + bulk per region; mirror flag; edge style.
 - **Special items:** choose a type, edit its parameters with live preview.
 - **Face editor:** a grid of the eye box; edit one eye, the other mirrors. (Expressions were retired: lids make them.)
-- **Body editing (later):** parts as layers, one owner per cell, mandatory mirror pairs, row-band guides, pivot
+- **Body editing:** *built for the voxel bodies and removed with them in phase 5; the low-poly bodies are made in
+  Python (`lowpoly/`).* The voxel design was: parts as layers, one owner per cell, mandatory mirror pairs, row-band guides, pivot
   markers, and a **pose preview** (arms raised, mid-stride, sitting) — the real test of part splits and pivots.
 - **Files:** native dialogs, Open / Save / Save As, Ctrl+S to the current file, unsaved-changes prompt, reopen last
   file. (The owner strongly dislikes browser-style file handling; this was the reason an HTML editor was rejected.)
 - **Export:** .vox (MagicaVoxel), STL for 3D printing (with the edge-contact fix so it is manifold), OBJ if useful.
+  *(Voxel; not built. The low-poly bodies and heads have OBJ copies in `lowpoly/bodies/` and `lowpoly/heads/`.)*
 - **Undo/redo** for every edit.
 
 **Accessibility:** never encode meaning in red vs green alone; use labels, shapes or a colour-blind-safe palette
 (e.g. Okabe-Ito). Prefer clear labels and short hints over dense text; readable type sizes.
 
 ## 9. Runtime
+
+*The game now draws one skinned mesh that bends at its joints, plus its hanging cloth laid for each pose
+(`runtime/lowpoly_rig.gd`; section 0). The voxel runtime below was removed in phase 5.*
 
 - Each part is a mesh under a Node3D at its pivot, parented per §3.1; animation rotates the pivots (AnimationPlayer).
   No skinning.
@@ -489,6 +510,9 @@ Features (roughly in priority order):
 - Collision: a simple capsule/box (~0.6 × 1.75 m), independent of pose; arms and hair may poke through walls.
 
 ## 10. Assets in this package
+
+*As first delivered (voxel). Now: `assets/lowpoly/` holds the eight bodies, the five heads and the region table, made
+by `lowpoly/` (see `assets/README.md`); the voxel files and `tools/build_bodies.py` were removed in phase 5.*
 
 ```
 CLAUDE.md, SPEC.md
@@ -511,6 +535,8 @@ reference/   earlier editor prototypes (HTML, PySide) and a CLI exporter
 
 ## 11. Suggested build order
 
+*The original order, for the voxel system; done, then superseded by the move to low-poly (section 0).*
+
 1. Godot project, coordinate mapping test, load body/head/face JSON, mesher, preview with orbit camera.
 2. Rigid-part hierarchy and pose preview (a few test poses).
 3. Wardrobe data model + one-file save/load + parametric garment generation (bulk rules) + layering.
@@ -521,6 +547,10 @@ reference/   earlier editor prototypes (HTML, PySide) and a CLI exporter
 8. Body editor.
 
 ## 12. Acceptance checks (automate where possible)
+
+*The voxel acceptance checks, retired with the voxel system in phase 5. The checks now are `tests/` (Godot: the
+coordinate lock, the wardrobe, the model, the low-poly figure against the Python, the editor) and `lowpoly/check.py`.
+The two that still apply as written: the coordinate test from §2, and the wardrobe round-trip.*
 
 - Coordinate test from §2 passes.
 - Loading each body reproduces its voxel counts (masc. slim 4754, average 5310, heavy 6630; fem. slim 4480,

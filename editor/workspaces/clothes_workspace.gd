@@ -6,7 +6,7 @@ extends Workspace
 ## roles, colourways -- and any special shapes anchored to the body.
 ##
 ## Cycling through the body types is the point of this tab: a garment is only
-## right when it is right on all six. The preview shows the item being edited on
+## right when it is right on all eight. The preview shows the item being edited on
 ## its own, or everything marked worn. A hair style can be put on, because a
 ## hat or a hood has to be checked against hair, even though hair itself is
 ## edited in the Face & Hair tab.
@@ -45,9 +45,8 @@ func _build() -> void:
 	clothes.changed.connect(rebuild)
 
 	heading(side, "Clothes")
-	model_controls(side, "Low-poly so far: clothing and hair made of regions; click the figure to pick a region. "
-		+ "Straps, skirts and capes are built; skirts and capes hang afresh in every pose. Not yet: the hood and drawn "
-		+ "shapes, which show on the voxel model only. The face is the first eye set's, with its eyelids at rest.")
+	figure_controls(side, "Click the figure to pick a region. Skirts and capes hang afresh in every pose. Not shown "
+		+ "yet: the hood and drawn shapes (their settings are kept). The face is the first eye set's, eyelids at rest.")
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void:
 			body_id = value
@@ -105,8 +104,8 @@ func show_section(name: String) -> void:
 			_tabs.current_tab = i
 
 
-func make_request() -> CharacterAssembler.Request:
-	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape)
+func make_request() -> CharacterRequest:
+	var request := CharacterRequest.make(body_id, head_shape)
 	request.wardrobe = editor.wardrobe
 	request.worn = clothes.as_worn() if show_mode == SHOW_ITEM else _live_worn()
 	var hair := editor.wardrobe.item(hair_id) if not hair_id.is_empty() else null
@@ -120,7 +119,7 @@ func refresh() -> void:
 		return
 	clothes.validate()
 	worn = _live_worn()
-	refresh_model_controls()
+	refresh_figure_controls()
 	body_id = refill_bodies(_body_pick, body_id)
 	select_value(_head_pick, head_shape)
 	select_value(_pose_pick, pose)

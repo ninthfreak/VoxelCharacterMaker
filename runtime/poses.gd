@@ -29,10 +29,6 @@ const SITTING := "sitting"
 const T_POSE := "t_pose"
 const REACHING := "reaching"
 
-## How much of a thigh's swing a cloth panel picks up (SPEC 7.4). Panels are
-## rule-driven, not simulated; whether that stays so is an open question.
-const PANEL_FOLLOW := 0.8
-
 
 static func names() -> Array[String]:
 	return [REST, ARMS_RAISED, T_POSE, MID_STRIDE, SITTING, REACHING]
@@ -99,32 +95,6 @@ static func get_pose(pose: String) -> Dictionary:
 				"head": Vector3(0, -10, 0),
 			}
 	return {}
-
-
-## Rotation for a cloth panel, from the driver rule and the pose it hangs in.
-##
-## The front panel follows the more forward thigh, the back panel the more
-## backward one, and a side panel its own thigh (SPEC 7.4). The two flaps of an
-## open front each follow their own thigh forward, and hang when it goes back.
-static func panel_rotation(driver: String, pose: Dictionary) -> Vector3:
-	var left: Vector3 = pose.get("thigh_L", Vector3.ZERO)
-	var right: Vector3 = pose.get("thigh_R", Vector3.ZERO)
-	match driver:
-		SpecialItem.DRIVER_FORWARD_THIGH:
-			return Vector3(maxf(left.x, right.x) * PANEL_FOLLOW, 0, 0)
-		SpecialItem.DRIVER_BACKWARD_THIGH:
-			return Vector3(minf(left.x, right.x) * PANEL_FOLLOW, 0, 0)
-		SpecialItem.DRIVER_THIGH_L:
-			return Vector3(0, 0, left.z * PANEL_FOLLOW)
-		SpecialItem.DRIVER_THIGH_R:
-			return Vector3(0, 0, right.z * PANEL_FOLLOW)
-		SpecialItem.DRIVER_FLAP_L:
-			return Vector3(maxf(0.0, left.x) * PANEL_FOLLOW, 0, 0)
-		SpecialItem.DRIVER_FLAP_R:
-			return Vector3(maxf(0.0, right.x) * PANEL_FOLLOW, 0, 0)
-		SpecialItem.DRIVER_TRAIL:
-			return Vector3(minf(0.0, minf(left.x, right.x)) * PANEL_FOLLOW, 0, 0)
-	return Vector3.ZERO
 
 
 ## Blend between two poses, for a quick look at an in-between frame.

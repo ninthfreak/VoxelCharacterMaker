@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Acceptance checks for SPEC.md section 12.
+# The checks: Godot (tests/run_tests.gd) and the low-poly Python (lowpoly/check.py).
 #
 # Usage:  tests/run.sh [path-to-godot]
 # Set GODOT, or pass the binary as the first argument, if `godot` is not on PATH.
@@ -13,12 +13,6 @@ if ! command -v "$GODOT_BIN" >/dev/null 2>&1 && [ ! -x "$GODOT_BIN" ]; then
   echo "Godot not found: $GODOT_BIN" >&2
   echo "Install Godot 4.7+, or: tests/run.sh /path/to/godot" >&2
   exit 127
-fi
-
-# Expected asset numbers are measured from the assets, not transcribed.
-if command -v python3 >/dev/null 2>&1; then
-  echo "== measuring assets =="
-  python3 tools/verify_assets.py
 fi
 
 # Global class names (class_name) live in .godot/global_script_class_cache.cfg,
@@ -56,7 +50,7 @@ else
 fi
 
 echo
-echo "== acceptance checks =="
+echo "== Godot checks =="
 # A script error does not fail a check: it stops the suite it happens in, and
 # every check after it silently does not run -- the tally can still say "0
 # failed". So a script error anywhere in the output fails the run.

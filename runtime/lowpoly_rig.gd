@@ -6,10 +6,10 @@ extends Node3D
 ##
 ## A Skeleton3D has a bone for each of the eleven parts, at the part's pivot, each under its parent. The figure is one
 ## skinned mesh: every corner follows the parts its weights name, in those shares (plain blended skinning, which is
-## what the body files were made for). Posing turns the bones; nothing is rebuilt. A pose is the same dictionary the
-## voxel rig takes (runtime/poses.gd): part name -> Euler angles in degrees, in Godot space.
+## what the body files were made for). Posing turns the bones; nothing is rebuilt. A pose is the game's
+## (runtime/poses.gd): part name -> Euler angles in degrees, in Godot space.
 ##
-## The rig's origin is at the figure's feet on the ground, as CharacterRig's is.
+## The rig's origin is at the figure's feet on the ground.
 ##
 ## Hanging cloth (skirts, capes: LowpolyCloth) is not part of the skin. It is laid afresh over the posed figure every
 ## time the pose changes, in full precision, and drawn as a second mesh that the skeleton does not move.
@@ -26,8 +26,7 @@ shader_type spatial;
 render_mode unshaded, cull_back;
 
 // Vertex colours are the palette's own values, lit as the review sheets light them, and shown as they are: the
-// project renders with the Compatibility renderer, which (like the voxel material, Mesher.make_material) passes
-// them straight through.
+// project renders with the Compatibility renderer, which passes them straight through.
 
 // The mesh's normals already say flat or smooth (LowpolyRig._make_mesh); they bend with the skin.
 void fragment() {
@@ -39,7 +38,7 @@ void fragment() {
 	float light = 0.34 + 0.52 * clamp(dot(n, key), 0.0, 1.0) + 0.16 * clamp(dot(n, fill), 0.0, 1.0)
 		+ 0.06 * clamp(dot(n, up), 0.0, 1.0);
 	// A vertex colour with no alpha marks a polygon drawn in its own colour, untouched by the light: the eye's
-	// white, pupil and lash line, as the voxel face has them. Nothing here writes ALPHA, so all of it is opaque.
+	// white, pupil and lash line, as the eye set colours them. Nothing here writes ALPHA, so all of it is opaque.
 	if (COLOR.a < 0.5) {
 		light = 1.0;
 	}
@@ -190,8 +189,8 @@ func _show_cloth() -> void:
 		for i in count:
 			var key := Vector3i(roundi(pts[3 * i] * 1e4), roundi(pts[3 * i + 1] * 1e4), roundi(pts[3 * i + 2] * 1e4))
 			var n: PackedFloat64Array = own[j] if flat_shading else sums[key]
-			verts.push_back(VoxelAxes.point_to_godot(Vec64.to_vector3(Vec64.at(pts, i))))
-			normals.push_back(VoxelAxes.direction_to_godot(Vec64.to_vector3(n)).normalized())
+			verts.push_back(FigureAxes.point_to_godot(Vec64.to_vector3(Vec64.at(pts, i))))
+			normals.push_back(FigureAxes.direction_to_godot(Vec64.to_vector3(n)).normalized())
 			colours.push_back(laid_cloth[j][1])
 		for i in range(1, count - 1):                       # Godot's front faces are clockwise: each fan triangle reversed
 			indices.append_array(PackedInt32Array([base, base + i + 1, base + i]))
@@ -231,12 +230,12 @@ func posed_points(pose: Dictionary = _pose) -> PackedVector3Array:
 		return out
 	var m := skinning(pose)
 	for k in figure.points.size():
-		var rest := VoxelAxes.point_to_godot(figure.points[k])
+		var rest := FigureAxes.point_to_godot(figure.points[k])
 		var at := Vector3.ZERO
 		var w: Dictionary = figure.weights[k]
 		for part in w.keys():
 			at += float(w[part]) * ((m[part] as Transform3D) * rest)
-		out.push_back(VoxelAxes.godot_to_point(at))
+		out.push_back(FigureAxes.godot_to_point(at))
 	return out
 
 
@@ -248,7 +247,7 @@ func pick(origin: Vector3, direction: Vector3) -> int:
 	var posed := posed_points()
 	var at := PackedVector3Array()
 	for v in posed:
-		at.push_back(VoxelAxes.point_to_godot(v))
+		at.push_back(FigureAxes.point_to_godot(v))
 	var best := INF
 	var hit := -1
 	for i in figure.polygons.size():
@@ -265,7 +264,7 @@ func pick(origin: Vector3, direction: Vector3) -> int:
 		var pts: PackedFloat64Array = piece[0]
 		var c := PackedVector3Array()
 		for k in pts.size() / 3:
-			c.push_back(VoxelAxes.point_to_godot(Vec64.to_vector3(Vec64.at(pts, k))))
+			c.push_back(FigureAxes.point_to_godot(Vec64.to_vector3(Vec64.at(pts, k))))
 		for j in range(1, c.size() - 1):
 			var t := _ray_triangle(origin, direction, c[0], c[j], c[j + 1])
 			if t > 0.0 and t < best:
@@ -298,8 +297,8 @@ func figure_aabb(part: String = "") -> AABB:
 	if figure == null:
 		return AABB()
 	var b := figure.bounds(part)
-	var a := VoxelAxes.point_to_godot(b.position)
-	var c := VoxelAxes.point_to_godot(b.end)
+	var a := FigureAxes.point_to_godot(b.position)
+	var c := FigureAxes.point_to_godot(b.end)
 	return AABB(a, c - a).abs()
 
 
@@ -314,17 +313,17 @@ func _pivot(part: String) -> Vector3:
 
 
 ## A bone's rest, relative to its parent's: no turn, just the step from the parent's pivot to its own. A root's
-## pivot is a point and takes the whole mapping; a child's is an offset and takes only its linear part (see the
-## note in CharacterRig.build).
+## pivot is a point and takes the whole mapping; a child's is an offset and takes only its linear part
+## (FigureAxes.direction_to_godot).
 func _rest_local(part: String) -> Transform3D:
 	var parent := _parent(part)
 	if parent.is_empty():
-		return Transform3D(Basis(), VoxelAxes.pivot_to_godot(_pivot(part)))
-	return Transform3D(Basis(), VoxelAxes.direction_to_godot(_pivot(part) - _pivot(parent)))
+		return Transform3D(Basis(), FigureAxes.pivot_to_godot(_pivot(part)))
+	return Transform3D(Basis(), FigureAxes.direction_to_godot(_pivot(part) - _pivot(parent)))
 
 
 func _rest_global(part: String) -> Transform3D:
-	return Transform3D(Basis(), VoxelAxes.pivot_to_godot(_pivot(part)))
+	return Transform3D(Basis(), FigureAxes.pivot_to_godot(_pivot(part)))
 
 
 ## How a part is turned in a pose: Godot's Euler angles, in its usual order (as Node3D.rotation_degrees).
@@ -357,15 +356,15 @@ func _make_mesh() -> ArrayMesh:
 			continue
 		var corners: PackedInt32Array = p["corners"]
 		var base := verts.size()
-		var own := VoxelAxes.direction_to_godot(_newell(corners)).normalized()
+		var own := FigureAxes.direction_to_godot(_newell(corners)).normalized()
 		var colour: Color = p["colour"]
 		colour.a = 0.0 if bool(p.get("unlit", false)) else 1.0
 		for k in corners:
-			verts.push_back(VoxelAxes.point_to_godot(figure.points[k]))
-			normals.push_back(own if flat_shading else VoxelAxes.direction_to_godot(sums[k]).normalized())
+			verts.push_back(FigureAxes.point_to_godot(figure.points[k]))
+			normals.push_back(own if flat_shading else FigureAxes.direction_to_godot(sums[k]).normalized())
 			colours.push_back(colour)
 			_push_weights(bones, weights, figure.weights[k])
-		# A fan from the first corner, each triangle reversed: Godot's front faces are clockwise (see Mesher).
+		# A fan from the first corner, each triangle reversed: Godot's front faces are clockwise.
 		for i in range(1, corners.size() - 1):
 			indices.append_array(PackedInt32Array([base, base + i + 1, base + i]))
 	var arrays := []

@@ -122,23 +122,21 @@ func refresh() -> void:
 	_rebuild_assignments(eyes)
 
 
-## Whether the drawing fits every head. SPEC 12: "no eye cell falls off the
-## face plane". A cell that does would simply not appear on that head.
+## Whether both eyes are drawn. The eye box is the same on every head, so a
+## drawing fits them all; an eye with nothing drawn is simply not shown.
 func _refresh_fit(eyes: EyeSet) -> void:
 	if eyes == null:
 		_fit.text = ""
 		return
-	var problems: Array[String] = []
-	for shape in editor.library.head_shapes():
-		var missing := eyes.missing_on_head(editor.library.head(shape))
-		if not missing.is_empty():
-			problems.append("%s (%d cell%s)" % [shape, missing.size(),
-				"" if missing.size() == 1 else "s"])
-	if problems.is_empty():
-		_fit.text = "ok  The eyes fit all %d heads." % editor.library.head_shapes().size()
+	var empty: Array[String] = []
+	for eye in [EyeSet.EYE_LEFT, EyeSet.EYE_RIGHT]:
+		if eyes.eye_cells(eye).is_empty():
+			empty.append("the screen-%s eye" % eye)
+	if empty.is_empty():
+		_fit.text = "ok  Both eyes are drawn; the eye box is the same on every head."
 		_fit.add_theme_color_override("font_color", Color8(160, 168, 184))
 	else:
-		_fit.text = "FAIL  Falls off: %s." % ", ".join(problems)
+		_fit.text = "FAIL  Nothing drawn for %s: it will not be shown." % " or ".join(empty)
 		_fit.add_theme_color_override("font_color", Palette.UI_ORANGE)
 
 
@@ -173,7 +171,7 @@ func _on_drawn() -> void:
 
 
 func _on_new_set() -> void:
-	var standard := EyeSet.from_library(editor.library)
+	var standard := EyeSet.standard()
 	var id := editor.wardrobe.unique_eye_set_id("eyes")
 	var fresh := standard.duplicate_as(id, "New eyes")
 	editor.wardrobe.add_eye_set(fresh)

@@ -2,12 +2,11 @@
 
 The characters are low-poly (owner's decision, `SPEC.md` section 0). This folder holds what exists of them so far:
 the bodies and heads, and the Python that makes, dresses, poses and checks them. The Godot side is moving over in
-five phases (owner's go-ahead, 2026-11; `docs/NOTES.md` 4t to 4x). Phases 1 to 4 are done: the game reads the
-bodies and heads from `assets/lowpoly/`, dresses them in ordinary clothing and hair made of regions, straps, skirts
-and capes, grows facial hair on them and draws their faces (`core/lowpoly/`), and draws them bending, with their
-hanging cloth laid afresh for every pose (`runtime/lowpoly_rig.gd`); the editor's Preview, Clothes and Face & Hair
-tabs show them, and in the Clothes tab a click on the figure picks a region. Everything else in the game still runs
-on the earlier voxel system.
+five phases (owner's go-ahead, 2026-11; `docs/NOTES.md` 4t to 4y), all done: the game reads the bodies, heads and
+region table from `assets/lowpoly/`, dresses them in clothing and hair made of regions, straps, skirts and capes,
+grows facial hair on them and draws their faces (`core/lowpoly/`), and draws them bending, with their hanging cloth
+laid afresh for every pose (`runtime/lowpoly_rig.gd`). The editor's three tabs (Face & Hair, Clothes, Preview) show
+them, and a click on the figure picks a region. The voxel system was removed in phase 5.
 
 Godot ignores this folder (`.gdignore`), so nothing here is imported into the project.
 
@@ -56,7 +55,7 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Heads | all five (round, boxy, oval, strong, heart) as rounded forms: 114 polygons each, same layout; any head goes on any body (`renders/heads.png`) |
 | Faces: eyes, lids, lashes, eyebrows, skin tones | built: oval eyes from the wardrobe's eye sets and their colourways, the game's ten lid states, lids from the skin tone, a thin lash line, eyebrows from the hair, all six skin tones (`renders/faces.png`) |
 | The mouth | a first pass: a short line, straight or curved, or a small open oval (four: neutral, smile, frown, open). New here; the voxel faces have none. The game's table of them is `core/mouths.gd`, next to the lid states; which mouth goes with which lid state is open |
-| Building polygons in Godot (assembler, editor, runtime) | phases 1 to 4 of 5 done: bodies and heads bending on a skeleton; ordinary clothing and hair made of regions (`LowpolyAssembler`); faces and facial hair (`LowpolyFace`, `LowpolyFacialHair`); straps, skirts and capes (`LowpolyShapes`), skirts and capes laid afresh for every pose (`LowpolyCloth`, `LowpolyPose`); all of it in full precision; the Preview, Clothes and Face & Hair tabs ("Model: Low-poly"), flat or smooth shading, picking regions on polygons, a mouth picker. Godot's posed corners, dressed polygons, faces and laid cloth are checked against the Python's. Next: switching over and removing the voxel code (5) |
+| Building polygons in Godot (assembler, editor, runtime) | done (all five phases): bodies and heads bending on a skeleton; clothing and hair made of regions (`LowpolyAssembler`); faces and facial hair (`LowpolyFace`, `LowpolyFacialHair`); straps, skirts and capes (`LowpolyShapes`), skirts and capes laid afresh for every pose (`LowpolyCloth`, `LowpolyPose`); all of it in full precision; the editor's three tabs, flat or smooth shading, picking regions on polygons, a mouth picker. Godot's posed corners, dressed polygons, faces and laid cloth are checked against the Python's. The voxel code is gone |
 
 ## How a body is made
 
@@ -234,14 +233,13 @@ here; see "Not decided yet", 1.
 | `dump_wardrobe.gd` | run by `game.py` in Godot: writes those as JSON into `_work/` |
 | `../assets/lowpoly/` | what the game reads (Godot ignores this folder, so the files live there). The eight body files (`body_<sex>_<build>.json`): corners and their shares, polygons with region and part, pivots, the band table and each band's heights on that body, how far the head is raised. The five head files: corners, polygons with their region, the eye box and its angle, the seven sections that define the shape. Generated; do not hand-edit |
 | `bodies/`, `heads/` | the same bodies and heads as OBJ files, to look at in any 3D viewer. Generated |
-| `expected.py` | writes `tests/lowpoly_expected.json`: where every corner of a figure must be in each test pose, and every polygon of some dressed figures, which the Godot tests hold the game to |
+| `expected.py` | writes `tests/lowpoly_expected.json`: where every corner of a figure must be in each test pose, every polygon of some dressed figures and their hanging cloth in several poses, and some faces with facial hair, which the Godot tests hold the game to |
 | `renders/` | the sheets each decision was made from. `faces_first_port.png` is the eyes as first ported, in cells with straight or square edges, which the owner turned down for rounded ovals |
 
 `dress.py`, `specials.py`, `hang.py`, `faces.py` and `facial_hair.py` hold the clothing and face rules for polygons in
-Python. The
-project keeps that logic in exactly one place, and that place is `core/` (GDScript), which today only knows voxels.
-When the Godot side builds polygons the rules move there, and these files go or shrink to a cross-check. Nothing here
-copies the game's tables: the wardrobe, the poses, the special shapes' settings, the eyes, the lid states and the
+Python. The game builds the same rules in GDScript (`core/lowpoly/`), and these files are where a rule is tried first
+and the cross-check the game is held to (`expected.py`): a change to a rule is made in both. Nothing here copies the
+game's tables: the wardrobe, the poses, the special shapes' settings, the eyes, the lid states, the mouths and the
 colours the game works out are read from the game each time, and a check holds the defaults equal.
 
 ## Running it

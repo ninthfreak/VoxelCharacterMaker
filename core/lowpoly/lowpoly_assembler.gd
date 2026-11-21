@@ -4,9 +4,9 @@ extends RefCounted
 
 ## A low-poly character, dressed: the garment rules of SPEC.md section 7.3, for polygons, then its face.
 ##
-## It takes the same request the voxel assembler takes (CharacterAssembler.Request: body, head, skin tone, the
-## wardrobe, the clothes worn, the features, the eye set and lid state, and a mouth), so a tab builds one request and
-## either model can draw it. Body ids are the low-poly ones (LowpolyLibrary), which add a short body for each sex.
+## It takes a CharacterRequest (body, head, skin tone, the wardrobe, the clothes worn, the features, the eye set and
+## lid state, and a mouth); every editor tab and the game build one. Body ids are LowpolyLibrary's: slim, average,
+## heavy and short, for each sex.
 ##
 ## The rules, as lowpoly/dress.py has them, which this is checked against (tests/test_lowpoly.gd):
 ##
@@ -40,7 +40,7 @@ const BULK_UNIT := 1.0              ## how far one step of bulk stands off the b
 const FACE_PIECE := "face"
 
 
-static func assemble(library: LowpolyLibrary, req: CharacterAssembler.Request) -> LowpolyFigure:
+static func assemble(library: LowpolyLibrary, req: CharacterRequest) -> LowpolyFigure:
 	var skin: Color = Palette.skin_tones(req.skin_tone)[1]
 	var base := LowpolyFigure.make(library, req.body_id, req.head_shape, skin)
 	if base == null:
@@ -69,7 +69,7 @@ static func assemble(library: LowpolyLibrary, req: CharacterAssembler.Request) -
 ## Every worn item and feature, in the order worn: {cov: region -> {role, bulk}, order, colours: role -> Color, id}.
 ## Facial hair is added to `whiskers` as well: {parts, length, claim: [bulk, draw order, colour, item]}; straps,
 ## skirts and capes to `shapes`: [hangs, draw order, number, item, kind, settings, colours].
-static func _layers(req: CharacterAssembler.Request, warnings: Array[String], whiskers: Array, shapes: Array) -> Array:
+static func _layers(req: CharacterRequest, warnings: Array[String], whiskers: Array, shapes: Array) -> Array:
 	var out: Array = []
 	var features_from := req.worn.size()
 	var all: Array = req.worn + req.features
@@ -80,7 +80,7 @@ static func _layers(req: CharacterAssembler.Request, warnings: Array[String], wh
 		if it == null:
 			warnings.append("%s: not in the wardrobe" % id)
 			continue
-		# soloing an item hides the other clothes; hair and facial hair stay, as on the voxel figure
+		# soloing an item hides the other clothes; hair and facial hair stay
 		if index < features_from and not req.solo_item.is_empty() and it.id != req.solo_item:
 			continue
 		var way := String(e.get("colourway", ""))
@@ -88,7 +88,7 @@ static func _layers(req: CharacterAssembler.Request, warnings: Array[String], wh
 			way = it.first_colourway()
 		var colours := {}
 		for role in it.roles:
-			colours[role] = CharacterAssembler.role_tones(req, it.id, way, role)[1]
+			colours[role] = CharacterRequest.role_tones(req, it.id, way, role)[1]
 		var cov := it.effective_coverage()
 		for at in it.specials.size():
 			var type := String((it.specials[at] as Dictionary).get("type", ""))
@@ -115,7 +115,7 @@ static func _layers(req: CharacterAssembler.Request, warnings: Array[String], wh
 
 
 ## Whether hair is worn: a hair feature in a colour of its own (the sideburns then run up into it).
-static func _wears_hair(req: CharacterAssembler.Request) -> bool:
+static func _wears_hair(req: CharacterRequest) -> bool:
 	for entry in req.features:
 		var e: Dictionary = entry
 		var it := req.wardrobe.item(String(e.get("item", "")))
@@ -375,7 +375,7 @@ static func _add_shapes(f: LowpolyFigure, body: LowpolyLibrary.Body, surface: Di
 ## The eyes with their lids and brows (when the wardrobe has an eye set: the one asked for, or its first) and the
 ## mouth, as their own polygons on the head's flat patches: piece "face", following the head. An eye the eye set has
 ## not drawn at all is left out.
-static func _draw_face(f: LowpolyFigure, head: LowpolyLibrary.Head, raise: float, req: CharacterAssembler.Request,
+static func _draw_face(f: LowpolyFigure, head: LowpolyLibrary.Head, raise: float, req: CharacterRequest,
 		skin: Color, whiskers: Array) -> void:
 	var face: Array = []
 	if req.wardrobe != null:
@@ -392,7 +392,7 @@ static func _draw_face(f: LowpolyFigure, head: LowpolyLibrary.Head, raise: float
 			for role in LowpolyFace.UNLIT_ROLES:
 				colours[role] = req.wardrobe.eye_colour(eyes.id, way, role)
 			face = LowpolyFace.eyes(head, eyes, colours, req.lids, Palette.lid_colour(req.skin_tone),
-				CharacterAssembler.brow_colour(req))
+				CharacterRequest.brow_colour_of(req))
 	if Mouths.has_state(req.mouth):
 		var hides := false
 		for w in whiskers:

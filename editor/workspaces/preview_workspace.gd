@@ -54,9 +54,8 @@ func _build() -> void:
 	heading(side, "The whole character")
 	note(side, "Put together anything made in the other tabs. Nothing is edited "
 		+ "here.")
-	model_controls(side, "Low-poly so far: bodies, heads, skin tones, the face (eyes, lids, brows and a mouth), "
-		+ "hair and clothing made of regions, facial hair, straps, and skirts and capes hanging afresh in every pose. "
-		+ "Not yet: the hood and drawn shapes such as the long beard: those show on the voxel model only.")
+	figure_controls(side, "Skirts and capes hang afresh in every pose. Not shown yet: the hood and drawn shapes "
+		+ "such as the long beard (their settings are kept).")
 
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void: _choose("body_id", value))
@@ -82,8 +81,7 @@ func _build() -> void:
 		mouth_labels.append(Mouths.display_name(state))
 	_mouth_pick = picker(side, "Mouth", Mouths.names() + [Mouths.OFF], mouth_labels + [Mouths.display_name(Mouths.OFF)],
 		func(value: String) -> void: _choose("mouth", value))
-	note(side, "The mouth is the low-poly face's own: the voxel faces have none. Which mouth goes with which "
-		+ "eyelids is not decided, so the two are chosen apart.")
+	note(side, "Which mouth goes with which eyelids is not decided, so the two are chosen apart.")
 	_brow_pick = picker(side, "Brows", [], [], func(value: String) -> void:
 		_choose("brow_hair", value))
 	_eye_pick = picker(side, "Eye set", [], [], func(value: String) -> void:
@@ -137,8 +135,8 @@ func _choose(field: String, value: String) -> void:
 
 
 
-func make_request() -> CharacterAssembler.Request:
-	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape)
+func make_request() -> CharacterRequest:
+	var request := CharacterRequest.make(body_id, head_shape)
 	request.wardrobe = editor.wardrobe
 	request.eye_set_id = eye_set_id
 	request.eye_colourway = eye_colourway
@@ -165,7 +163,7 @@ func refresh() -> void:
 	if w == null or _body_pick == null:
 		return
 	_guard += 1
-	refresh_model_controls()
+	refresh_figure_controls()
 	body_id = refill_bodies(_body_pick, body_id)
 	select_value(_head_pick, head_shape)
 	select_value(_pose_pick, pose)
@@ -310,16 +308,14 @@ func _refresh_summary() -> void:
 	var eyes := w.eye_set(eye_set_id)
 	var lines: Array[String] = []
 	var body_name := body_id
-	if model == "lowpoly" and editor.lowpoly != null and editor.lowpoly.body(body_id) != null:
-		body_name = editor.lowpoly.body(body_id).display_name()
-	elif editor.library.body(body_id) != null:
+	if editor.library.body(body_id) != null:
 		body_name = editor.library.body(body_id).display_name()
 	lines.append("Body: %s, %s head, %s skin" % [body_name, head_shape, skin_tone])
 	lines.append("Eyelids: %s; brows %s" % [EyeLids.display_name(lids),
 		"follow the hair" if brow_hair.is_empty() else "like %s hair" % brow_hair.trim_prefix("hair_")])
 	lines.append("Eyes: %s, %s" % [eyes.name if eyes != null else "basic",
 		eye_colourway if not eye_colourway.is_empty() else "-"])
-	lines.append("Mouth: %s (low-poly only)" % Mouths.display_name(mouth))
+	lines.append("Mouth: %s" % Mouths.display_name(mouth))
 	var hair := w.item(hair_id) if not hair_id.is_empty() else null
 	var facial := w.item(facial_id) if not facial_id.is_empty() else null
 	lines.append("Hair: %s" % ("%s (%s)" % [hair.name, hair_colourway] if hair != null

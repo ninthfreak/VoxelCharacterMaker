@@ -6,7 +6,7 @@ extends VBoxContainer
 ## and optional region picking.
 ##
 ## Every workspace has its own, so cycling bodies in the Clothes tab does not
-## disturb what the Bodies tab is looking at. Only the visible one renders.
+## disturb what the Preview tab is looking at. Only the visible one renders.
 ##
 ## Mouse: left or middle drag orbits, right drag or shift+drag pans, wheel
 ## zooms. Number keys 1-6 pick the fixed views (the shell forwards them to
@@ -18,15 +18,11 @@ signal region_picked(region: String)
 enum Fit { FIGURE, HEAD }
 
 var camera: OrbitCamera = null
-var rig: CharacterRig = null
-var assembled: CharacterAssembler.Assembled = null
-## The low-poly figure, shown instead of the voxel one while `showing_lowpoly` (the editor's move to low-poly).
+## The figure shown.
 var lowpoly_rig: LowpolyRig = null
-var showing_lowpoly := false
 var pose_name: String = Poses.REST
 var fit_mode: int = Fit.FIGURE
 var picking_enabled := false
-var use_face_multiplier := true
 
 var _container: SubViewportContainer = null
 var _viewport: SubViewport = null
@@ -58,8 +54,7 @@ func _init() -> void:
 	_pick_toggle.text = "Click figure to pick regions"
 	_pick_toggle.visible = false
 	_pick_toggle.toggled.connect(func(on: bool) -> void:
-		picking_enabled = on
-		_build_pick_bodies())
+		picking_enabled = on)
 	_buttons.add_child(_pick_toggle)
 
 	_container = SubViewportContainer.new()
@@ -91,12 +86,8 @@ func _init() -> void:
 	_viewport.add_child(environment)
 	_viewport.add_child(camera)
 
-	rig = CharacterRig.new()
-	rig.name = "Figure"
-	_viewport.add_child(rig)
 	lowpoly_rig = LowpolyRig.new()
-	lowpoly_rig.name = "LowpolyFigure"
-	lowpoly_rig.visible = false
+	lowpoly_rig.name = "Figure"
 	_viewport.add_child(lowpoly_rig)
 
 	# A ground plane at the feet, so z = 0 is visible and pivots can be judged.
@@ -120,12 +111,9 @@ func allow_picking(on: bool) -> void:
 		_pick_toggle.button_pressed = false
 
 
-## Show a low-poly figure in place of the voxel one.
+## Show a figure.
 func show_lowpoly(figure: LowpolyFigure, flat: bool) -> void:
-	var first := not showing_lowpoly or lowpoly_rig.figure == null
-	showing_lowpoly = true
-	rig.visible = false
-	lowpoly_rig.visible = true
+	var first := lowpoly_rig.figure == null
 	lowpoly_rig.figure = null           # so that the shading changes without making the old figure's mesh again
 	lowpoly_rig.flat_shading = flat
 	lowpoly_rig.build(figure)
@@ -138,27 +126,8 @@ func set_flat_shading(on: bool) -> void:
 	lowpoly_rig.flat_shading = on
 
 
-## Assemble and show a figure. Returns what was assembled.
-func show_request(request: CharacterAssembler.Request) -> CharacterAssembler.Assembled:
-	request.use_face_multiplier = use_face_multiplier
-	var first := assembled == null or showing_lowpoly
-	showing_lowpoly = false
-	rig.visible = true
-	lowpoly_rig.visible = false
-	assembled = CharacterAssembler.assemble(request)
-	rig.use_face_multiplier = use_face_multiplier
-	rig.build(assembled)
-	rig.apply_pose(pose_name)
-	if picking_enabled:
-		_build_pick_bodies()
-	if first:
-		fit_if_untouched()
-	return assembled
-
-
 func set_pose(name: String) -> void:
 	pose_name = name
-	rig.apply_pose(name)
 	lowpoly_rig.apply_pose(name)
 
 
@@ -169,44 +138,17 @@ func handle_key(event: InputEvent) -> bool:
 # --------------------------------------------------------------- framing ---
 
 func fit_view() -> void:
-	if camera == null or rig == null:
+	if camera == null or lowpoly_rig == null or lowpoly_rig.figure == null:
 		return
 	var pane := _container.size
 	var aspect := 1.0 if pane.y <= 0.0 else pane.x / pane.y
-	if showing_lowpoly:
-		if lowpoly_rig.figure == null:
-			return
-		camera.frame(lowpoly_rig.figure_aabb("head" if fit_mode == Fit.HEAD else ""), aspect)
-		return
-	if rig.assembled == null:
-		return
-	var bounds := rig.figure_aabb()
-	if fit_mode == Fit.HEAD:
-		bounds = _part_aabb(BodyDef.HEAD_PART)
-	camera.frame(bounds, aspect)
+	camera.frame(lowpoly_rig.figure_aabb("head" if fit_mode == Fit.HEAD else ""), aspect)
 
 
 func fit_if_untouched() -> void:
 	if camera != null and camera.moved_by_user:
 		return
 	fit_view()
-
-
-## Bounds of one part in its rest position, padded so hair and hats fit.
-func _part_aabb(part_name: String) -> AABB:
-	if assembled == null or assembled.part(part_name) == null:
-		return rig.figure_aabb()
-	var cells: Dictionary = assembled.part(part_name).cells
-	if cells.is_empty():
-		return rig.figure_aabb()
-	var lo := Vector3(INF, INF, INF)
-	var hi := Vector3(-INF, -INF, -INF)
-	for cell in cells.keys():
-		var p := VoxelAxes.voxel_centre_to_godot(cell)
-		lo = lo.min(p)
-		hi = hi.max(p)
-	var pad := Vector3.ONE * (VoxelAxes.VOXEL_SIZE * 3.0)
-	return AABB(lo - pad, (hi - lo) + pad * 2.0)
 
 
 # ----------------------------------------------------------------- input ---
@@ -222,52 +164,12 @@ func _on_container_input(event: InputEvent) -> void:
 		_container.accept_event()
 
 
-## Trimesh collision, built only while picking is on: it costs real time on a
-## few thousand quads and most editing is done from the region list.
-func _build_pick_bodies() -> void:
-	if not picking_enabled or showing_lowpoly:          # the low-poly figure is picked by its own polygons
-		return
-	for name in rig.mesh_instances.keys():
-		var instance: MeshInstance3D = rig.mesh_instances[name]
-		instance.create_trimesh_collision()
-
-
+## Pick the region of the polygon under the pointer, in whatever pose the figure is in.
 func _pick_at(screen_position: Vector2) -> void:
 	var from := camera.project_ray_origin(screen_position)
-	if showing_lowpoly:
-		var into := lowpoly_rig.global_transform.affine_inverse()
-		var i := lowpoly_rig.pick(into * from, into.basis * camera.project_ray_normal(screen_position))
-		if i >= 0:
-			var region := String(lowpoly_rig.figure.polygons[i]["region"])
-			if not region.is_empty():
-				region_picked.emit(region)
-		return
-	var space := _viewport.world_3d.direct_space_state
-	var to := from + camera.project_ray_normal(screen_position) * 100.0
-	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, to))
-	if hit.is_empty():
-		return
-	# The collision body hangs under the part's MeshInstance3D; walk up to the
-	# joint, whose transform takes the point back to the part's own space.
-	var node: Node = hit.get("collider")
-	var part_name := ""
-	while node != null:
-		if rig.joints.has(node.name):
-			part_name = String(node.name)
-			break
-		node = node.get_parent()
-	if part_name.is_empty():
-		return
-	var part := assembled.part(part_name)
-	if part == null:
-		return
-	var joint: Node3D = rig.joints[part_name]
-	var normal: Vector3 = hit.get("normal", Vector3.ZERO)
-	# Step just inside the surface before converting to a voxel.
-	var local := joint.global_transform.affine_inverse() * (
-		(hit.get("position") as Vector3) - normal * (VoxelAxes.VOXEL_SIZE * 0.5))
-	var asset := VoxelAxes.godot_to_point(local + VoxelAxes.point_to_godot(part.pivot))
-	var cell := Vector3i(floori(asset.x), floori(asset.y), floori(asset.z))
-	var region := String(part.regions.get(cell, ""))
-	if not region.is_empty():
-		region_picked.emit(region)
+	var into := lowpoly_rig.global_transform.affine_inverse()
+	var i := lowpoly_rig.pick(into * from, into.basis * camera.project_ray_normal(screen_position))
+	if i >= 0:
+		var region := String(lowpoly_rig.figure.polygons[i]["region"])
+		if not region.is_empty():
+			region_picked.emit(region)

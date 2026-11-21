@@ -153,28 +153,3 @@ static func _trim(f: float) -> Variant:
 	if is_equal_approx(f, roundf(f)):
 		return int(roundf(f))
 	return f
-
-
-## Read a voxel list -- [[x, y, z], ...] -- into a Dictionary used as a set.
-static func voxel_set(list: Variant) -> Dictionary:
-	var out := {}
-	if list == null:
-		return out
-	for v in (list as Array):
-		out[to_vec3i(v)] = true
-	return out
-
-
-## A voxel set back to a sorted list, so output order never depends on hashing.
-static func voxel_list(cells: Dictionary) -> Array:
-	var keys := cells.keys()
-	keys.sort_custom(func(a: Vector3i, b: Vector3i) -> bool:
-		if a.z != b.z:
-			return a.z < b.z
-		if a.y != b.y:
-			return a.y < b.y
-		return a.x < b.x)
-	var out: Array = []
-	for k in keys:
-		out.append(from_vec3i(k))
-	return out

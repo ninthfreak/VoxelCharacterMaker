@@ -23,6 +23,8 @@ extends RefCounted
 ##      special shapes alongside their regions. Version 1 files load, and hair
 ##      items move to the hair slot.
 
+## The file's format name, from when the characters were voxels; kept so that every wardrobe file saved since still
+## opens (lowpoly/ checks it too).
 const FORMAT := "voxel_wardrobe"
 const VERSION := 2
 const DEFAULT_EXTENSION := "vxwardrobe.json"
@@ -46,18 +48,14 @@ var path: String = ""
 var dirty: bool = false
 
 
-## A wardrobe with starter content. With the asset library, the shipped
-## open eye becomes the "Standard" eye set; without it there is no eye set and
-## the assembler falls back to the library's faces, which is what the body
-## workspace shows anyway.
-static func create_default(library: AssetLibrary = null) -> Wardrobe:
+## A wardrobe with starter content, the game's standard open eye among it.
+static func create_default() -> Wardrobe:
 	var w := Wardrobe.new()
 	w.palette = Palette.default_wardrobe_colours()
 	w._add_starter_clothes()
 	w._add_starter_features()
-	if library != null:
-		var standard := EyeSet.from_library(library)
-		w.eye_sets[standard.id] = standard
+	var standard := EyeSet.standard()
+	w.eye_sets[standard.id] = standard
 	w.dirty = false
 	return w
 
@@ -97,7 +95,7 @@ func _add_starter_clothes() -> void:
 	add_item(trousers)
 
 	var boots := GarmentItem.create("boots", "Boots", "feet")
-	boots.edge_style = BulkBuilder.EdgeStyle.HARD
+	boots.edge_style = GarmentItem.EdgeStyle.HARD
 	boots.roles = ["leather"]
 	boots.colourways = {"default": {"leather": "ink"}}
 	boots.set_region("foot.L", "leather", 1)
@@ -294,7 +292,7 @@ func _add_starter_features() -> void:
 	tail.set_special_param(at, "anchor", "nape")
 	tail.set_special_param(at, "wrap", false)
 	tail.set_special_param(at, "mirror", true)
-	# Two columns each side of the mirror line: four voxels wide. One column
+	# Two columns each side of the mirror line: four cells wide. One column
 	# (two wide) read as a string rather than a ponytail.
 	var cells: Array = []
 	for a in [0, 1]:
@@ -311,14 +309,14 @@ func _add_starter_features() -> void:
 
 	# Facial hair follows each head's own surface, and takes its colours from
 	# the character: "@stubble" is always darker than the skin, "@hair" is the
-	# hair worn. Four parts, each on or off, and one length (FacialHairGenerator);
+	# hair worn. Four parts, each on or off, and one length (FacialHairSettings);
 	# the three starter items are the owner's three original styles, so named.
 	for style in [["stubble", "Stubble"], ["chinstrap", "Chinstrap"], ["full_beard", "Full beard"]]:
 		var fh := GarmentItem.create_feature(String(style[0]), String(style[1]), "facial_hair")
 		fh.roles = ["hair", "stubble"]
 		fh.colourways = {"default": {"hair": Palette.REF_HAIR, "stubble": Palette.REF_STUBBLE}}
 		var at_fh := fh.add_special("facial_hair")
-		var settings := FacialHairGenerator.migrate({"style": String(style[0])})
+		var settings := FacialHairSettings.migrate({"style": String(style[0])})
 		for key in settings.keys():
 			fh.set_special_param(at_fh, String(key), settings[key])
 		add_item(fh)

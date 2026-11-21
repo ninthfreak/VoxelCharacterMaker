@@ -56,9 +56,8 @@ func _build() -> void:
 	heading(side, "Face and hair")
 	note(side, "Eyes, hair and facial hair work like clothes, but every character "
 		+ "has exactly one of each. Change the head to check a style fits them all.")
-	model_controls(side, "Low-poly so far: the eyes (drawn from the eye set: an oval filling the cells it fills, "
-		+ "a pupil over its pupil cells), the brows, hair made of regions, and facial hair (its four parts and length). "
-		+ "Not yet: face accessories and other drawn shapes, which show on the voxel model only.")
+	figure_controls(side, "The eyes are drawn from the eye set: an oval filling the cells it fills, a pupil over its "
+		+ "pupil cells. Not shown yet: face accessories and other drawn shapes (their settings are kept).")
 	_head_pick = cycler(side, "Head", editor.library.head_shapes(), [],
 		func(value: String) -> void:
 			head_shape = value
@@ -127,8 +126,8 @@ func on_eyes_changed() -> void:
 	rebuild()
 
 
-func make_request() -> CharacterAssembler.Request:
-	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape)
+func make_request() -> CharacterRequest:
+	var request := CharacterRequest.make(body_id, head_shape)
 	request.wardrobe = editor.wardrobe
 	request.eye_set_id = eye_set_id
 	request.eye_colourway = eye_colourway
@@ -147,7 +146,7 @@ func refresh() -> void:
 	hair.validate()
 	facial_hair.validate()
 	face_accessory.validate()
-	refresh_model_controls()
+	refresh_figure_controls()
 	select_value(_head_pick, head_shape)
 	body_id = refill_bodies(_body_pick, body_id)
 	# The eye panel works on this tab's own state rather than a selection, so
@@ -156,7 +155,7 @@ func refresh() -> void:
 		_eyes_panel.refresh()
 
 
-## The tab's own part of the status line, on either model.
+## The tab's own part of the status line.
 func status_extra() -> String:
 	var eyes := editor.wardrobe.eye_set(eye_set_id)
 	var out := "   |   eyes: %s, wide open   |   hair: %s   |   facial hair: %s" % [eyes.name if eyes != null else "basic",

@@ -10,17 +10,15 @@ extends SceneTree
 ##   xvfb-run -a godot --path . --rendering-driver opengl3 \
 ##       --script res://tools/screenshot_editor.gd -- --out docs/renders --tab Bodies
 ##
-##   --tab NAME        the tab to bring forward (Bodies, Face & Hair, Clothes, Preview)
+##   --tab NAME        the tab to bring forward (Face & Hair, Clothes, Preview)
 ##   --section NAME    a sub-tab within it (Eyes, Hair, Facial hair; Item, Colours...)
-##   --edit-body / --edit-head   open the body or head in the Bodies tab
-##   --row N           the slice row to show while editing
 ##   --name NAME       the file name, without .png
 ##   --select ID       select a wardrobe item (in its own section)
 ##   --scroll PIXELS   scroll the controls column down
-##   --preview K=V     set one of the Preview tab's choices before the shot (repeatable), e.g. model=lowpoly,
+##   --preview K=V     set one of the Preview tab's choices before the shot (repeatable), e.g.
 ##                     shading=smooth, body_id=female_short, head_shape=strong, pose=sitting, skin_tone=tan,
 ##                     outfit=overalls (wears that outfit), hair_id=short_crop, hair_colourway=auburn
-##   --set K=V         set a choice on the tab shown, before the shot (repeatable), e.g. model=lowpoly,
+##   --set K=V         set a choice on the tab shown, before the shot (repeatable), e.g.
 ##                     body_id=female_heavy, show_mode=worn
 ##   --view NAME       the camera's view on the tab shown: front, three_quarter, left, right, back or top
 
@@ -31,8 +29,6 @@ var _out := "docs/renders"
 var _tab := ""
 var _frames := 0
 var _editor: Control = null
-var _edit := ""
-var _row := -1
 var _section := ""
 var _name := ""
 var _select := ""
@@ -49,12 +45,6 @@ func _initialize() -> void:
 			_out = String(args[i + 1])
 		elif String(args[i]) == "--tab" and i + 1 < args.size():
 			_tab = String(args[i + 1])
-		elif String(args[i]) == "--edit-body":
-			_edit = "body"
-		elif String(args[i]) == "--edit-head":
-			_edit = "head"
-		elif String(args[i]) == "--row" and i + 1 < args.size():
-			_row = int(args[i + 1])
 		elif String(args[i]) == "--section" and i + 1 < args.size():
 			_section = String(args[i + 1])
 		elif String(args[i]) == "--name" and i + 1 < args.size():
@@ -91,11 +81,6 @@ func _process(_delta: float) -> bool:
 	if _frames == 3 and _editor != null:
 		if not _tab.is_empty():
 			_editor.call("show_tab", _tab)
-		if not _edit.is_empty():
-			var bodies: Object = _editor.get("bodies")
-			bodies.call("start_editing", _edit)
-			if _row >= 0:
-				bodies.call("set_row", _row)
 		var ws: Object = _editor.call("_current")
 		if not _select.is_empty():
 			# Select an item in whichever selection holds its section.

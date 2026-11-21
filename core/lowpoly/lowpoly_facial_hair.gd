@@ -3,7 +3,7 @@ class_name LowpolyFacialHair
 extends RefCounted
 
 ## Facial hair on the low-poly head (owner, 2026-11): four parts, each on or off, and one length for all of them
-## (FacialHairGenerator.param_spec). The same as lowpoly/facial_hair.py, which this is checked against corner by
+## (FacialHairSettings.param_spec). The same as lowpoly/facial_hair.py, which this is checked against corner by
 ## corner (tests/test_lowpoly.gd); read that file for where each part's edge runs and why.
 ##
 ##   moustache  above the mouth
@@ -43,12 +43,12 @@ const MOUSTACHE := [[0.0, 29.66, 30.42], [1.0, 29.62, 30.28], [2.1, 29.50, 29.86
 ## defaults (SpecialItem.param_spec), as the editor shows them; one saved with the old "style" is read as parts and a
 ## length, and a style that is not known gives no facial hair, and a note.
 static func read(params: Dictionary) -> Array:
-	var p := FacialHairGenerator.migrate(params)
+	var p := FacialHairSettings.migrate(params)
 	if p.has("style"):
 		return [[] as Array[String], "stubble", ["unknown facial hair style '%s'" % String(p["style"])]]
 	p = SpecialItem.with_defaults("facial_hair", p)
 	var parts: Array[String] = []
-	for part in FacialHairGenerator.PARTS:
+	for part in FacialHairSettings.PARTS:
 		if bool(p[part]):
 			parts.append(part)
 	var length := String(p["length"])

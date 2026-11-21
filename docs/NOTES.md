@@ -1228,6 +1228,36 @@ low to medium, confidence medium (the order of the corners round a corner where 
   back, ...).
 - **Tests:** 1789 Godot checks; the Python check passes with the tie rule.
 
+## 4y. The editor moves to low-poly: phase 5, the switch-over
+
+- **The low-poly figure is the only one now** (difficulty medium; confidence high). The editor has three tabs (Face &
+  Hair, Clothes, Preview), each showing the low-poly figure with the flat or smooth shading choice; the Model switch
+  is gone. The game-side demo scene (`runtime/character_demo.tscn`) builds the same figure.
+- **Removed, with the voxel system:** the Bodies tab and body and head editing (the bodies and heads are made in
+  Python now); the voxel assembler, bulk builder, mesher, baked shading, voxel rig and cloth panels; the voxel
+  generators for skirts, capes, hoods, straps, drawn shapes and facial hair; the voxel bodies, heads and face
+  (`assets/*.vox`, `body42_*`, `head42_*`, `face42_open.json`); `tools/build_bodies.py`, `tools/verify_assets.py`,
+  `tools/render_sheets.gd`; and the voxel tests (asset counts, faces on voxel heads, bulk rules, the mesher, body
+  editing, the voxel generators). About 10,000 lines of code. The last commit with all of it is `fa40fa0`.
+- **Kept and moved out of the voxel code:** the request a character is made from (`CharacterRequest`, with the colours
+  it resolves: brow, `@hair`, `@stubble`); the axes (`FigureAxes`, the one conversion into Godot); the special shapes'
+  settings (`SpecialItem`, every setting of every type, the hood's and drawn shapes' included); facial hair's settings
+  (`FacialHairSettings`); edge style (on `GarmentItem`); the standard eye (`EyeSet.STANDARD_CELLS`, the 26 cells of the
+  old face file); the region table (`assets/lowpoly/regions.json`, written by `lowpoly/body.py` from its band table,
+  identical to the voxel one).
+- **What a wardrobe file keeps that the figure does not show yet:** the hood (the cloak shows its cape and says its
+  hood is not built), drawn shapes (the long beard, the ponytail's tail: their drawings are kept, there is no grid to
+  draw them in for now), and edge style. Nothing in a saved file is lost; a check saves and loads both and compares.
+- **Tests:** the Godot suite is now the coordinate lock (on a low-poly body), the wardrobe, the model (eye sets, file
+  versions, the region table, special settings kept, the starter outfits: a dress is an outfit, the toga's top leaves
+  one shoulder bare, overalls are one colour), the low-poly figure against the Python, and the editor (three tabs,
+  picking, the mouth, lids, cloth laid again on a pose change, one undo timeline, nothing unsaved lost, messages):
+  337 checks. The Python check passes as before.
+- **Not changed, on purpose:** the project's name ("Voxel Character Maker", the window title) and the wardrobe file's
+  format name (`voxel_wardrobe`). Renaming the project moves where Godot keeps the editor's remembered state, so the
+  editor would forget the last file opened; renaming the format would need every saved file migrated. Both are easy
+  to do if wanted.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

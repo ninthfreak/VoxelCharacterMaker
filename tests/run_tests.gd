@@ -1,7 +1,6 @@
 extends SceneTree
 
-## Headless test runner. Every acceptance check in SPEC.md section 12 lives in
-## one of the suites below (CLAUDE.md: "Tests run headless").
+## Headless test runner (CLAUDE.md: "Tests run headless").
 ##
 ## Run from the repository root:
 ##
@@ -11,19 +10,18 @@ extends SceneTree
 ##
 ##   godot --headless --path . --script res://tests/run_tests.gd
 ##
-## Expected asset numbers come from tests/expected.json. Regenerate it after
-## changing anything in assets/:
+## The low-poly checks compare Godot against lowpoly/ (Python) through tests/lowpoly_expected.json; regenerate it
+## after changing anything in lowpoly/ or assets/lowpoly/:
 ##
-##   python3 tools/verify_assets.py
+##   python3 lowpoly/expected.py
 ##
 ## Exit status is 0 when everything passed, 1 otherwise, so CI can use it.
 ##
-## The core suites run straight away. The editor suite needs the scene tree
-## running -- a node added during _initialize does not get its _ready until
-## the tree starts -- so it runs over the first few frames.
+## The core suites run straight away. The editor suite needs the scene tree running -- a node added during
+## _initialize does not get its _ready until the tree starts -- so it runs over the first few frames.
 
 var _report := TestReport.new()
-var _library := AssetLibrary.new()
+var _library := LowpolyLibrary.new()
 var _started := 0
 var _frame := 0
 var _editor: Control = null
@@ -31,27 +29,17 @@ var _editor: Control = null
 
 func _initialize() -> void:
 	_started = Time.get_ticks_msec()
-	print("Voxel Character Maker - acceptance checks")
+	print("Character Maker - checks")
 	print("Godot %s" % Engine.get_version_info().get("string", "?"))
-
-	# The acceptance checks are about the GENERATED assets: an edit saved from
-	# the Bodies tab is free to change the voxel counts SPEC 12 lists.
-	_library.use_edited = false
 	if not _library.load_all():
 		for error in _library.errors:
-			print("   FAIL  asset library: %s" % error)
+			print("   FAIL  low-poly library: %s" % error)
 		_report.failed += _library.errors.size()
-
 	# Ordered so a foundational failure is reported before what it would break.
 	TestAxes.run(_report, _library)
-	TestAssets.run(_report, _library)
-	TestFaces.run(_report, _library)
-	TestGarments.run(_report, _library)
-	TestWardrobe.run(_report, _library)
-	TestMesher.run(_report, _library)
-	TestBodyEdit.run(_report, _library)
-	TestFeatures.run(_report, _library)
-	TestLowpoly.run(_report, _library)
+	TestWardrobe.run(_report)
+	TestModel.run(_report, _library)
+	TestLowpoly.run(_report)
 
 
 func _process(_delta: float) -> bool:
@@ -82,9 +70,8 @@ func _finish() -> void:
 		print("\nFailures:")
 		for failure in _report.failures:
 			print("  - %s" % failure)
-		print("\nSPEC.md section 12 is the list these come from.")
 		quit(1)
 		return
 
-	print("every SPEC section 12 acceptance check passed")
+	print("every check passed")
 	quit(0)

@@ -4,21 +4,21 @@ extends Node3D
 
 ## The game-side path, shown on its own.
 ##
-## This is here to make one thing plain: the runtime and the editor assemble a
-## character through exactly the same call. Nothing in this file knows about
-## bulk generation, shading or meshing -- it asks CharacterAssembler for a
-## figure and hands the result to a CharacterRig (SPEC.md section 8).
+## This is here to make one thing plain: the runtime and the editor build a character through exactly the same
+## call. Nothing in this file knows about dressing or cloth -- it asks LowpolyAssembler for a figure and hands it to
+## a LowpolyRig (SPEC.md section 8), which bends it and lays its cloth for each pose.
 
 @export var body_id: String = "male_average"
 @export var head_shape: String = "round"
 @export var lids: String = EyeLids.DEFAULT
+@export var mouth: String = Mouths.DEFAULT
 @export var outfit: String = "everyday"
 @export var wardrobe_path: String = ""
 @export var cycle_poses: bool = true
 @export var seconds_per_pose: float = 1.6
 
-var rig: CharacterRig = null
-var library := AssetLibrary.new()
+var rig: LowpolyRig = null
+var library := LowpolyLibrary.new()
 var wardrobe: Wardrobe = null
 
 var _elapsed := 0.0
@@ -27,7 +27,7 @@ var _pose_index := 0
 
 func _ready() -> void:
 	if not library.load_all():
-		push_error("asset library: %s" % ", ".join(library.errors))
+		push_error("low-poly library: %s" % ", ".join(library.errors))
 		return
 
 	if not wardrobe_path.is_empty():
@@ -35,7 +35,7 @@ func _ready() -> void:
 	if wardrobe == null:
 		wardrobe = Wardrobe.create_default()
 
-	rig = CharacterRig.new()
+	rig = LowpolyRig.new()
 	rig.name = "Figure"
 	add_child(rig)
 	rebuild()
@@ -45,14 +45,17 @@ func _ready() -> void:
 
 
 func rebuild() -> void:
-	var request := CharacterAssembler.Request.make(library, body_id, head_shape)
-	request.wardrobe = wardrobe
+	var request := CharacterRequest.make(body_id, head_shape, wardrobe)
 	request.lids = lids
-	request.worn = CharacterAssembler.worn_from_outfit(wardrobe, outfit)
-	var assembled := CharacterAssembler.assemble(request)
-	for warning in assembled.warnings:
+	request.mouth = mouth
+	request.worn = wardrobe.outfit(outfit)
+	var figure := LowpolyAssembler.assemble(library, request)
+	if figure == null:
+		push_error("no body '%s' or head '%s'" % [body_id, head_shape])
+		return
+	for warning in figure.warnings:
 		push_warning(warning)
-	rig.build(assembled)
+	rig.build(figure)
 
 
 func _process(delta: float) -> void:

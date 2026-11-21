@@ -9,7 +9,7 @@ extends RefCounted
 const TEMP_PATH := "user://test_wardrobe_round_trip.json"
 
 
-static func run(t: TestReport, library: AssetLibrary) -> void:
+static func run(t: TestReport) -> void:
 	t.group("wardrobe: round-trip")
 	var original := Wardrobe.create_default()
 	var first := original.to_text()
@@ -60,7 +60,7 @@ static func run(t: TestReport, library: AssetLibrary) -> void:
 	full.add_item(hood)
 	var sash := GarmentItem.create("sash", "Sash", "accessory")
 	sash.mirror = false
-	sash.edge_style = BulkBuilder.EdgeStyle.HARD
+	sash.edge_style = GarmentItem.EdgeStyle.HARD
 	sash.draw_order = 57
 	sash.colourways = {"default": {"cloth": "sage"}}
 	sash.set_region("upper_chest.L.F", "cloth", 2)

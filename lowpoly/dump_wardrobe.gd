@@ -18,9 +18,7 @@ func _init() -> void:
 			out = args[i + 1]
 		if args[i] == "--tables" and i + 1 < args.size():
 			tables = args[i + 1]
-	var library := AssetLibrary.new()
-	library.load_all()
-	var w := Wardrobe.create_default(library)       # with the library, so that it has the standard eye set
+	var w := Wardrobe.create_default()       # the standard eye set among it
 	if out != "":
 		_write(out, w.to_json())
 	if tables != "":
@@ -45,8 +43,8 @@ func _init() -> void:
 	quit()
 
 
-## The eye box, the lid states, and every eye set's cells with each state applied (EyeLids.apply): what the voxel
-## figure shows, cell by cell.
+## The eye box, the lid states, and every eye set's cells with each state applied (EyeLids.apply): the game's own
+## lid rule, cell by cell, which lowpoly/check.py holds the low-poly eyes to.
 func _eyes(w: Wardrobe) -> Dictionary:
 	var states := {}
 	for state in EyeLids.names():
@@ -68,7 +66,7 @@ func _eyes(w: Wardrobe) -> Dictionary:
 			per_state[state] = both
 		applied[String(set_id)] = per_state
 	return {
-		"box": {"w": EyeSet.BOX_W, "h": EyeSet.BOX_H, "x0": EyeSet.BOX_X0, "z0": EyeSet.BOX_Z0},
+		"box": {"w": EyeSet.BOX_W, "h": EyeSet.BOX_H, "x0": EyeSet.BOX_X0},
 		"order": EyeLids.names(), "default": EyeLids.DEFAULT, "states": states,
 		"state_numbers": ["upper", "lower", "pupil_dx", "pupil_dy", "tilt"],
 		"flat_roles": [EyeSet.ROLE_WHITE, EyeSet.ROLE_PUPIL, EyeSet.ROLE_LINE],

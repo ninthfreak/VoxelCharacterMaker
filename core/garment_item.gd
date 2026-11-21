@@ -42,7 +42,7 @@ const CATEGORIES: Array[String] = [
 
 ## Feature slots and their draw order. Hair sits under hats (80), facial hair
 ## under hair so a long fringe falls over facial hair, and both over clothes.
-## The face itself draws below everything (CharacterAssembler.FACE_DRAW_ORDER).
+## The face itself is drawn last, on the head (LowpolyAssembler), under hair and hats in front of it.
 const SLOT_DRAW_ORDER := {
 	"hair": 70,
 	"face_accessory": 67,
@@ -56,13 +56,19 @@ const CLOTHES := ""
 const DEFAULT_COLOURWAY := "default"
 const DEFAULT_ROLE := "cloth"
 
+## Edge style (SPEC 7.3 rule 7): soft for cloth, hard for plate. Kept in the file; the low-poly figure does not use
+## it yet (lowpoly/README.md, "Not decided yet").
+enum EdgeStyle { SOFT, HARD }
+## The most bulk a region can take.
+const MAX_BULK := 12
+
 var id: String = ""
 var name: String = ""
 ## "" for clothing, else the feature slot it fills.
 var slot: String = CLOTHES
 var category: String = "other"
 var draw_order: int = 45
-var edge_style: int = BulkBuilder.EdgeStyle.SOFT
+var edge_style: int = EdgeStyle.SOFT
 var mirror: bool = true
 
 ## Named parts of the design: cloth, trim, buckle...
@@ -318,7 +324,7 @@ func to_json() -> Dictionary:
 		"name": name,
 		"category": category,
 		"draw_order": draw_order,
-		"edge_style": BulkBuilder.edge_style_name(edge_style),
+		"edge_style": edge_style_name(edge_style),
 		"mirror": mirror,
 		"roles": _to_plain_array(roles),
 		"colourways": {},
@@ -350,6 +356,14 @@ func to_json() -> Dictionary:
 	return out
 
 
+static func edge_style_name(style: int) -> String:
+	return "hard" if style == EdgeStyle.HARD else "soft"
+
+
+static func edge_style_from_name(name: String) -> int:
+	return EdgeStyle.HARD if name.to_lower() == "hard" else EdgeStyle.SOFT
+
+
 static func from_json(p_id: String, data: Dictionary, p_slot: String = CLOTHES) -> GarmentItem:
 	var item := GarmentItem.new()
 	item.id = p_id
@@ -357,7 +371,7 @@ static func from_json(p_id: String, data: Dictionary, p_slot: String = CLOTHES) 
 	item.name = String(data.get("name", p_id))
 	item.category = String(data.get("category", p_slot if p_slot != CLOTHES else "other"))
 	item.draw_order = int(data.get("draw_order", default_draw_order(item.category)))
-	item.edge_style = BulkBuilder.edge_style_from_name(String(data.get("edge_style", "soft")))
+	item.edge_style = edge_style_from_name(String(data.get("edge_style", "soft")))
 	item.mirror = bool(data.get("mirror", true))
 
 	item.roles.clear()
@@ -389,11 +403,11 @@ static func from_json(p_id: String, data: Dictionary, p_slot: String = CLOTHES) 
 		var e: Dictionary = entry
 		var params := JsonIO.normalise_numbers(e.get("params", {})) as Dictionary
 		if String(e.get("type", "")) == "facial_hair":
-			params = FacialHairGenerator.migrate(params)       # saved before the four parts and the length
+			params = FacialHairSettings.migrate(params)       # saved before the four parts and the length
 		item.specials.append({"type": String(e.get("type", "")), "params": params})
 
 	if item.special_types().has("facial_hair"):
-		FacialHairGenerator.complete_roles(item)
+		FacialHairSettings.complete_roles(item)
 
 	# Version 1 files: an item was either parametric or special, never both.
 	if String(data.get("kind", "")) == "special" and data.has("special_type"):

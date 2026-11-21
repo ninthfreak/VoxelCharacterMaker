@@ -2,20 +2,21 @@
 class_name CharacterEditor
 extends Control
 
-## The in-engine character editor (SPEC.md section 8), as four separate tabs:
+## The in-engine character editor (SPEC.md section 8), as three separate tabs:
 ##
-##   Bodies        the six body types and the head shapes, bare, with only the
-##                 basic eyes -- edited on slices
 ##   Face & Hair   eye sets (the open eye), hair, facial hair: like clothes,
 ##                 but one of each per character, in their own area
 ##   Clothes       every clothing item with all its parameters and its special
-##                 shapes, cycled through the six bodies
-##   Preview       any combination of the above, as a whole character
+##                 shapes, cycled through the eight bodies
+##   Preview       any combination of the above, as a whole character, posed
 ##
-## This shell owns what the tabs share and nothing else: the asset library,
+## The bodies and heads are made in Python (lowpoly/) and read from
+## assets/lowpoly/; they are not edited here.
+##
+## This shell owns what the tabs share and nothing else: the low-poly library,
 ## the one wardrobe file, undo, the unsaved-changes prompt, files, and the
 ## status line. Each tab owns its own preview and its own idea of what to show.
-## Every preview goes through the same CharacterAssembler the game will use.
+## Every preview goes through the same LowpolyAssembler the game uses.
 ##
 ## Accessibility (the owner is red/green colour blind, dyslexic, has ADHD): no
 ## state is signalled by red vs green alone; worn items say "worn", checks say
@@ -29,16 +30,12 @@ signal wardrobe_replaced
 ## Where the last file is remembered. A variable so the tests can point it
 ## elsewhere before the editor starts, rather than overwrite a user's state.
 var state_path := STATE_PATH
-## Where edited bodies and heads go. Tests point this at a scratch folder.
-var edited_dir := AssetLibrary.EDITED_DIR
 
-var library: AssetLibrary = null
-## The low-poly bodies and heads (assets/lowpoly/): the editor is moving to them, a phase at a time.
-var lowpoly: LowpolyLibrary = null
+## The bodies, heads and region table (assets/lowpoly/).
+var library: LowpolyLibrary = null
 var wardrobe: Wardrobe = null
 var history := EditHistory.new()
 
-var bodies: BodiesWorkspace = null
 var face_hair: FaceHairWorkspace = null
 var clothes: ClothesWorkspace = null
 var preview: PreviewWorkspace = null
@@ -78,13 +75,9 @@ func _ready() -> void:
 	# Closing the window goes through the unsaved-changes prompt like Quit does.
 	get_tree().set_auto_accept_quit(false)
 
-	library = AssetLibrary.new()
-	library.edited_dir = edited_dir
+	library = LowpolyLibrary.new()
 	if not library.load_all():
-		push_error("asset library: %s" % ", ".join(library.errors))
-	lowpoly = LowpolyLibrary.new()
-	if not lowpoly.load_all():
-		push_error("low-poly library: %s" % ", ".join(lowpoly.errors))
+		push_error("low-poly library: %s" % ", ".join(library.errors))
 
 	# The model is loaded BEFORE any control exists: tabs refresh themselves as
 	# they are set up, and must find nothing half-built.
@@ -93,7 +86,7 @@ func _ready() -> void:
 	if not last_path.is_empty() and FileAccess.file_exists(last_path):
 		wardrobe = Wardrobe.load_from(last_path)
 	if wardrobe == null:
-		wardrobe = Wardrobe.create_default(library)
+		wardrobe = Wardrobe.create_default()
 	_ensure_eye_set()
 	history.reset(wardrobe.to_json())
 
@@ -107,12 +100,12 @@ func _ready() -> void:
 	_current().on_shown()
 
 
-## A wardrobe always offers at least the shipped eyes as an eye set, so the
+## A wardrobe always offers at least the standard eyes as an eye set, so the
 ## Face & Hair tab has something to draw on. Not a change the user made, so it
 ## does not mark the file dirty.
 func _ensure_eye_set() -> void:
 	if wardrobe.eye_sets.is_empty():
-		var standard := EyeSet.from_library(library)
+		var standard := EyeSet.standard()
 		wardrobe.eye_sets[standard.id] = standard
 
 
@@ -173,11 +166,10 @@ func _build_ui() -> void:
 
 	_build_dialogs()
 
-	bodies = BodiesWorkspace.new()
 	face_hair = FaceHairWorkspace.new()
 	clothes = ClothesWorkspace.new()
 	preview = PreviewWorkspace.new()
-	workspaces = [bodies, face_hair, clothes, preview]
+	workspaces = [face_hair, clothes, preview]
 	for ws in workspaces:
 		var w: Workspace = ws
 		w.name = w.title()
@@ -272,17 +264,7 @@ func mark_others_stale(except: Workspace) -> void:
 			(ws as Workspace).mark_stale()
 
 
-## A tab reports what its preview is showing.
-func show_status(from: Workspace, assembled: CharacterAssembler.Assembled) -> void:
-	if from != _current() or _status == null:
-		return
-	_status.text = from.status_text(assembled)
-	_warning.text = "" if assembled.warnings.is_empty() \
-		else "warning: %s" % assembled.warnings[0]
-	_refresh_title()
-
-
-## A tab reports what its preview is showing, as a line of its own (the low-poly figure is not an Assembled).
+## A tab reports what its preview is showing, and the first of the figure's warnings.
 func show_status_line(from: Workspace, text: String, warning: String = "") -> void:
 	if from != _current() or _status == null:
 		return
@@ -310,14 +292,12 @@ func _refresh_title() -> void:
 
 # ------------------------------------------------------------------- undo ----
 #
-# Two documents can be edited at once -- the wardrobe (clothes, features, eye
-# sets), and a body or head open in the Bodies tab -- each with its own
-# snapshot history. The timeline records which document each edit belonged to,
-# in order, so Ctrl+Z always reverses the most recent edit whichever document
-# it was in, and the Edit menu names exactly what that will be.
+# One document is edited: the wardrobe (clothes, features, eye sets), with its
+# snapshot history. The timeline records the edits in order, so the Edit menu
+# names exactly what Ctrl+Z will reverse. (It once also held a body or head
+# open in the voxel Bodies tab, and can hold another document again.)
 
 const DOC_WARDROBE := "wardrobe"
-const DOC_BODY := "body"
 
 var _timeline: Array[String] = []
 var _timeline_at := -1  ## index of the most recent edit still applied
@@ -346,9 +326,7 @@ func forget_edits(doc: String) -> void:
 	_refresh_edit_menu()
 
 
-func _history_for(doc: String) -> EditHistory:
-	if doc == DOC_BODY:
-		return bodies.history if bodies != null else null
+func _history_for(_doc: String) -> EditHistory:
 	return history
 
 
@@ -367,10 +345,7 @@ func _menu_label(verb: String, doc: String, undoing: bool) -> String:
 	var what := ""
 	if h != null:
 		what = h.undo_label() if undoing else h.redo_label()
-	var prefix := ""
-	if doc == DOC_BODY and bodies != null and not bodies.edit_kind().is_empty():
-		prefix = "%s: " % bodies.edit_kind()
-	return "%s %s%s" % [verb, prefix, what]
+	return "%s %s" % [verb, what]
 
 
 func _refresh_edit_menu() -> void:
@@ -424,11 +399,7 @@ func redo() -> bool:
 
 
 func _apply_snapshot(doc: String, snapshot: Dictionary) -> void:
-	if snapshot.is_empty():
-		return
-	if doc == DOC_BODY:
-		if bodies != null:
-			bodies.restore_snapshot(snapshot)
+	if snapshot.is_empty() or doc != DOC_WARDROBE:
 		return
 	var restored := Wardrobe.from_json(snapshot)
 	if restored == null:
@@ -454,11 +425,11 @@ func _on_file_menu(id: int) -> void:
 	match id:
 		FileMenu.NEW:
 			var start_new := func() -> void:
-				_replace_wardrobe(Wardrobe.create_default(library), "New wardrobe")
-			guard_unsaved(start_new, false, true)
+				_replace_wardrobe(Wardrobe.create_default(), "New wardrobe")
+			guard_unsaved(start_new)
 		FileMenu.OPEN:
 			var show_open := func() -> void: _open_dialog.popup_centered_ratio(0.6)
-			guard_unsaved(show_open, false, true)
+			guard_unsaved(show_open)
 		FileMenu.SAVE:
 			_save_current()
 		FileMenu.SAVE_AS:
@@ -471,18 +442,18 @@ func _on_file_menu(id: int) -> void:
 				_message("No previous file to reopen.")
 				return
 			var reopen := func() -> void: _do_open(last)
-			guard_unsaved(reopen, false, true)
+			guard_unsaved(reopen)
 		FileMenu.QUIT:
 			_quit_when_safe()
 
 
-## Quit, after asking about anything unsaved in either document. File > Quit
-## and the window's close button both come here.
+## Quit, after asking about anything unsaved. File > Quit and the window's
+## close button both come here.
 func _quit_when_safe() -> void:
 	var quit_now := func() -> void:
 		_save_state()
 		get_tree().quit()
-	guard_unsaved(quit_now, true, true)
+	guard_unsaved(quit_now)
 
 
 func _replace_wardrobe(new_wardrobe: Wardrobe, label: String) -> void:
@@ -542,22 +513,11 @@ func _do_open(path: String) -> void:
 
 # ----------------------------------------------------------- unsaved guard --
 
-## Run `action` once it is safe to lose what it would discard.
-##
-## check_body      ask about an unsaved body or head in the Bodies tab
-## check_wardrobe  ask about unsaved changes to the wardrobe
-##
-## The body or head is asked about first; once saved or discarded the wardrobe
-## gets its turn, and only then does the action run. Every way out of a prompt
-## either resumes the action or drops it.
-func guard_unsaved(action: Callable, check_body: bool, check_wardrobe: bool) -> void:
-	if check_body and bodies != null and bodies.has_unsaved():
-		_pending_after_prompt = func() -> void:
-			guard_unsaved(action, false, check_wardrobe)
-		_prompt(DOC_BODY, "The %s you are editing has unsaved changes."
-			% bodies.edit_display_name())
-		return
-	if check_wardrobe and wardrobe != null and wardrobe.dirty:
+## Run `action` once it is safe to lose what it would discard: with unsaved
+## changes to the wardrobe, the user is asked first. Every way out of the
+## prompt either resumes the action or drops it.
+func guard_unsaved(action: Callable) -> void:
+	if wardrobe != null and wardrobe.dirty:
 		_pending_after_prompt = action
 		_prompt(DOC_WARDROBE, "%s has unsaved changes." % wardrobe.display_path())
 		return
@@ -571,22 +531,16 @@ func _prompt(doc: String, text: String) -> void:
 
 
 func _on_save_then_continue() -> void:
-	if _prompt_doc == DOC_BODY and bodies != null:
-		bodies.save_for_prompt()
-	else:
-		_save_current()
+	_save_current()
 
 
 func _on_discard_changes() -> void:
 	# Take the action before hiding: the dialog's own signals must not get a
 	# chance to drop it first.
 	var action := _pending_after_prompt
-	var doc := _prompt_doc
 	_pending_after_prompt = Callable()
 	_prompt_doc = ""
 	_unsaved_dialog.hide()
-	if doc == DOC_BODY and bodies != null:
-		bodies.discard_unsaved()
 	if action.is_valid():
 		action.call()
 

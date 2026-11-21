@@ -6,7 +6,7 @@ extends RefCounted
 ##
 ## lowpoly/body.py and lowpoly/heads.py write these files; regenerate them rather than hand-edit. Units are the old
 ## voxel's, 24 to the metre, in the same axes as every asset here: x across (the figure's left is +x, mirror plane
-## x = 12), y depth (the figure faces -y, depth centre y = 12), z up from the floor. So VoxelAxes converts them too.
+## x = 12), y depth (the figure faces -y, depth centre y = 12), z up from the floor. FigureAxes converts them to Godot's.
 ##
 ## Eight bodies (slim, average, heavy and short, for each sex) and five heads. All eight bodies have the same corners
 ## in the same order and the same polygons; each is the feminine average with its corners moved. A short body has
@@ -19,11 +19,13 @@ const SEXES: Array[String] = ["female", "male"]
 const BUILDS: Array[String] = ["slim", "average", "heavy", "short"]
 const HEAD_SHAPES: Array[String] = ["round", "boxy", "oval", "strong", "heart"]
 
-## The eleven parts, each after its parent. The same as the voxel bodies' (SPEC 3.1).
+## The eleven parts, each after its parent (SPEC 3.1).
 const PARTS: Array[String] = ["pelvis", "chest", "head", "upper_arm_L", "upper_arm_R", "forearm_L", "forearm_R",
 	"thigh_L", "thigh_R", "shin_L", "shin_R"]
 
 var bodies: Dictionary = {}       ## "female_average" -> LowpolyLibrary.Body
+## the region table (SPEC.md 3.4): every band, its heights and part family; the same on every body
+var regions: RegionMap = null
 var heads: Dictionary = {}        ## "round" -> LowpolyLibrary.Head
 var errors: Array[String] = []
 
@@ -93,6 +95,14 @@ static func body_path(sex: String, build: String) -> String:
 	return "%s/body_%s_%s.json" % [DIR, sex, build]
 
 
+static func regions_path() -> String:
+	return "%s/regions.json" % DIR
+
+
+func region_map() -> RegionMap:
+	return regions
+
+
 static func head_path(shape: String) -> String:
 	return "%s/head_%s.json" % [DIR, shape]
 
@@ -106,6 +116,11 @@ func load_all() -> bool:
 	errors.clear()
 	bodies.clear()
 	heads.clear()
+	var table := JsonIO.read_dict(regions_path())
+	if String(table.get("format", "")) != "lowpoly_regions" or not table.has("regions"):
+		errors.append("%s: not a region table" % regions_path())
+	else:
+		regions = RegionMap.from_json(table["regions"])
 	for sex in SEXES:
 		for build in BUILDS:
 			var path := body_path(sex, build)

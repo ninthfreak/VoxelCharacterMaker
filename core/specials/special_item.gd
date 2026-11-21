@@ -2,140 +2,51 @@
 class_name SpecialItem
 extends RefCounted
 
-## Special shapes: pieces the region-and-bulk system cannot express -- hoods,
-## skirts, capes, beards, buns, bows (SPEC.md section 7.4).
+## Special shapes: pieces the region-and-bulk system cannot express -- skirts, capes, straps, beards, hoods, drawn
+## shapes (SPEC.md section 7.4). An item can carry several, alongside its regions; each has a few settings, and
+## lengths are named by body bands ("to the knee"), not heights.
 ##
-## A special shape is ANCHORED to the body at a specific point and otherwise
-## has its own form. Only the anchor is measured from the body, which is what
-## lets one definition fit all six bodies and all five heads. Each type is a
-## generator with a few parameters; lengths are named by body bands ("to the
-## knee"), not rows. An item can carry several, alongside its regions.
-##
-## Long garments that hang across the legs use CLOTH PANELS: garment-owned
-## rigid parts hung from a pivot on a body part, rotated by a simple driver
-## rule. Legs may clip at extreme poses; that is accepted.
+## This is the table of them: their names, their settings and their defaults, from which the editor builds its
+## controls (a new type needs no editor change). The low-poly figure builds them (core/lowpoly/: LowpolyShapes for
+## straps, skirt and cape, LowpolyFacialHair for facial hair). The hood and drawn shapes are kept in the wardrobe
+## file with their settings, and not built yet: the figure's warnings say so.
 
-## What a generator returns.
-class Result extends RefCounted:
-	## Claims on cells: Array of
-	## {"part": String, "cell": Vector3i, "role": String, "reach": int,
-	##  "recolour": bool, "tone": int}
-	var claims: Array = []
+const OPENINGS: Array[String] = ["none", "wrap", "front"]
+const SIDES: Array[String] = ["left", "right"]
+const MAX_SLANT := 6
 
-	## Garment-owned rigid parts: Array of
-	## {"name": String, "parent": String, "pivot": Vector3, "driver": String}
-	var panels: Array = []
-
-	var warnings: Array[String] = []
-
-	## `recolour` lets the claim land on a body voxel and repaint it, instead
-	## of being refused there as an ordinary special-shape claim is.
-	##
-	## `tone` fixes the cell's shade (a Shading.Tone) instead of leaving it to
-	## the baked lighting. Thin cloth -- a one-voxel strap, a hanging panel --
-	## is misread by the per-voxel rule, so it says which shade its face would
-	## have on a solid (Shading.face_tone). -1 = baked.
-	func claim(part: String, cell: Vector3i, role: String, reach: int = 1,
-			recolour: bool = false, tone: int = -1) -> void:
-		claims.append({"part": part, "cell": cell, "role": role, "reach": reach,
-			"recolour": recolour, "tone": tone})
-
-	func panel(name: String, parent: String, pivot: Vector3, driver: String) -> void:
-		panels.append({"name": name, "parent": parent, "pivot": pivot, "driver": driver})
-
-	func cell_count() -> int:
-		return claims.size()
+## Where a drawn shape hangs from: name -> label. (The shapes themselves are drawn cells, kept in the file; the
+## low-poly figure does not draw them yet.)
+const ANCHORS := {
+	"crown": "Top of the head",
+	"brow": "Forehead, just above the eyes",
+	"face": "Face, at the bottom row of the eyes",
+	"chin": "Under the chin, hanging down",
+	"nape": "Back of the head, level with the eyes",
+	"shoulder": "Top of the shoulder (both sides when mirrored)",
+	"chest": "Front of the chest",
+	"back": "Middle of the back",
+	"waist_front": "Front of the waist",
+	"waist_back": "Back of the waist",
+	"hip": "Side of the hip (both sides when mirrored)",
+	"wrist": "Outside of the wrist (both sides when mirrored)",
+	"ankle": "Outside of the ankle (both sides when mirrored)",
+}
 
 
-## Driver rules for cloth panels (SPEC 7.4). The front panel follows the more
-## forward thigh, the back panel the more backward one, side panels their own
-## thigh.
-const DRIVER_FORWARD_THIGH := "forward_thigh"
-const DRIVER_BACKWARD_THIGH := "backward_thigh"
-const DRIVER_THIGH_L := "thigh_L"
-const DRIVER_THIGH_R := "thigh_R"
-## A front flap of an open-fronted skirt: forward with its own thigh, and never
-## backward -- when that leg goes back the flap just hangs.
-const DRIVER_FLAP_L := "flap_L"
-const DRIVER_FLAP_R := "flap_R"
-const DRIVER_STATIC := "static"
-## Swing back with whichever thigh is furthest back, and never forward: a cape
-## following a leg forward would go through the body when sitting.
-const DRIVER_TRAIL := "trail"
-
-
-## Context handed to every generator.
-class Context extends RefCounted:
-	var body: BodyDef
-	var head: HeadDef
-	var regions: RegionMap
-	## part name -> Dictionary of Vector3i -> true: the BARE body. Every item
-	## grows from this, not from what is already worn (SPEC 7.3 rule 6).
-	var part_cells: Dictionary = {}
-	## part or panel name -> Dictionary of Vector3i -> true: the figure as worn
-	## so far -- the body plus everything claimed before this shape. A shape
-	## that hangs clear of the figure (a cape, a skirt's panels) measures from
-	## this, so it clears the clothes underneath and not just the skin.
-	var worn_cells: Dictionary = {}
-	## Every cell of the whole figure, for deciding what is an exposed surface.
-	## A generator passes this to BulkBuilder.grow so a garment does not grow
-	## through a joint seam. Empty means "judge by the part alone".
-	var occupancy: Dictionary = {}
-
-	func cells_of(part: String) -> Dictionary:
-		return part_cells.get(part, {})
-
-	## One part as worn so far; falls back to the bare part.
-	func worn_of(part: String) -> Dictionary:
-		return worn_cells.get(part, cells_of(part))
-
-	## Inclusive x extent of a part's cells in one row, or a reversed range
-	## when the row is empty. The measuring is VoxelTopology's.
-	func row_extent_x(part: String, z: int) -> Vector2i:
-		return VoxelTopology.row_extent_x(cells_of(part), z)
-
-	func row_extent_y(part: String, z: int) -> Vector2i:
-		return VoxelTopology.row_extent_y(cells_of(part), z)
-
-	## The first row at or below `from_z` that has any cells of the part.
-	func highest_row(part: String, from_z: int) -> int:
-		var best := -1
-		for cell in cells_of(part).keys():
-			var c: Vector3i = cell
-			if c.z <= from_z:
-				best = maxi(best, c.z)
-		return best
-
-	## The z of a band's floor, so a generator can say "to the knee" rather
-	## than hard-coding a row.
-	func band_floor(family: String, band_name: String) -> int:
-		var b := regions.band(band_name)
-		if b == null:
-			return 0
-		return b.z0
-
-	func band_top(band_name: String) -> int:
-		var b := regions.band(band_name)
-		if b == null:
-			return 0
-		return b.z1
-
-
-# --------------------------------------------------------------- registry ---
-
-## Generator type -> script. Kept as a plain lookup so adding a type is one
-## line here and one new file; the editor builds its controls from param_spec.
 static func types() -> Array[String]:
 	return ["skirt", "cape", "hood", "straps", "shape", "facial_hair"]
 
 
-## Types that hang cloth panels clear of the figure. They measure the figure as
-## worn, so they are placed after EVERYTHING else that is worn -- every item's
-## regions and every other shape -- in draw order among themselves. A skirt
-## then clears boots put on "after" it, and a hooded cloak's cape hangs behind
-## its own hood's collar, not through it.
+## Types that hang clear of the figure. They are placed after everything else that is worn, in draw order among
+## themselves, so a skirt clears boots put on "after" it.
 static func hangs_clear(type: String) -> bool:
 	return type in ["skirt", "cape"]
+
+
+## Whether the low-poly figure builds this type yet.
+static func is_built(type: String) -> bool:
+	return type in ["skirt", "cape", "straps", "facial_hair"]
 
 
 static func display_name(type: String) -> String:
@@ -149,36 +60,80 @@ static func display_name(type: String) -> String:
 	return type
 
 
-## Where a type attaches, in words, for the editor. A drawn shape's anchor is
-## a parameter, so the caller passes the params to get its actual anchor.
+## Where a type attaches, in words, for the editor. A drawn shape's anchor is a setting, so the caller passes the
+## settings to get its actual anchor.
 static func anchor_description(type: String, params: Dictionary = {}) -> String:
 	match type:
-		"hood": return "Anchored to the head; grows from its surface and leaves the face open."
-		"skirt": return "Anchored at the hips; hangs as cloth panels that swing with the legs."
-		"cape": return "Anchored behind the shoulders; hangs as a panel that trails the legs."
+		"hood": return "Anchored to the head. Not on the low-poly figure yet: its settings are kept."
+		"skirt": return "Hangs from the waist line; laid afresh over the legs in every pose."
+		"cape": return "Hangs from the shoulder line at the back; laid afresh in every pose."
 		"shape":
 			var anchor := String(params.get("anchor", "chest"))
-			return "Anchored at: %s." % Anchors.label(anchor)
+			return "Anchored at: %s. Drawn shapes are not on the low-poly figure yet: the drawing is kept." \
+				% String(ANCHORS.get(anchor, anchor))
 		"facial_hair":
-			return "Follows the face on every head: jaw, chin and sideburns."
+			return "Cut from the head's own polygons on every head: moustache, sideburns, goatee and cheeks."
 		"straps":
 			return "Over both shoulders: up the chest, across the top, and straight down the back."
 	return ""
 
 
-## Parameter description for the editor, so a new special type does not need
-## any editor changes. Each entry:
-##   {"name", "label", "type": "int"|"bool"|"enum", "default",
-##    "min", "max" (int), "options": Array[String] (enum)}
+## Settings for the editor, so a new special type does not need any editor changes. Each entry:
+##   {"name", "label", "type": "int"|"bool"|"enum"|"cells", "default", "min", "max" (int), "options" (enum),
+##    "hint"}
 static func param_spec(type: String) -> Array:
 	match type:
-		"hood": return HoodGenerator.param_spec()
-		"skirt": return SkirtGenerator.param_spec()
-		"cape": return CapeGenerator.param_spec()
-		"shape": return ShapeGenerator.param_spec()
-		"facial_hair": return FacialHairGenerator.param_spec()
-		"straps": return StrapGenerator.param_spec()
+		"skirt": return [
+			{"name": "length", "label": "Length", "type": "enum", "default": "to_knee",
+				"options": ["to_knee", "to_shin", "to_ankle"]},
+			{"name": "flare", "label": "Flare", "type": "int", "default": 1, "min": 0, "max": 3,
+				"hint": "How much wider the hem is than the hips"},
+			{"name": "panels", "label": "Panels", "type": "enum", "default": "four", "options": ["two", "four"],
+				"hint": "Four: one cloth all round. Two: a front and a back, the sides open"},
+			{"name": "slant", "label": "Hem slant", "type": "int", "default": 0, "min": 0, "max": MAX_SLANT,
+				"hint": "How far the hem rises across the skirt. 0 is level"},
+			{"name": "opening", "label": "Opening", "type": "enum", "default": "none", "options": OPENINGS,
+				"hint": "Wrap shows one leg. Front opens down the middle, like a robe"},
+			{"name": "side", "label": "Side", "type": "enum", "default": "left", "options": SIDES,
+				"hint": "The character's own left or right: where the hem rises and the wrap opens"},
+			{"name": "waistband", "label": "Waistband", "type": "bool", "default": true},
+			{"name": "hem_trim", "label": "Hem in its own colour", "type": "bool", "default": true},
+		]
+		"cape": return [
+			{"name": "length", "label": "Length", "type": "enum", "default": "to_knee",
+				"options": ["to_waist", "to_knee", "to_ankle"]},
+			{"name": "width", "label": "Width", "type": "enum", "default": "shoulders",
+				"options": ["narrow", "shoulders", "wide"]},
+			{"name": "flare", "label": "Flare", "type": "int", "default": 1, "min": 0, "max": 3},
+			{"name": "hem_trim", "label": "Hem in its own colour", "type": "bool", "default": true},
+		]
+		"hood": return [
+			{"name": "raised", "label": "Up (over the head)", "type": "bool", "default": true},
+			{"name": "depth", "label": "Thickness", "type": "int", "default": 1, "min": 1, "max": 3},
+			{"name": "opening", "label": "Face opening", "type": "int", "default": 1, "min": 0, "max": 3,
+				"hint": "How far past the eye box the opening reaches"},
+			{"name": "lined", "label": "Separate lining colour", "type": "bool", "default": false},
+		]
+		"shape": return [
+			{"name": "anchor", "label": "Anchored at", "type": "enum", "default": "chest", "options": anchor_names()},
+			{"name": "wrap", "label": "Wrap onto the surface", "type": "bool", "default": true,
+				"hint": "On: follows the body's curve. Off: keeps its own shape."},
+			{"name": "mirror", "label": "Mirror onto the other side", "type": "bool", "default": true},
+			# the drawing itself: kept in the file, not edited with a control
+			{"name": "cells", "label": "Shape", "type": "cells", "default": []},
+		]
+		"facial_hair": return FacialHairSettings.param_spec()
+		"straps": return [
+			{"name": "width", "label": "Strap width", "type": "int", "default": 1, "min": 1, "max": 2},
+		]
 	return []
+
+
+static func anchor_names() -> Array[String]:
+	var out: Array[String] = []
+	for key in ANCHORS.keys():
+		out.append(String(key))
+	return out
 
 
 static func default_params(type: String) -> Dictionary:
@@ -186,33 +141,17 @@ static func default_params(type: String) -> Dictionary:
 	for entry in param_spec(type):
 		var e: Dictionary = entry
 		var value: Variant = e["default"]
-		# A fresh copy: a shared default array would be one shape's cells drawn
-		# into every new shape.
+		# A fresh copy: a shared default array would be one shape's cells drawn into every new shape.
 		if value is Array:
 			value = (value as Array).duplicate(true)
 		out[String(e["name"])] = value
 	return out
 
 
-## Fill in anything the stored params are missing, so an item authored before a
-## parameter existed still generates.
+## Fill in anything the stored settings are missing, so an item saved before a setting existed still builds.
 static func with_defaults(type: String, params: Dictionary) -> Dictionary:
 	var out := default_params(type)
 	for key in params.keys():
 		if out.has(key):
 			out[key] = params[key]
 	return out
-
-
-static func generate(type: String, ctx: Context, params: Dictionary) -> Result:
-	var p := with_defaults(type, params)
-	match type:
-		"hood": return HoodGenerator.generate(ctx, p)
-		"skirt": return SkirtGenerator.generate(ctx, p)
-		"cape": return CapeGenerator.generate(ctx, p)
-		"shape": return ShapeGenerator.generate(ctx, p)
-		"facial_hair": return FacialHairGenerator.generate(ctx, p)
-		"straps": return StrapGenerator.generate(ctx, p)
-	var empty := Result.new()
-	empty.warnings.append("unknown special type '%s'" % type)
-	return empty

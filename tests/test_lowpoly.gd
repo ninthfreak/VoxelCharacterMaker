@@ -2,7 +2,7 @@
 class_name TestLowpoly
 extends RefCounted
 
-## The low-poly characters in Godot (SPEC.md section 0): the editor's move to low-poly, phase 1.
+## The low-poly characters in Godot (SPEC.md section 0): the figure the game and the editor draw.
 ##
 ## The bodies and heads are made in Python (lowpoly/) and read here from assets/lowpoly/. These checks hold that the
 ## game reads them whole, puts a head on a body as lowpoly/ does, and bends the figure in every test pose exactly as
@@ -12,7 +12,7 @@ extends RefCounted
 const EXPECTED_PATH := "res://tests/lowpoly_expected.json"
 
 
-static func run(t: TestReport, voxel_library: AssetLibrary) -> void:
+static func run(t: TestReport) -> void:
 	t.group("low-poly: the bodies and heads, read from assets/lowpoly/")
 	var library := LowpolyLibrary.new()
 	t.check(library.load_all(), "every low-poly body and head file reads", ", ".join(library.errors))
@@ -28,7 +28,7 @@ static func run(t: TestReport, voxel_library: AssetLibrary) -> void:
 	_against_python(t, library)
 
 	t.group("low-poly: clothing, as lowpoly/ dresses a figure")
-	var wardrobe := Wardrobe.create_default(voxel_library)
+	var wardrobe := Wardrobe.create_default()
 	_dressed_against_python(t, library, wardrobe)
 	_dressing_rules(t, library, wardrobe)
 	_cloth_in_the_rig(t, library, wardrobe)
@@ -186,7 +186,7 @@ static func _dressed_against_python(t: TestReport, library: LowpolyLibrary, ward
 		for id in items.keys():
 			if w.item(String(id)) == null:
 				w.add_item(GarmentItem.from_json(String(id), items[id]))
-		var req := CharacterAssembler.Request.new()
+		var req := CharacterRequest.new()
 		req.body_id = String(case_["body"])
 		req.head_shape = String(case_["head"])
 		req.wardrobe = w
@@ -256,7 +256,7 @@ static func _vec64(a: Array) -> PackedFloat64Array:
 
 ## The rules themselves, on one figure: what the cross-check above cannot say by itself.
 static func _dressing_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wardrobe) -> void:
-	var req := CharacterAssembler.Request.new()
+	var req := CharacterRequest.new()
 	req.body_id = "female_average"
 	req.head_shape = "round"
 	req.wardrobe = wardrobe
@@ -309,12 +309,12 @@ static func _dressing_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wa
 	for p in f.polygons:
 		others = others or (not String(p["by"]).is_empty() and String(p["by"]) not in ["boots", "short_crop"])
 		hair_kept = hair_kept or String(p["by"]) == "short_crop"
-	t.check(not others and hair_kept, "with one item soloed, only that item of the clothes is on the figure; hair stays, as on the voxel figure")
+	t.check(not others and hair_kept, "with one item soloed, only that item of the clothes is on the figure; hair stays")
 
 
 ## Hanging cloth as the game draws it: kept on the figure, laid afresh when the pose changes, in front of what it hides.
 static func _cloth_in_the_rig(t: TestReport, library: LowpolyLibrary, wardrobe: Wardrobe) -> void:
-	var req := CharacterAssembler.Request.new()
+	var req := CharacterRequest.new()
 	req.body_id = "female_average"
 	req.head_shape = "round"
 	req.wardrobe = wardrobe
@@ -362,7 +362,7 @@ static func _polygons_of(f: LowpolyFigure, pieces: Array, all_but_face: bool = f
 ## The facial hair item lowpoly/facial_hair.py item() makes for a case: these parts on, this length.
 static func _facial_hair_item(record: Dictionary) -> GarmentItem:
 	var params := {"length": String(record["length"])}
-	for part in FacialHairGenerator.PARTS:
+	for part in FacialHairSettings.PARTS:
 		params[part] = (record["parts"] as Array).has(part)
 	return GarmentItem.from_json(String(record["id"]), {"category": "facial_hair", "name": String(record["id"]),
 		"colourways": {"default": {"hair": "@hair", "stubble": "@stubble"}}, "coverage": {},
@@ -381,7 +381,7 @@ static func _faces_against_python(t: TestReport, library: LowpolyLibrary, wardro
 	var w := Wardrobe.from_json(wardrobe.to_json())
 	for c in cases:
 		var case_: Dictionary = c
-		var req := CharacterAssembler.Request.new()
+		var req := CharacterRequest.new()
 		req.body_id = String(case_["body"])
 		req.head_shape = String(case_["head"])
 		req.wardrobe = w
@@ -430,7 +430,7 @@ static func _faces_against_python(t: TestReport, library: LowpolyLibrary, wardro
 
 ## What the cross-check cannot say by itself: the face follows the request, and the mouth gives way to a moustache.
 static func _face_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wardrobe) -> void:
-	var req := CharacterAssembler.Request.new()
+	var req := CharacterRequest.new()
 	req.body_id = "male_average"
 	req.head_shape = "round"
 	req.wardrobe = wardrobe
@@ -462,7 +462,7 @@ static func _face_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wardro
 	t.check(dark > 0, "the rig marks the unlit polygons for its shader (%d corners)" % dark)
 	rig.free()
 	# a full beard grown out hides the mouth under its moustache; stubble does not
-	var full := _facial_hair_item({"id": "test beard", "parts": FacialHairGenerator.PARTS, "length": "medium", "draw_order": 65})
+	var full := _facial_hair_item({"id": "test beard", "parts": FacialHairSettings.PARTS, "length": "medium", "draw_order": 65})
 	var w := Wardrobe.from_json(wardrobe.to_json())
 	w.add_item(full)
 	req.wardrobe = w
@@ -504,7 +504,7 @@ static func _face_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wardro
 		"an item saved with the old style gets its parts, its length and both colour roles")
 	var kept := GarmentItem.from_json("odd", {"category": "facial_hair", "specials": [{"type": "facial_hair",
 		"params": {"style": "bogus"}}]}, "facial_hair")
-	t.check(String(kept.special_params(0).get("style", "")) == "bogus" and FacialHairGenerator.voxel_style(kept.special_params(0)).is_empty(),
+	t.check(String(kept.special_params(0).get("style", "")) == "bogus",
 		"an unknown old style is kept, so a save does not lose it")
 
 	# An eye erased in the grid: that eye is left out, the figure stays its own size.

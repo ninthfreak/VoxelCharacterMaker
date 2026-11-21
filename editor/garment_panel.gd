@@ -30,10 +30,6 @@ var _add_type: OptionButton = null
 var _special_detail: VBoxContainer = null
 var _anchor_note: Label = null
 var _params: VBoxContainer = null
-var _shape_box: VBoxContainer = null
-var _shape_grid: ShapeGrid = null
-var _shape_role: OptionButton = null
-var _shape_layer: HSlider = null
 var _special_index := -1
 
 
@@ -65,7 +61,7 @@ func _build() -> void:
 		var it := item()
 		if it == null:
 			return
-		it.edge_style = BulkBuilder.edge_style_from_name(option_value(_edge))
+		it.edge_style = GarmentItem.edge_style_from_name(option_value(_edge))
 		commit("Set edge style on %s" % it.name)
 		refresh())
 	hint(head, "Soft rounds the corners, for cloth. Hard squares them, for plate.")
@@ -78,7 +74,7 @@ func _build_regions() -> void:
 	var box := section("Regions")
 	_regions = make_list(box, 230, true)
 	hint(box, "Select one or more regions, then apply a role and a bulk. Bulk 0 "
-		+ "recolours the body's own voxels; 1 or more adds that many voxels outward. "
+		+ "recolours the body's own polygons; 1 or more lifts them that many steps outward. "
 		+ "Legwear is usually bulk 0 (skin-tight), and nothing on the legs ever "
 		+ "grows into the gap between them. "
 		+ "A trim band is one row thick: a cuff, belt, collar or hem.")
@@ -95,7 +91,7 @@ func _build_regions() -> void:
 	apply_row.add_child(bulk_label)
 	_bulk = SpinBox.new()
 	_bulk.min_value = 0
-	_bulk.max_value = BulkBuilder.MAX_BULK
+	_bulk.max_value = GarmentItem.MAX_BULK
 	_bulk.step = 1
 	_bulk.value = 1
 	apply_row.add_child(_bulk)
@@ -144,38 +140,6 @@ func _build_specials() -> void:
 	_params = VBoxContainer.new()
 	_special_detail.add_child(_params)
 
-	_shape_box = VBoxContainer.new()
-	_special_detail.add_child(_shape_box)
-	var shape_row := HFlowContainer.new()
-	_shape_box.add_child(shape_row)
-	var paint_label := Label.new()
-	paint_label.text = "Paint with"
-	shape_row.add_child(paint_label)
-	_shape_role = OptionButton.new()
-	_shape_role.custom_minimum_size = Vector2(140, 0)
-	_shape_role.item_selected.connect(func(_i: int) -> void:
-		_shape_grid.role = option_value(_shape_role)
-		_shape_grid.queue_redraw())
-	shape_row.add_child(_shape_role)
-	var layer_line := HBoxContainer.new()
-	_shape_box.add_child(layer_line)
-	var layer_label := Label.new()
-	layer_label.text = "Layer"
-	layer_line.add_child(layer_label)
-	_shape_layer = HSlider.new()
-	_shape_layer.min_value = ShapeGenerator.B_MIN
-	_shape_layer.max_value = ShapeGenerator.B_MAX
-	_shape_layer.step = 1
-	_shape_layer.value = 0
-	_shape_layer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_shape_layer.value_changed.connect(func(v: float) -> void:
-		_shape_grid.layer = int(v)
-		_shape_grid.queue_redraw())
-	layer_line.add_child(_shape_layer)
-	_shape_grid = ShapeGrid.new()
-	_shape_grid.stroke_finished.connect(_on_shape_stroke)
-	_shape_box.add_child(_shape_grid)
-
 
 func refresh() -> void:
 	var it := item()
@@ -186,7 +150,7 @@ func refresh() -> void:
 		return
 
 	_mirror.button_pressed = it.mirror
-	fill_options(_edge, ["soft", "hard"], BulkBuilder.edge_style_name(it.edge_style))
+	fill_options(_edge, ["soft", "hard"], GarmentItem.edge_style_name(it.edge_style))
 	var detail := "%d regions, deepest bulk %d" % [it.effective_coverage().size(), it.max_bulk()]
 	if it.is_special():
 		detail += "; %d special shape%s" % [it.specials.size(),
@@ -200,7 +164,7 @@ func refresh() -> void:
 	for i in it.specials.size():
 		var type := it.special_type(i)
 		var text := SpecialItem.display_name(type)
-		if type == ShapeGenerator.KIND:
+		if type == "shape":
 			text += " at %s" % String(it.special_params(i).get("anchor", "?"))
 		_specials.add_item(text)
 	if _special_index >= it.specials.size():
@@ -272,34 +236,15 @@ func _refresh_special_detail() -> void:
 				var options: Array = spec.get("options", [])
 				var pretty: Array = []
 				for o in options:
-					pretty.append(Anchors.label(String(o)) if key == "anchor"
+					pretty.append(String(SpecialItem.ANCHORS.get(String(o), o)) if key == "anchor"
 						else String(o).replace("_", " "))
 				fill_options(option, options, String(params.get(key, spec["default"])), pretty)
 				option.item_selected.connect(func(_i: int) -> void:
 					_set_param(index, key, option_value(option), label))
 			_:
-				continue  # "cells" is drawn in the grid below
+				continue  # "cells": a drawn shape's drawing, kept in the file; there is no low-poly drawn shape yet
 		if spec.has("hint"):
 			hint(_params, String(spec["hint"]))
-
-	var is_shape := type == ShapeGenerator.KIND
-	_shape_box.visible = is_shape
-	if is_shape:
-		begin_guard()
-		fill_options(_shape_role, it.roles,
-			_shape_grid.role if _shape_grid.role in it.roles else it.roles[0])
-		end_guard()
-		_shape_grid.role = option_value(_shape_role)
-		_shape_grid.cells = ShapeGenerator.cells_to_dict(params.get("cells", []))
-		_shape_grid.anchor_name = String(params.get("anchor", "chest"))
-		_shape_grid.mirror = bool(params.get("mirror", true))
-		var colours := {}
-		var way := selection.colourway if it.has_colourway(selection.colourway) \
-			else it.first_colourway()
-		for role in it.roles:
-			colours[role] = editor.wardrobe.colour(it.palette_key_for(way, role))
-		_shape_grid.colours = colours
-		_shape_grid.queue_redraw()
 
 
 func _set_param(index: int, key: String, value: Variant, label: String) -> void:
@@ -313,15 +258,6 @@ func _set_param(index: int, key: String, value: Variant, label: String) -> void:
 	it.set_special_param(index, key, value)
 	commit("Set %s on %s" % [label.to_lower(), it.name])
 	refresh()
-
-
-func _on_shape_stroke() -> void:
-	var it := item()
-	if it == null or _special_index < 0:
-		return
-	it.set_special_param(_special_index, "cells",
-		ShapeGenerator.dict_to_cells(_shape_grid.cells))
-	commit("Draw on %s" % it.name)
 
 
 # ------------------------------------------------------------------ actions --
@@ -404,7 +340,7 @@ func _on_add_special() -> void:
 	var type := option_value(_add_type)
 	_special_index = it.add_special(type)
 	# Hair and facial hair are on the head, so a drawn shape starts there.
-	if type == ShapeGenerator.KIND and it.is_feature():
+	if type == "shape" and it.is_feature():
 		it.set_special_param(_special_index, "anchor",
 			"face" if it.slot == "facial_hair" else "nape")
 	commit("Add %s to %s" % [SpecialItem.display_name(type).to_lower(), it.name])

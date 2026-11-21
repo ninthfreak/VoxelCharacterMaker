@@ -47,9 +47,9 @@ def expect(ok, what):
 
 
 print("== band table ==")
-voxel = json.load(open(os.path.join(HERE, "..", "assets", "body42_female_average_parts.json")))["regions"]
-ours = {k: {"z0": v[0], "z1": v[1] - 1, "part": v[2], "trim": v[3]} for k, v in lb.BANDS.items()}
-expect(ours == voxel, f"{len(ours)} bands match the voxel bodies' region table")
+on_disk = json.load(open(lb.REGIONS_PATH)) if os.path.exists(lb.REGIONS_PATH) else {}
+expect(on_disk == json.loads(json.dumps(lb.regions_data())),
+       f"assets/lowpoly/regions.json is the band table ({len(lb.BANDS)} bands) as a rebuild writes it (run: python3 lowpoly/body.py)")
 
 import clay
 layout_of = lambda data: ([(p["v"], p["region"], p["part"], p["piece"], p["hidden"]) for p in data["polygons"]], data["shares"])

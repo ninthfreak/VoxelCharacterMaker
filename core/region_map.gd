@@ -2,12 +2,13 @@
 class_name RegionMap
 extends RefCounted
 
-## Regions of the body surface, shared by all six bodies (SPEC.md section 3.4).
+## Regions of the body surface, shared by all eight bodies (SPEC.md section 3.4). Read from
+## assets/lowpoly/regions.json (LowpolyLibrary), which lowpoly/body.py writes from its band table.
 ##
 ## A region is a part family plus a row band, split left/right at the mirror
 ## line; torso and head bands also split front/back at the depth centre.
 ## Regions never use absolute x, so the same region set adapts to every body's
-## widths and one garment definition fits all six bodies.
+## widths and one garment definition fits all eight bodies.
 ##
 ## Trim bands are deliberately one row thick: a cuff, belt, collar or hem is
 ## simply a trim band in another colour.
@@ -57,7 +58,7 @@ var _bands_by_family: Dictionary = {}  ## family -> Array[Band], descending z
 var _ordered_names: Array[String] = []
 
 
-## Build from the "regions" block of a body JSON file.
+## Build from the "regions" block of the region table.
 static func from_json(regions: Dictionary) -> RegionMap:
 	var map := RegionMap.new()
 	for name in regions.keys():
@@ -178,21 +179,6 @@ static func key_band(key: String) -> String:
 
 static func key_side(key: String) -> String:
 	return String(parse_key(key)["side"])
-
-
-## The region key a cell of a given part belongs to, or "" if no band covers it.
-func key_for_cell(part_name: String, cell: Vector3i) -> String:
-	var family := family_of(part_name)
-	var b := band_at(family, cell.z)
-	if b == null:
-		return ""
-	var side := side_of_part(part_name)
-	if side.is_empty():
-		side = SIDE_LEFT if VoxelAxes.is_left(cell) else SIDE_RIGHT
-	var fb := ""
-	if splits_front_back(family):
-		fb = FACE_FRONT if VoxelAxes.is_front(cell) else FACE_BACK
-	return make_key(b.name, side, fb)
 
 
 ## Every region key that exists, in a stable head-to-toe order.

@@ -3,7 +3,7 @@ class_name Mouths
 extends RefCounted
 
 ## Mouths for the low-poly face (owner, 2026-11): a small table next to the lid states (EyeLids), and chosen the same
-## way, by name, in the Preview tab. The voxel faces have no mouth; the low-poly face draws one (LowpolyFace).
+## way, by name, in the Preview tab, and drawn by the low-poly face (LowpolyFace).
 ##
 ## A mouth is a short line low on the flat part of the face, curved up or down, or a small open oval. Which mouth
 ## goes with which lid state is not decided: the two are chosen apart.

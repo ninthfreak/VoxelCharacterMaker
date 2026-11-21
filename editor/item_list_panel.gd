@@ -89,7 +89,7 @@ func _build() -> void:
 		refresh())
 	_details.add_child(_worn)
 
-	hint(box, "Higher draws on top. Where two items claim the same voxel the one "
+	hint(box, "Higher draws on top. Where two items claim the same region the one "
 		+ "reaching further from the body wins, and draw order breaks a tie.")
 
 
