@@ -1286,6 +1286,51 @@ exactly. Nothing a wardrobe file holds is lost by the switch-over. Found, and fi
   description still named deleted files or the Model switch, or said the bodies were rigid.
 - **Tests:** 357 Godot checks.
 
+## 4za. The hood and drawn shapes: a first pass (owner's go-ahead)
+
+Asked for: build the hood and drawn shapes on the low-poly figure next. Built in the Python reference only
+(`lowpoly/hood.py`, `lowpoly/drawn.py`), with review sheets (`lowpoly/renders/hood.png`,
+`lowpoly/renders/drawn_shapes.png`); the game does not build either yet. The port waits on the owner's look at the
+hood and on how drawn shapes are to be made (below).
+
+- **Raised hood.** A loose shell measured off the dressed head (hair included): rows round the head, each point as
+  far out as the head reaches that way plus a gap, more at the back (the hood's bag) and over the crown, with a brim
+  over the brows. The face opening is cut from the front: an arch over the brows, sides beside the eyes, closing
+  under the chin. Below the head's widest row the hood stops following the head and falls to a short cowl lying on
+  the shoulders. Then every corner of the dressed figure under it (ears, hair, the tops of the arms, a ponytail) is
+  checked against its faces and the hood pushed out where one comes through, the push spread over two rings of
+  neighbours so it bulges rather than steps. An inside shell 0.35 units in, in the lining colour when lined, and a
+  strip round the opening and along the hem. The head rows follow the head, the cowl the chest.
+- **Lowered hood.** A cowl closed round the neck, and the empty hood lying as a pouch on the upper back over it, its
+  opening turned up (in the lining colour when lined).
+- **Settings.** The game's four, unchanged: raised; "Thickness" read as how loose the hood is (1.3, 1.9 or 2.5 units
+  off the head; a cloth this low-poly has no thickness to show); opening (the edge 6.4 to 8.65 units from the middle,
+  the arch's top 37.2 to 39); lined.
+- **Order.** A raised hood is built after every other shape lying on the figure, so it stands clear of a ponytail
+  or a bun; a lowered one lies under them.
+- **Hand-tuning** (the owner's plan: generate a looser hood, then hand-tune it) is not built. The cheaper way is a few
+  more shape settings (brim, fullness at the back, the peak, the cowl's length); hand-moving points needs a 3D point
+  editor and is a much bigger job.
+- **Drawn shapes.** The voxel drawing (cells in a 17 by 7 by 21 box) has no direct low-poly form. Built for comparison:
+  a loft, a few oval cross-sections at an anchor (where each is in the anchor's own directions, how wide, how thick),
+  joined into one closed piece; a section with no width is a tip. Fed three ways on the sheet: the old cells read
+  slice by slice keeping every step, the same with one section a slice (smooth), and sections set by hand. The same
+  tool made a bun, horns (mirrored) and pauldrons (mirrored onto the other arm) by hand. Anchors are measured on the
+  dressed figure (all thirteen, a first pass). Read as they were, the old drawings sit a unit off the low-poly head
+  (they were placed against the voxel head), so they are moved to touch their anchor. Wrap (follow the surface) is
+  not done. A shape at the shoulder bends between the chest and the arm: following the arm alone, it turned under
+  the armpit when the arm went overhead.
+- **Cross-check.** `lowpoly/expected.py` dresses its cases with only the shapes the game builds (`GAME_BUILDS`), and
+  `dress.py` notes a shape left out that way as not built, as before; `tests/lowpoly_expected.json` is unchanged.
+- **Known weak spots.** An arm raised or reaching forward goes through the cowl (like an arm swung back through a
+  cape's edge). Over a ponytail the raised hood bulges in a rough ridge. A lowered hood's lining faces up and is
+  hidden by the head at a low camera. Pauldrons still sink into the shoulder with the arm overhead: the arm is one
+  rigid piece at the shoulder (the open shoulder question, `lowpoly/README.md` "Not decided yet" 1).
+- **Difficulty of the port, if the owner takes it as it is:** the hood in GDScript is medium (the push-out pass is the
+  slow part: about 200 faces against the corners near each, so it wants a little care to stay well under a tenth of
+  a second); drawn shapes as hand-set sections are low to medium for the figure and medium for an editor (a list of
+  sections with numbers, and front and side views to drag them in); converting the old drawings is low.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed
@@ -1318,5 +1363,5 @@ Carried from `SPEC.md` section 13, plus what building raised:
    setting on the assembler, since the game assembles characters anyway.
 7. **Hoods are on hold.** The current hood is a skin-tight shell and does
    not read as a hood. The owner chose: generate a looser hood, then
-   hand-tune it. That needs a new hand-editable 3D piece (the drawn shape is
-   a thin relief and cannot hold a hood's volume). Not started.
+   hand-tune it. The looser hood is built as a first pass in the low-poly
+   reference (4za); hand-tuning is not.

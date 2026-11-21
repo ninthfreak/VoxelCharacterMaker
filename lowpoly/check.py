@@ -149,7 +149,7 @@ else:
     expect(all(on_disk.get(k) == fresh[k] for k in ("cases", "dressed", "faces", "tolerance")),
            f"tests/lowpoly_expected.json ({len(fresh['cases'])} posed figures, {len(fresh['dressed'])} dressed, {len(fresh['faces'])} faces, for the Godot tests) "
            f"is what a rebuild gives (run: python3 lowpoly/expected.py)")
-    known = lambda note: "edge style" in note or "'hood' not built" in note      # not built yet; see the README
+    known = lambda note: "edge style" in note                       # not built yet; see the README
     chest = lambda q: q["piece"] == "skin" and q["band"] in ("waist", "belly", "lower_chest", "upper_chest", "collar", "neck")
 
     def dressed(which):

@@ -138,6 +138,11 @@ def figure_from_files(body_id, head_name):
                 info=dict(head=head_name, head_dz=data["head_raise"]))
 
 
+# The special shapes the game's figure builds so far (the hood and drawn shapes are tried here first, in hood.py and
+# drawn.py, and are not in the game yet)
+GAME_BUILDS = ("facial_hair", "straps", "skirt", "cape")
+
+
 def dressed(tables, wardrobe):
     import pose as ps
     poses = {name: v["parts"] for name, v in tables["poses"].items()}
@@ -149,7 +154,7 @@ def dressed(tables, wardrobe):
     for body_id, head_name, outfit, features in DRESSED:
         worn = wardrobe.outfit(outfit) if isinstance(outfit, str) else outfit
         body = figure_from_files(body_id, head_name)
-        look = ld.dress(body, wardrobe, worn, features=features)
+        look = ld.dress(body, wardrobe, worn, features=features, special_shapes=GAME_BUILDS)
         polys = [{"points": [[round(float(x), 3) for x in v] for v in q["pts"]], "colour": rgb(q["rgb"]), "by": q["by"] or ""}
                  for q in look.polys]
         cloths = {}

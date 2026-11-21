@@ -1,5 +1,5 @@
-"""Special shapes as polygons: straps, skirt, cape. (Facial hair is in facial_hair.py. Hood, hair and drawn shapes
-are still to come.)
+"""Special shapes as polygons: straps, skirt, cape. (Facial hair is in facial_hair.py; the hood, in hood.py, and drawn
+shapes, in drawn.py, are a first pass not yet in the game.)
 
 Each takes the game's own settings for it (core/specials/special_item.gd), with the same names, options and defaults;
 check.py holds DEFAULTS below equal to the game's table. The game builds them the same way
@@ -24,6 +24,8 @@ DEFAULTS = {
     "skirt": {"length": "to_knee", "flare": 1, "panels": "four", "slant": 0, "opening": "none", "side": "left",
               "waistband": True, "hem_trim": True},
     "cape": {"length": "to_knee", "width": "shoulders", "flare": 1, "hem_trim": True},
+    "hood": {"raised": True, "depth": 1, "opening": 1, "lined": False},
+    "shape": {"anchor": "chest", "wrap": True, "mirror": True, "cells": []},
 }
 SKIRT_LENGTH = {"to_knee": "knee", "to_shin": "shin", "to_ankle": "ankle"}       # the band whose floor the hem reaches
 CAPE_LENGTH = {"to_waist": "waist", "to_knee": "knee", "to_ankle": "ankle"}
@@ -340,5 +342,15 @@ def straps(fit, params, colours, name="straps"):
     return polys, []
 
 
-BUILT = {"skirt": skirt, "cape": cape, "straps": straps}
+def hood(fit, params, colours, name="hood"):
+    import hood as hd
+    return hd.hood(fit, params, colours, name)
+
+
+def shape(fit, params, colours, name="shape"):
+    import drawn
+    return drawn.shape(fit, params, colours, name)
+
+
+BUILT = {"skirt": skirt, "cape": cape, "straps": straps, "hood": hood, "shape": shape}
 HANGS = ("skirt", "cape")                # placed after everything else that is worn, in draw order among themselves

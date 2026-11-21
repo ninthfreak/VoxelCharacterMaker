@@ -10,9 +10,9 @@ order, colourways, special shapes, outfits) and applies the parametric rules of 
   6  where worn items claim the same region, the larger bulk wins, then the higher draw order
   8  nothing on a leg or foot grows toward the other leg
 Special shapes (specials.py): straps, skirt and cape are built; a skirt or a cape is hanging cloth (hang.py) and is
-placed after everything else that is worn. A skin tone, a face (faces.py), hair, a beard and a moustache
-(facial_hair.py) make the figure a character. Not done here: rule 7 (soft or hard edge style), and the other special
-shapes (hood, drawn shapes).
+placed after everything else that is worn. The hood (hood.py) and drawn shapes (drawn.py) are a first pass, not yet
+in the game; a raised hood is built after every other shape that lies on the figure, so that it stands clear of them. A skin tone, a face (faces.py), hair, a beard and a moustache
+(facial_hair.py) make the figure a character. Not done here: rule 7 (soft or hard edge style).
 
 The game keeps its garment logic in core/ (GDScript). The rules here are being moved there a phase at a time
 (core/lowpoly/, SPEC.md section 0); what has moved is checked against this file (expected.py), which then stays as the
@@ -195,8 +195,10 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
     for it, item_id, cw in wearing:
         colours = {role: colour_of(name) for role, name in it["colourways"][cw].items() if name.startswith("@") or name in wardrobe.palette}
         cov = resolve(it)
-        for sp in [s for s in it.get("specials", []) if special_shapes is True or (special_shapes and s["type"] in special_shapes)]:
+        for sp in it.get("specials", []) if special_shapes else []:
             kind = sp["type"]
+            if special_shapes is not True and kind not in special_shapes:     # left out on purpose: as if not built
+                notes.append(f"{item_id}: special shape '{kind}' not built"); continue
             if kind == "facial_hair":                                # it claims the head's own polygons: see below
                 parts, length, more = facial_hair.read(sp.get("params", {}))
                 notes += [f"{item_id}: {m}" for m in more]
@@ -301,16 +303,19 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
             if max(np.linalg.norm(hem[0] - hem[3]), np.linalg.norm(hem[1] - hem[2])) > 1e-6:
                 put(r, np.array(hem), rgb, np.array([va, vb, vb, va]), by, hem=True)
 
-    # special shapes: those that lie on the figure first, then hanging cloth in draw order, each hanging over
-    # everything before it
+    # special shapes: those that lie on the figure first (raised hoods last of them), then hanging cloth in draw order, each
+    # hanging over everything before it
     fit = Fit(body, out, surface)
     cloths = []
     import hang
-    for hangs, _, _, item_id, kind, params, colours in sorted(shapes, key=lambda s: s[:3]):
+    # a raised hood after everything else that lies on the figure, so that it stands clear of a ponytail or a bun too
+    # (a lowered one lies on the back under them)
+    up = lambda s: s[4] == "hood" and bool(specials.settings("hood", s[5])["raised"])
+    for hangs, _, _, item_id, kind, params, colours in sorted(shapes, key=lambda s: (s[0], up(s)) + s[1:3]):
         if not hangs:
             made, more = specials.BUILT[kind](fit, params, colours, name=item_id)
             for q in made:
-                out.append(dict(pts=q["pts"], rgb=q["rgb"], src=None, shares=q["shares"], part="chest", piece="shape:" + kind,
+                out.append(dict(pts=q["pts"], rgb=q["rgb"], src=None, shares=q["shares"], part=q.get("part", "chest"), piece="shape:" + kind,
                                 band=None, hidden=False, by=item_id))
         else:
             cloth, more = specials.BUILT[kind](fit, params, colours, name=item_id)
