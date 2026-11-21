@@ -124,10 +124,18 @@ static func _layers(req: CharacterRequest, warnings: Array[String], whiskers: Ar
 		var colours := {}
 		for role in it.roles:
 			colours[role] = CharacterRequest.role_tones(req, it.id, way, role)[1]
+			var key := it.palette_key_for(way, role)
+			if not Palette.is_reference(key) and not req.wardrobe.palette.has(key):
+				warnings.append("%s: its %s colour %s is not in the palette, so it shows magenta" % [
+					it.id, role, "is not set" if key.is_empty() else "'%s'" % key])
 		var cov := it.effective_coverage()
 		for at in it.specials.size():
 			var type := String((it.specials[at] as Dictionary).get("type", ""))
 			var params := it.special_params(at)
+			for role in _roles_read(type, params):
+				if not it.roles.has(role):
+					warnings.append("%s: its %s colours with a role named '%s', which the item does not have" % [
+						it.id, type.replace("_", " "), role])
 			if type == "facial_hair":                      # it claims the head's own polygons: see _grow_facial_hair
 				var got := LowpolyFacialHair.read(params)
 				for note in got[2]:
@@ -149,6 +157,18 @@ static func _layers(req: CharacterRequest, warnings: Array[String], whiskers: Ar
 				cov[key] = own[key]
 			shapes.append([LowpolyShapes.HANGS.has(type), it.draw_order, shapes.size(), it.id, type, params, colours])
 		out.append({"cov": cov, "order": it.draw_order, "colours": colours, "id": it.id})
+	return out
+
+
+## The roles a special shape reads with these settings (SpecialItem.roles_of, less any the settings leave unused).
+static func _roles_read(type: String, params: Dictionary) -> Array:
+	var out: Array = SpecialItem.roles_of(type).keys()
+	if type == "hood" and not LowpolyShapes._flag(params.get("lined", false)):
+		out.erase("lining")
+	if (type == "skirt" or type == "cape") and not LowpolyShapes._flag(params.get("hem_trim", true)):
+		out.erase("hem")
+	if type == "facial_hair":
+		out = ["stubble" if String(LowpolyFacialHair.read(params)[1]) == "stubble" else "hair"]
 	return out
 
 

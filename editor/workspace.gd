@@ -10,6 +10,9 @@ extends HSplitContainer
 ## the editor shell, and nothing else. A tab that is not showing does not
 ## rebuild; it is marked stale and catches up when it is brought forward.
 
+## An edit was committed by one of this tab's panels (`by`), or made in another tab (null): the panels refresh.
+signal edited(by: Object)
+
 var editor: CharacterEditor = null
 var view: PreviewView = null
 ## the figure's shading: "flat" or "smooth" (which the game uses is the owner's call)
@@ -18,6 +21,7 @@ var shading: String = "flat"
 var side: VBoxContainer = null
 
 var _stale := true
+var _panels_stale := false          ## the wardrobe was edited in another tab: the panels refresh when shown
 var _shading_pick: OptionButton = null
 ## The last figure dressed, without its face, and what it was dressed from (LowpolyAssembler.dress_key): when only the
 ## face's choices change (lids, mouth, eyes, brows), the face is drawn again on a copy of it, not the whole figure.
@@ -57,6 +61,12 @@ func title() -> String:
 
 ## Override: create the controls once.
 func _build() -> void:
+	pass
+
+
+## Override: a new or opened wardrobe replaced the last one; take up the starting choices again (what is worn), so
+## nothing of the last file's carries over.
+func start_fresh() -> void:
 	pass
 
 
@@ -139,6 +149,7 @@ func refill_bodies(option: OptionButton, current: String) -> String:
 
 func mark_stale() -> void:
 	_stale = true
+	_panels_stale = true
 	_dressed = []                        # the wardrobe changed elsewhere: dress afresh (the key would say so too)
 	if is_visible_in_tree():
 		rebuild()
@@ -147,6 +158,9 @@ func mark_stale() -> void:
 ## The shell calls this when the tab is brought forward.
 func on_shown() -> void:
 	refresh()
+	if _panels_stale:
+		_panels_stale = false
+		edited.emit(null)
 	rebuild()
 
 

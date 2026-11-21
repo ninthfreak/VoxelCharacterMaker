@@ -42,13 +42,20 @@ static func types() -> Array[String]:
 	return ["skirt", "cape", "hood", "straps", "facial_hair", "long_beard", "ponytail", "bun", "horns", "pauldrons"]
 
 
-## The shapes of their own, and the roles each colours, with the colour a new role starts in.
+## The shapes of their own.
 const OWN_SHAPES: Array[String] = ["long_beard", "ponytail", "bun", "horns", "pauldrons"]
 const BUN_POSITIONS: Array[String] = ["top", "back", "nape"]
 
 
+## The roles a type colours, by name, with the colour a new one starts in. The figure reads these names, so an item
+## with the type needs each of them: adding the type adds any it lacks, and the editor will not rename or remove one
+## while the item has the type (a renamed "hem" would leave a cape's hem with no colour).
 static func roles_of(type: String) -> Dictionary:
 	match type:
+		"skirt", "cape": return {"cloth": "slate", "hem": "ink"}
+		"hood": return {"cloth": "slate", "lining": "rust"}
+		"straps": return {"strap": "rust"}
+		"facial_hair": return {"hair": Palette.REF_HAIR, "stubble": Palette.REF_STUBBLE}
 		"long_beard", "bun": return {"hair": Palette.REF_HAIR}
 		"ponytail": return {"hair": Palette.REF_HAIR, "tie": "rust"}
 		"horns": return {"horn": "bone"}

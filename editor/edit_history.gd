@@ -45,8 +45,14 @@ func reset(data: Dictionary, label: String = "Opened") -> void:
 	changed.emit()
 
 
-## Record the state after an edit.
-func commit(label: String, data: Dictionary) -> void:
+## Record the state after an edit. With `merge`, an edit that continues the last one (the same label, nothing undone
+## since) replaces it rather than adding a step: a colour dragged through fifty values is one undo. Returns whether
+## it did.
+func commit(label: String, data: Dictionary, merge: bool = false) -> bool:
+	if merge and _at >= 1 and _at == _entries.size() - 1 and (_entries[_at] as Entry).label == label:
+		(_entries[_at] as Entry).data = data.duplicate(true)
+		changed.emit()
+		return true
 	# Drop anything that was undone: a new edit replaces that future.
 	while _entries.size() > _at + 1:
 		_entries.remove_at(_entries.size() - 1)
@@ -55,6 +61,7 @@ func commit(label: String, data: Dictionary) -> void:
 		_entries.remove_at(0)
 	_at = _entries.size() - 1
 	changed.emit()
+	return false
 
 
 func can_undo() -> bool:

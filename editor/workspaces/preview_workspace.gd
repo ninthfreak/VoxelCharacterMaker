@@ -117,13 +117,15 @@ func _build() -> void:
 	_summary = Label.new()
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	side.add_child(_summary)
+	start_fresh()
 
+
+## A new or opened wardrobe: its first eye set and hair, and its "everyday" outfit, as at start-up.
+func start_fresh() -> void:
 	eye_set_id = editor.wardrobe.first_eye_set_id()
 	var hair_ids := editor.wardrobe.feature_ids("hair")
-	if not hair_ids.is_empty():
-		hair_id = hair_ids[0]
-	if editor.wardrobe.outfit_names().has("everyday"):
-		worn = editor.wardrobe.outfit("everyday")
+	hair_id = hair_ids[0] if not hair_ids.is_empty() else ""
+	worn = editor.wardrobe.outfit("everyday") if editor.wardrobe.outfit_names().has("everyday") else []
 
 
 ## Choices that change what another menu offers (an eye set's colours, a hair's or a beard's colourways): after these

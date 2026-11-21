@@ -168,12 +168,13 @@ func status_extra() -> String:
 
 func _on_region_picked(region: String) -> void:
 	var title := _tabs.get_tab_title(_tabs.current_tab)
+	var said := ""
 	if title == "Hair":
-		_hair_garment.select_region(region)
+		said = _hair_garment.select_region(region)
 	elif title == "Facial hair":
-		_facial_garment.select_region(region)
+		said = _facial_garment.select_region(region)
 	elif title == "Face accessory":
-		_accessory_garment.select_region(region)
+		said = _accessory_garment.select_region(region)
 	else:
 		return
-	editor.set_status_hint("Picked %s" % editor.library.region_map().label_for(region))
+	editor.set_status_hint(said)

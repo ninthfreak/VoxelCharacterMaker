@@ -24,6 +24,7 @@ var _regions: ItemList = null
 var _role: OptionButton = null
 var _bulk: SpinBox = null
 var _region_keys: Array[String] = []
+var _regions_of := ""                ## the item the region list was last filled for
 
 var _specials: ItemList = null
 var _add_type: OptionButton = null
@@ -161,7 +162,8 @@ func refresh() -> void:
 			"" if it.specials.size() == 1 else "s"]
 	_summary.text = "%s, draws at %d. %s." % [it.name, it.draw_order, detail]
 
-	fill_options(_role, it.roles, it.roles[0] if not it.roles.is_empty() else "")
+	var chosen := option_value(_role)
+	fill_options(_role, it.roles, chosen if it.roles.has(chosen) else (it.roles[0] if not it.roles.is_empty() else ""))
 	_rebuild_region_list(it)
 
 	_specials.clear()
@@ -186,6 +188,9 @@ func _rebuild_region_list(it: GarmentItem) -> void:
 	if map == null:
 		return
 	var keys := map.keys_for_side(RegionMap.SIDE_LEFT) if it.mirror else map.all_keys()
+	# Kept for the same item: a refresh after an edit (here or in another panel) must not drop them.
+	var was_selected := _selected_keys() if it.id == _regions_of else ([] as Array[String])
+	_regions_of = it.id
 	_region_keys.clear()
 	_regions.clear()
 	for key in keys:
@@ -199,6 +204,8 @@ func _rebuild_region_list(it: GarmentItem) -> void:
 			var entry: Dictionary = it.coverage[key]
 			text += "   ->  %s, bulk %d" % [String(entry["role"]), int(entry["bulk"])]
 		_regions.add_item(text)
+		if was_selected.has(key):
+			_regions.select(_regions.item_count - 1, false)
 
 
 func _refresh_special_detail() -> void:
@@ -264,15 +271,18 @@ func _set_param(index: int, key: String, value: Variant, label: String) -> void:
 	# The controls already show the new value: they are not made again (that would also drop a spin box the user is
 	# still pressing). Only the note on where it attaches can depend on a setting (an old drawn shape's anchor).
 	_anchor_note.text = SpecialItem.anchor_description(it.special_type(index), it.special_params(index))
+	if key == "anchor" and index < _specials.item_count:
+		_specials.set_item_text(index, "%s at %s" % [SpecialItem.display_name(it.special_type(index)), str(value)])
 
 
 # ------------------------------------------------------------------ actions --
 
-## Called when a region is picked off the figure.
-func select_region(region_key: String) -> void:
+## Called when a region is picked off the figure. Returns what to say in the status line.
+func select_region(region_key: String) -> String:
+	var label := editor.library.region_map().label_for(region_key)
 	var it := item()
 	if it == null:
-		return
+		return "%s: select an item first, to paint it" % label
 	var key := region_key
 	# While mirroring, the list only holds the left side, so a right-side pick
 	# selects its mirror -- which is the region that actually gets authored.
@@ -280,10 +290,11 @@ func select_region(region_key: String) -> void:
 		key = RegionMap.mirror_key(key)
 	var index := _region_keys.find(key)
 	if index < 0:
-		return
+		return "%s is not a region this item can cover" % label
 	_regions.deselect_all()
 	_regions.select(index)
 	_regions.ensure_current_is_visible()
+	return "Picked %s" % label
 
 
 func _selected_keys() -> Array[String]:
@@ -313,6 +324,9 @@ func _on_clear() -> void:
 	var it := item()
 	var keys := _selected_keys()
 	if it == null or keys.is_empty():
+		return
+	if not keys.any(func(k: Variant) -> bool: return it.coverage.has(String(k))):
+		editor.set_status_hint("None of the selected regions are covered.")
 		return
 	for key in keys:
 		it.clear_region(key)

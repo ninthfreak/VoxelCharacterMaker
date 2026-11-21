@@ -11,6 +11,7 @@ extends EditorPanel
 var _palette: ItemList = null
 var _palette_name: LineEdit = null
 var _palette_colour: ColorPickerButton = null
+var _picking := false              ## the colour picker is open and has made an edit already
 var _roles: ItemList = null
 var _role_name: LineEdit = null
 var _colourways: ItemList = null
@@ -36,6 +37,7 @@ func _build() -> void:
 	_palette_name = labelled(palette_box, "Name", LineEdit.new()) as LineEdit
 	_palette_colour = labelled(palette_box, "Colour", ColorPickerButton.new()) as ColorPickerButton
 	_palette_colour.edit_alpha = false
+	# The picker reports every step of a drag: while it is open they are one edit, so one undo.
 	_palette_colour.color_changed.connect(func(c: Color) -> void:
 		if is_guarded():
 			return
@@ -43,8 +45,10 @@ func _build() -> void:
 		if key.is_empty() or not wardrobe().palette.has(key):
 			return
 		wardrobe().set_colour(key, c)
-		commit("Set colour %s" % key)
+		commit("Set colour %s" % key, _picking)
+		_picking = true
 		refresh())
+	_palette_colour.popup_closed.connect(func() -> void: _picking = false)
 
 	button_row(palette_box, [
 		{"text": "Add or update", "action": _on_add_colour},
@@ -80,7 +84,7 @@ func _build() -> void:
 		begin_guard()
 		_colourway_name.text = _colourway_names[index]
 		end_guard()
-		_rebuild_assignments())
+		_show_colourway(_colourway_names[index]))
 	_colourway_name = labelled(ways_box, "Name", LineEdit.new()) as LineEdit
 	button_row(ways_box, [
 		{"text": "Add", "action": _on_add_colourway},
@@ -117,8 +121,12 @@ func refresh() -> void:
 	_colourways.clear()
 	for name in _colourway_names:
 		_colourways.add_item(name)
-	if _colourway_name.text.is_empty() and not _colourway_names.is_empty():
-		_colourway_name.text = _colourway_names[0]
+	if it != null:
+		var at := _colourway_names.find(_way(it))
+		if at >= 0:
+			_colourways.select(at)
+		if _colourway_name.text.is_empty():
+			_colourway_name.text = _way(it)
 
 	end_guard()
 	_rebuild_assignments()
@@ -134,9 +142,7 @@ func _rebuild_assignments() -> void:
 	var w := wardrobe()
 	if it == null or w == null:
 		return
-	var colourway := _colourway_name.text.strip_edges()
-	if not it.has_colourway(colourway):
-		colourway = it.first_colourway()
+	var colourway := _way(it)
 	if colourway.is_empty():
 		return
 
@@ -160,6 +166,9 @@ func _rebuild_assignments() -> void:
 			names.append(key)
 			labels.append("%s   %s" % [key, JsonIO.colour_to_hex(w.colour(key))])
 		labelled(_assignments, role, option)
+		if not names.has(current):                      # shown as it is, not as the first colour in the list
+			names.append(current)
+			labels.append(missing_colour_label(current))
 		fill_options(option, names, current, labels)
 		option.item_selected.connect(func(_i: int) -> void:
 			if is_guarded():
@@ -185,6 +194,11 @@ func _on_remove_colour() -> void:
 	if selected.is_empty():
 		return
 	var key := _palette_keys[selected[0]]
+	var users := wardrobe().colour_users(key)
+	if not users.is_empty():
+		var named := ", ".join(users.slice(0, 4)) + (" and %d more" % (users.size() - 4) if users.size() > 4 else "")
+		editor.set_status_hint("%s is in use: %s. Give those another colour first." % [key, named])
+		return
 	wardrobe().remove_colour(key)
 	commit("Remove colour %s" % key)
 	refresh()
@@ -194,6 +208,9 @@ func _on_add_role() -> void:
 	var it := item()
 	var role := _role_name.text.strip_edges()
 	if it == null or role.is_empty():
+		return
+	if it.roles.has(role):
+		editor.set_status_hint("%s already has a role named %s." % [it.name, role])
 		return
 	it.add_role(role)
 	commit("Add role %s to %s" % [role, it.name])
@@ -209,6 +226,11 @@ func _on_rename_role() -> void:
 	var old_name := _role_names[selected[0]]
 	if old_name == new_name:
 		return
+	if it.roles.has(new_name):
+		editor.set_status_hint("%s already has a role named %s." % [it.name, new_name])
+		return
+	if _shape_reads(it, old_name):
+		return
 	it.rename_role(old_name, new_name)
 	commit("Rename role %s to %s" % [old_name, new_name])
 	refresh()
@@ -223,6 +245,8 @@ func _on_remove_role() -> void:
 		editor.set_status_hint("An item needs at least one role.")
 		return
 	var role := _role_names[selected[0]]
+	if _shape_reads(it, role):
+		return
 	it.remove_role(role)
 	commit("Remove role %s from %s" % [role, it.name])
 	refresh()
@@ -233,8 +257,12 @@ func _on_add_colourway() -> void:
 	var name := _colourway_name.text.strip_edges()
 	if it == null or name.is_empty():
 		return
+	if it.colourways.has(name):
+		editor.set_status_hint("%s already has a colourway named %s." % [it.name, name])
+		return
 	it.add_colourway(name)
 	commit("Add colourway %s to %s" % [name, it.name])
+	_show_colourway(name)
 	refresh()
 
 
@@ -247,9 +275,13 @@ func _on_duplicate_colourway() -> void:
 	var source := _colourway_names[selected[0]]
 	if name == source:
 		name = source + " copy"
+	if it.colourways.has(name):
+		editor.set_status_hint("%s already has a colourway named %s." % [it.name, name])
+		return
 	it.add_colourway(name, source)
 	_colourway_name.text = name
 	commit("Duplicate colourway %s" % source)
+	_show_colourway(name)
 	refresh()
 
 
@@ -265,3 +297,34 @@ func _on_remove_colourway() -> void:
 	it.colourways.erase(name)
 	commit("Remove colourway %s" % name)
 	refresh()
+
+
+## Whether one of the item's special shapes reads this role by name; if so, says so in the status line.
+func _shape_reads(it: GarmentItem, role: String) -> bool:
+	var by: Array = it.shape_roles().get(role, [])
+	if by.is_empty():
+		return false
+	var names: Array[String] = []
+	for type in by:
+		names.append(SpecialItem.display_name(String(type)).to_lower())
+	editor.set_status_hint("The %s on %s colours with \"%s\", so it keeps that name. Change its colour instead." % [
+		" and ".join(names), it.name, role])
+	return true
+
+
+## The colourway whose colours the panel shows and edits: the one chosen for the item (in its list, or here), which
+## is also the one the preview shows.
+func _way(it: GarmentItem) -> String:
+	if selection != null and it.has_colourway(selection.colourway):
+		return selection.colourway
+	return it.first_colourway()
+
+
+## Choose a colourway for the item, here as in its list: the preview, and a worn item, show it.
+func _show_colourway(name: String) -> void:
+	if selection == null:
+		_rebuild_assignments()
+		return
+	selection.set_colourway(name)
+	if workspace != null and workspace.has_method("set_worn_colourway") and workspace.call("is_worn", selection.item_id):
+		workspace.call("set_worn_colourway", selection.item_id, name)

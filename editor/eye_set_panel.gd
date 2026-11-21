@@ -154,7 +154,11 @@ func _rebuild_assignments(eyes: EyeSet) -> void:
 	for role in EyeSet.ROLES:
 		var option := OptionButton.new()
 		labelled(_assignments, role, option)
-		fill_options(option, names, eyes.palette_key_for(way, role), labels)
+		var current := eyes.palette_key_for(way, role)
+		if names.has(current):
+			fill_options(option, names, current, labels)
+		else:                                           # shown as it is, not as the first colour in the list
+			fill_options(option, names + [current], current, labels + [missing_colour_label(current)])
 		option.item_selected.connect(func(_i: int) -> void:
 			if is_guarded():
 				return
@@ -218,6 +222,9 @@ func _on_add_colourway() -> void:
 	var eyes := _eyes()
 	var name := _new_colourway.text.strip_edges()
 	if eyes == null or name.is_empty():
+		return
+	if eyes.colourways.has(name):
+		editor.set_status_hint("%s already has a colourway named %s." % [eyes.name, name])
 		return
 	eyes.add_colourway(name, option_value(_colourway))
 	workspace.set("eye_colourway", name)

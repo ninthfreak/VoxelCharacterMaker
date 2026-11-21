@@ -1417,6 +1417,63 @@ What is left is real work: dressing a figure (20 ms bare to about 90 in a raised
 and laying its cloth for a pose (12 ms). Changing the body, the outfit or a worn item's setting costs a dressing
 (70 to 110 ms with a cape or a hood); changing the pose only lays the cloth again.
 
+## 4ze. Bugs and design problems (owner's request)
+
+Found by driving the editor through edge cases (a throwaway script, not kept) and by two code reviews, one of the
+data model and one of the editor's panels; each finding was checked against the code, and reproduced where it could
+be, before it was fixed. Every outfit was then
+drawn on four bodies from four sides, and in five poses on two, and every feature on the five heads.
+
+**Fixed:**
+
+- **Renaming or removing a role a special shape colours with** left it with no colour: renaming the cloak's "cloth"
+  turned its hood grey and its cape magenta, and reloading did not mend it. The shapes read their roles by name
+  (`SpecialItem.roles_of` now lists them for every type), so the Colours panel refuses to rename or remove one while
+  the item has the shape, and says why.
+- **Adding a shape** now brings every role it reads, in every colourway: facial hair added to a new item had
+  magenta stubble, and a cape added to the tunic a magenta hem. Before, a reload added some of these back on its own,
+  so undo could land on a state that was never there.
+- **Removing a palette colour in use** made everything in it magenta, and its menus then showed the wrong name. It
+  is refused now, naming who uses it; a menu shows a missing colour as itself, marked as not in the palette.
+- **The figure warns** when an item names a colour the palette lacks, or a shape a role the item lacks (files made
+  outside the editor can still have either).
+- **A file from before eye sets** got the standard eye set but not its colours, so magenta eyes.
+- **Dragging the colour picker** made one undo step per value passed through (dozens per drag, of 200 kept); one
+  drag is one step now.
+- **Edits that change nothing** (adding a role or colourway the item has, renaming a role to a name it has, clearing
+  regions that are not covered) no longer make an undo step.
+- **Panels did not see each other's edits**: a role added in the Colours panel was not in the item's role picker
+  until the item was selected again, a renamed role stayed in it (and painting with it gave magenta), and shapes'
+  new roles were missing from the Colours panel. Every panel of a tab now refreshes after an edit in any of them,
+  and another tab's panels when it is next shown. The role picker keeps its choice, and selected regions stay
+  selected.
+- **The Colours panel edited the first colourway**, whatever was chosen for the item: the preview showed "rust"
+  while the panel changed "default". It now edits the chosen one, and choosing one in it chooses it for the item.
+- **The camera kept panning (or turning) with no button held** when Shift was let go before the mouse button.
+- **A name typed but not confirmed** (no Enter, no click elsewhere) was lost on save, open, new or quit; those now
+  apply it first. Clicking another item to end the typing no longer lands on a different item when the rename
+  re-sorts the list, and a new draw order re-sorts the list.
+- **New and Open** start each tab afresh (the file's everyday outfit, its first eye set and hair) rather than keeping
+  what the last file had on.
+- **A pick on the figure** says "Picked" only when something was picked; otherwise why not.
+
+**Left as they are (low risk, noted):** a hand-edited file with wrong types stops loading with a script error
+rather than a message; a version 1 file keeps hair in its outfits; a clothing item and a feature with the same id
+in one file overwrite each other; roles added for a shape start in fixed colour names (rust, slate...), which a
+wardrobe without them shows magenta, with a warning; an undo back to the saved state still marks the file unsaved;
+dragging a palette colour dresses the figure again at every step (smooth enough, not instant).
+
+**Design problems, for the owner (not changed):**
+
+- **Shirt with trousers leaves a band of bare waist**, front and back (the shirt stops at the belly, the trousers
+  start at the hips; the skirts have a waistband for exactly this, the trousers do not).
+- **The trousers' knee and ankle are their "trim" role, in ink**: dark bands that read as garters or boot tops.
+- **The lowered hood reads as a wide flat collar**, and the cape's hem shows as a thin stick beside the knees from
+  the front.
+- **The long beard worn alone** starts with a straight edge along the jaw, like a bib.
+- Known and unchanged: the dark band across the front of the hips is the body turning under, in flat shading; the
+  short crop stands off the head like a cap.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

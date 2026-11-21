@@ -206,6 +206,19 @@ func complete_roles_for(type: String) -> void:
 				set_for[String(role)] = String(wanted[role])
 
 
+## The roles this item's special shapes read by name ({role: [type, ...]}): they cannot be renamed or removed while
+## the shapes are on it.
+func shape_roles() -> Dictionary:
+	var out := {}
+	for type in special_types():
+		for role in SpecialItem.roles_of(type).keys():
+			if not out.has(role):
+				out[role] = []
+			if not (out[role] as Array).has(type):
+				(out[role] as Array).append(type)
+	return out
+
+
 func remove_special(index: int) -> void:
 	if index >= 0 and index < specials.size():
 		specials.remove_at(index)

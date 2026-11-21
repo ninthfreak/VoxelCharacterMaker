@@ -118,11 +118,15 @@ func handle_input(event: InputEvent) -> bool:
 		var mb := event as InputEventMouseButton
 		match mb.button_index:
 			MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE:
+				if not mb.pressed:              # Shift may have been let go (or pressed) mid-drag: end whichever it was
+					_dragging_pan = false
+					_dragging_orbit = false
+					return false
 				if mb.shift_pressed:
-					_dragging_pan = mb.pressed
+					_dragging_pan = true
 				else:
-					_dragging_orbit = mb.pressed
-				return mb.pressed
+					_dragging_orbit = true
+				return true
 			MOUSE_BUTTON_RIGHT:
 				_dragging_pan = mb.pressed
 				return mb.pressed

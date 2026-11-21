@@ -107,6 +107,11 @@ func _ensure_eye_set() -> void:
 	if wardrobe.eye_sets.is_empty():
 		var standard := EyeSet.standard()
 		wardrobe.eye_sets[standard.id] = standard
+		# with its colours: a file from before eye sets has none of them, and its eyes would show magenta
+		var defaults := Palette.default_wardrobe_colours()
+		for key in EyeSet.default_colours().values():
+			if not wardrobe.palette.has(key):
+				wardrobe.palette[key] = defaults[key]
 
 
 # ----------------------------------------------------------------------- UI --
@@ -246,12 +251,12 @@ func current_tab_title() -> String:
 ## Panels call this after changing the wardrobe: undo entry, dirty flag, and a
 ## refreshed preview in the tab that made the change. The other tabs catch up
 ## when they are next shown.
-func commit(label: String, from: Workspace = null) -> void:
+func commit(label: String, from: Workspace = null, merge: bool = false) -> void:
 	if wardrobe == null:
 		return
 	wardrobe.mark_dirty()
-	history.commit(label, wardrobe.to_json())
-	note_edit(DOC_WARDROBE)
+	if not history.commit(label, wardrobe.to_json(), merge):
+		note_edit(DOC_WARDROBE)
 	mark_others_stale(from)
 	if from != null:
 		from.rebuild()
@@ -422,6 +427,7 @@ func _announce_wardrobe() -> void:
 # -------------------------------------------------------------------- files --
 
 func _on_file_menu(id: int) -> void:
+	_finish_typing()
 	match id:
 		FileMenu.NEW:
 			var start_new := func() -> void:
@@ -450,6 +456,7 @@ func _on_file_menu(id: int) -> void:
 ## Quit, after asking about anything unsaved. File > Quit and the window's
 ## close button both come here.
 func _quit_when_safe() -> void:
+	_finish_typing()
 	var quit_now := func() -> void:
 		_save_state()
 		get_tree().quit()
@@ -461,6 +468,8 @@ func _replace_wardrobe(new_wardrobe: Wardrobe, label: String) -> void:
 	_ensure_eye_set()
 	history.reset(wardrobe.to_json(), label)
 	forget_edits(DOC_WARDROBE)
+	for ws in workspaces:
+		(ws as Workspace).start_fresh()
 	_announce_wardrobe()
 
 
@@ -552,6 +561,13 @@ func resume_pending() -> void:
 	_prompt_doc = ""
 	if action.is_valid():
 		action.call()
+
+
+## A name typed into a field is applied when the field loses focus: take focus away, so a save or quit includes it.
+func _finish_typing() -> void:
+	var focused := get_viewport().gui_get_focus_owner() if is_inside_tree() else null
+	if focused != null:
+		focused.release_focus()
 
 
 func cancel_pending() -> void:

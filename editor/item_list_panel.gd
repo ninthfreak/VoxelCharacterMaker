@@ -69,7 +69,8 @@ func _build() -> void:
 		if it == null or it.draw_order == int(value):
 			return
 		it.draw_order = int(value)
-		commit("Set draw order of %s" % it.name))
+		commit("Set draw order of %s" % it.name)
+		refresh.call_deferred())                # re-sorted once the spin box is done with the event
 
 	_colourway = labelled(_details, "Colourway", OptionButton.new()) as OptionButton
 	_colourway.item_selected.connect(func(_i: int) -> void:
@@ -156,7 +157,9 @@ func _apply_name(text: String) -> void:
 		return
 	it.name = trimmed
 	commit("Rename to %s" % trimmed)
-	refresh()
+	# Later, not now: typing often ends with a click on another row, and re-sorting first would put a different
+	# item under that click.
+	refresh.call_deferred()
 
 
 func _on_new() -> void:

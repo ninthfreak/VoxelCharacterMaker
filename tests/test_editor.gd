@@ -46,6 +46,8 @@ static func run(t: TestReport, ed: CharacterEditor) -> void:
 
 	_face_hair(t, ed)
 	_clothes(t, ed)
+	_shape_colours(t, ed)
+	_panels_together(t, ed)
 	_preview(t, ed)
 	_undo_timeline(t, ed)
 	_unsaved_guard(t, ed)
@@ -185,6 +187,187 @@ static func _clothes(t: TestReport, ed: CharacterEditor) -> void:
 	cl.refresh()
 	t.check_equal(cl.clothes.item_id, "", "deleting the selected item clears the selection")
 	t.check(not cl.is_worn("boots"), "and it is no longer worn")
+
+
+## A special shape colours with roles by name, and an item colours with palette colours by name: the Colours panel
+## will not rename or remove either while something uses it (that left a cape magenta and a hood grey).
+static func _shape_colours(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: colours that special shapes and items use")
+	_fresh(ed)
+	ed.show_tab("Clothes")
+	var cl := ed.clothes
+	var colours: ColourPanel = null
+	var looking: Array[Node] = [cl]
+	while colours == null and not looking.is_empty():
+		var node: Node = looking.pop_back()
+		if node is ColourPanel:
+			colours = node
+		looking.append_array(node.get_children())
+	cl.clothes.select("cloak")
+	colours.refresh()
+	colours._roles.select(colours._role_names.find("cloth"))
+	colours._role_name.text = "fabric"
+	colours._on_rename_role()
+	var cloak := ed.wardrobe.item("cloak")
+	t.check(cloak.roles.has("cloth") and not cloak.roles.has("fabric"), "renaming the cloak's 'cloth' is refused",
+		str(cloak.roles))
+	t.check(ed.status_hint().contains("keeps that name"), "and the status line says why", ed.status_hint())
+	colours._roles.select(colours._role_names.find("lining"))
+	colours._on_remove_role()
+	t.check(cloak.roles.has("lining"), "removing its 'lining' (the hood's) is refused")
+	cloak.add_role("extra")
+	colours.refresh()
+	colours._roles.select(colours._role_names.find("extra"))
+	colours._on_remove_role()
+	t.check(not cloak.roles.has("extra"), "a role no shape reads can still be removed")
+
+	colours._palette.select(colours._palette_keys.find("rust"))
+	colours._on_remove_colour()
+	t.check(ed.wardrobe.palette.has("rust"), "removing a palette colour items use is refused")
+	t.check(ed.status_hint().contains("Hooded cloak (default)"), "and the status line names who uses it", ed.status_hint())
+	ed.wardrobe.set_colour("unused_grey", Color8(90, 90, 90))
+	colours.refresh()
+	colours._palette.select(colours._palette_keys.find("unused_grey"))
+	colours._on_remove_colour()
+	t.check(not ed.wardrobe.palette.has("unused_grey"), "a colour nothing uses can be removed")
+
+	# Adding a shape to an item gives it the roles the shape reads: a cape on the tunic gets a hem colour.
+	var tunic := ed.wardrobe.item("tunic")
+	tunic.add_special("cape")
+	t.check(tunic.roles.has("hem") and tunic.palette_key_for("default", "hem") == "ink",
+		"a cape added to the tunic brings a 'hem' role, in ink", str(tunic.roles))
+
+	# A file made elsewhere can still lack them: the figure says so rather than showing magenta in silence.
+	var w := Wardrobe.from_json(ed.wardrobe.to_json())
+	var bare := w.item("cloak")
+	for way in bare.colourways.keys():
+		(bare.colourways[way] as Dictionary)["cloth"] = "no_such_colour"
+	bare.roles.erase("lining")
+	bare.set_special_param(1, "lined", true)
+	var req := CharacterRequest.make("female_average", "round", w)
+	req.worn = [{"item": "cloak", "colourway": "default"}]
+	var said := ", ".join(LowpolyAssembler.assemble(ed.library, req).warnings)
+	t.check(said.contains("'no_such_colour' is not in the palette"), "a colour not in the palette is named in the warnings",
+		said)
+	t.check(said.contains("role named 'lining'"), "a lined hood on an item with no 'lining' role is named too", said)
+
+	# Edits that change nothing make no undo step.
+	var steps: int = ed.history._entries.size()
+	colours.refresh()
+	colours._roles.select(colours._role_names.find("lining"))
+	colours._role_name.text = "hem"
+	colours._on_rename_role()
+	t.check(cloak.roles.has("lining") and ed.history._entries.size() == steps,
+		"renaming a role to a name the item already has is refused, with no undo step", ed.status_hint())
+
+	# Dragging the colour picker is one edit while it is open.
+	colours._palette_name.text = "slate"
+	steps = ed.history._entries.size()
+	for v in [40, 60, 80, 100]:
+		colours._palette_colour.color_changed.emit(Color8(v, v, v))
+	t.check_equal(ed.history._entries.size(), steps + 1, "a colour dragged through four values is one undo step")
+	colours._palette_colour.popup_closed.emit()
+	colours._palette_colour.color_changed.emit(Color8(150, 150, 150))
+	t.check_equal(ed.history._entries.size(), steps + 2, "and the next time the picker is used is another")
+	ed.undo()
+	t.check(ed.wardrobe.colour("slate").is_equal_approx(Color8(100, 100, 100)), "undo goes back to where the drag ended",
+		str(ed.wardrobe.colour("slate")))
+	ed.undo()
+	t.check(ed.wardrobe.colour("slate").is_equal_approx(Wardrobe.create_default().colour("slate")),
+		"and once more, to before it")
+
+	# A file from before eye sets has none of their colours: the standard eye set brings them.
+	var old := Wardrobe.create_default()
+	old.eye_sets.clear()
+	for key in EyeSet.default_colours().values():
+		old.palette.erase(key)
+	ed._replace_wardrobe(old, "Old file")
+	var has_all := true
+	for key in EyeSet.default_colours().values():
+		has_all = has_all and ed.wardrobe.palette.has(key)
+	t.check(has_all and not ed.wardrobe.eye_set_ids().is_empty(),
+		"a wardrobe with no eye sets gets the standard one, and its colours when the palette lacks them")
+
+
+## The first panel of this type under a node.
+static func _panel(under: Node, type: Variant) -> Node:
+	var looking: Array[Node] = [under]
+	while not looking.is_empty():
+		var node: Node = looking.pop_front()
+		if is_instance_of(node, type):
+			return node
+		looking.append_array(node.get_children())
+	return null
+
+
+## Panels that share an item see each other's edits; the camera lets go; a new wardrobe starts afresh.
+static func _panels_together(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: panels see each other's edits")
+	_fresh(ed)
+	ed.show_tab("Clothes")
+	var cl := ed.clothes
+	var colours := _panel(cl, ColourPanel) as ColourPanel
+	var garment := cl._garment
+	cl.clothes.select("tunic")
+	colours._role_name.text = "buckle"
+	colours._on_add_role()
+	var offered: Array = []
+	for i in garment._role.item_count:
+		offered.append(garment._role.get_item_metadata(i))
+	t.check(offered.has("buckle"), "a role added in the Colours panel is offered by the item's role picker at once",
+		str(offered))
+	garment._role.select(offered.find("trim"))
+	colours._role_name.text = "strap"
+	colours._on_add_role()
+	t.check_equal(garment.option_value(garment._role), "trim", "and the picker keeps the role chosen in it")
+
+	cl.clothes.select("tunic")
+	cl.clothes.set_colourway("rust")
+	colours.refresh()
+	t.check_equal(colours._way(ed.wardrobe.item("tunic")), "rust",
+		"the Colours panel edits the colourway chosen for the item (the one the preview shows)")
+	colours._colourways.item_selected.emit(colours._colourway_names.find("default"))
+	t.check_equal(cl.clothes.colourway, "default", "and choosing one in the Colours panel chooses it for the item")
+
+	var steps: int = ed.history._entries.size()
+	colours._role_name.text = "trim"
+	colours._on_add_role()
+	garment._regions.deselect_all()
+	garment._regions.select(garment._region_keys.find("upper_arm.L"))
+	ed.wardrobe.item("tunic").clear_region("upper_arm.L")
+	garment._on_clear()
+	t.check_equal(ed.history._entries.size(), steps, "adding a role the item has, or clearing uncovered regions, makes no undo step")
+
+	# A region picked on the figure stays selected through an edit made in another panel.
+	garment._regions.deselect_all()
+	garment._regions.select(garment._region_keys.find("belly.L.F"))
+	colours._role_name.text = "patch"
+	colours._on_add_role()
+	t.check_equal(garment._selected_keys(), ["belly.L.F"] as Array[String], "the selected regions survive the refresh")
+	t.check(garment.select_region("belly.R.F").begins_with("Picked"), "a pick of a region the item covers says Picked")
+	cl.clothes.select("")
+	t.check(garment.select_region("belly.R.F").contains("select an item first"),
+		"a pick with no item selected says to select one, not Picked")
+	cl.clothes.select("tunic")
+
+	# The camera: letting go of Shift before the button still ends the drag.
+	var cam: OrbitCamera = cl.view.camera
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.shift_pressed = true
+	cam.handle_input(press)
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	cam.handle_input(release)
+	t.check(not cam._dragging_pan and not cam._dragging_orbit, "a drag ends when the button is let go, Shift or not")
+
+	# A new wardrobe: each tab wears its "everyday" outfit again.
+	cl.set_worn_list([])
+	ed.preview.worn = []
+	_fresh(ed)
+	t.check(not cl.worn.is_empty() and not ed.preview.worn.is_empty(), "a new wardrobe puts the everyday outfit on again")
 
 
 # ----------------------------------------------------------------- preview --

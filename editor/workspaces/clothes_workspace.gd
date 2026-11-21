@@ -81,13 +81,14 @@ func _build() -> void:
 
 	add_panel(ColourPanel.new(), clothes, _tab("Colours"))
 	add_panel(OutfitPanel.new(), null, _tab("Outfits"))
+	start_fresh()
 
-	var names := editor.wardrobe.outfit_names()
-	if names.has("everyday"):
-		worn = editor.wardrobe.outfit("everyday")
+
+## A new or opened wardrobe: wear its "everyday" outfit and select its first item, as at start-up.
+func start_fresh() -> void:
+	worn = editor.wardrobe.outfit("everyday") if editor.wardrobe.outfit_names().has("everyday") else []
 	var ids := editor.wardrobe.clothing_ids()
-	if not ids.is_empty():
-		clothes.select(ids[0])
+	clothes.select(ids[0] if not ids.is_empty() else "")
 
 
 func _tab(name: String) -> VBoxContainer:
@@ -200,5 +201,4 @@ func set_worn_list(list: Array) -> void:
 
 func _on_region_picked(region: String) -> void:
 	show_section("Item")
-	_garment.select_region(region)
-	editor.set_status_hint("Picked %s" % editor.library.region_map().label_for(region))
+	editor.set_status_hint(_garment.select_region(region))

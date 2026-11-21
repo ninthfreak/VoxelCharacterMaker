@@ -34,6 +34,10 @@ func setup(p_editor: CharacterEditor, p_workspace: Workspace,
 		editor.wardrobe_replaced.connect(refresh)
 	if selection != null:
 		selection.changed.connect(refresh)
+	if workspace != null:
+		workspace.edited.connect(func(by: Object) -> void:
+			if by != self:
+				refresh())
 	refresh()
 
 
@@ -43,8 +47,11 @@ func item() -> GarmentItem:
 
 
 ## Record a wardrobe edit and show it: undo entry, dirty flag, preview.
-func commit(label: String) -> void:
-	editor.commit(label, workspace)
+## `merge`: this edit continues the last one with the same label (EditHistory.commit).
+func commit(label: String, merge: bool = false) -> void:
+	editor.commit(label, workspace, merge)
+	if workspace != null:
+		workspace.edited.emit(self)          # the other panels show what changed (a new role in the role picker)
 
 
 ## Override: create the controls once.
@@ -135,6 +142,11 @@ func fill_options(option: OptionButton, values: Array, current: String,
 	if option.selected < 0 and option.item_count > 0:
 		option.select(0)
 	end_guard()
+
+
+## A colour menu's entry for a colour a role names that the palette does not have (the figure shows it magenta).
+static func missing_colour_label(key: String) -> String:
+	return "(no colour set)" if key.is_empty() else "%s   (not in the palette)" % key
 
 
 func option_value(option: OptionButton) -> String:

@@ -432,6 +432,24 @@ func set_colour(palette_key: String, value: Color) -> void:
 	mark_dirty()
 
 
+## Who uses a palette colour, in words: "Tunic (rust)" for an item's colourway, "eye set Round (default)" for an
+## eye set's. Empty when nothing does, and only then can it be removed without leaving something with no colour.
+func colour_users(palette_key: String) -> Array[String]:
+	var out: Array[String] = []
+	for id in items.keys():
+		var it: GarmentItem = items[id]
+		for way in it.colourways.keys():
+			if (it.colourways[way] as Dictionary).values().has(palette_key):
+				out.append("%s (%s)" % [it.name, way])
+	for id in eye_sets.keys():
+		var eyes: EyeSet = eye_sets[id]
+		for way in eyes.colourways.keys():
+			if (eyes.colourways[way] as Dictionary).values().has(palette_key):
+				out.append("eye set %s (%s)" % [eyes.name, way])
+	out.sort()
+	return out
+
+
 func remove_colour(palette_key: String) -> void:
 	palette.erase(palette_key)
 	mark_dirty()
