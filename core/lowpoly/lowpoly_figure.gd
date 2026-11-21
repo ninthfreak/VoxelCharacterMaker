@@ -18,7 +18,8 @@ var points := PackedVector3Array()
 ## per corner: {part: share}
 var weights: Array = []
 ## {corners: PackedInt32Array (into points), colour: Color, region: String, part: String, piece: String,
-##  hidden: bool}
+##  hidden: bool, by: String (the worn item that made it, "" for bare skin), at: String (on a head: "ring",
+##  "crown", "base" or "ear"; "" elsewhere)}
 var polygons: Array = []
 ## part -> {"parent": String, "pivot": Vector3}, every part after its parent (LowpolyLibrary.PARTS)
 var parts: Dictionary = {}
@@ -41,7 +42,7 @@ static func make(library: LowpolyLibrary, p_body_id: String, p_head_shape: Strin
 	for p in body.polygons:
 		var poly: Dictionary = p
 		f.polygons.append({"corners": poly["corners"], "colour": skin, "region": poly["region"],
-			"part": poly["part"], "piece": poly["piece"], "hidden": poly["hidden"]})
+			"part": poly["part"], "piece": poly["piece"], "hidden": poly["hidden"], "by": "", "at": ""})
 	# The head library's heads stand at the average body's heights; a short body's neck is lower.
 	var first := f.points.size()
 	var raise := Vector3(0.0, 0.0, body.head_raise)
@@ -53,8 +54,9 @@ static func make(library: LowpolyLibrary, p_body_id: String, p_head_shape: Strin
 		var corners := PackedInt32Array()
 		for k in poly["corners"]:
 			corners.push_back(first + int(k))
+		var at: Array = poly.get("at", [])
 		f.polygons.append({"corners": corners, "colour": skin, "region": poly["region"], "part": "head",
-			"piece": "head", "hidden": false})
+			"piece": "head", "hidden": false, "by": "", "at": String(at[0]) if not at.is_empty() else ""})
 	return f
 
 

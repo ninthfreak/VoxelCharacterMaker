@@ -145,9 +145,10 @@ else:
     poses = {name: ps.from_game(v["parts"]) for name, v in tables["poses"].items()}
     import expected                                                  # what the Godot side is checked against
     on_disk = json.load(open(expected.OUT)) if os.path.exists(expected.OUT) else {}
-    fresh = expected.data(tables)
-    expect(on_disk.get("cases") == fresh["cases"] and on_disk.get("tolerance") == fresh["tolerance"],
-           f"tests/lowpoly_expected.json ({len(fresh['cases'])} posed figures for the Godot tests) is what a rebuild gives (run: python3 lowpoly/expected.py)")
+    fresh = json.loads(json.dumps(expected.data(tables, ld.Wardrobe(game.wardrobe_path()))))
+    expect(all(on_disk.get(k) == fresh[k] for k in ("cases", "dressed", "tolerance")),
+           f"tests/lowpoly_expected.json ({len(fresh['cases'])} posed figures and {len(fresh['dressed'])} dressed ones, for the Godot tests) "
+           f"is what a rebuild gives (run: python3 lowpoly/expected.py)")
     known = lambda note: "edge style" in note or "'hood' not built" in note      # not built yet; see the README
     chest = lambda q: q["piece"] == "skin" and q["band"] in ("waist", "belly", "lower_chest", "upper_chest", "collar", "neck")
 
@@ -160,6 +161,14 @@ else:
             look = ld.dress(b, w, w.outfit(name))
             odd = [n for n in look.notes if not known(n)]
             said = f"{sex} {build_name}, '{name}'"
+            parent = None; inward = 0; hems = 0                     # every hem faces out over its step
+            for q in look.polys:
+                if not q.get("hem"):
+                    parent = q; continue
+                n = sum(np.cross(q["pts"][i], q["pts"][(i + 1) % len(q["pts"])]) for i in range(len(q["pts"])))
+                if np.linalg.norm(n) < 1e-9: continue
+                hems += 1; inward += int(n @ (q["pts"].mean(axis=0) - parent["pts"].mean(axis=0)) <= 0)
+            expect(inward == 0, f"{said}: all {hems} hems face out over their step, away from the garment they edge")
             hems = True; worst = 0.0; longest = 0.0; whole = True
             for pose_name, pose in poses.items():
                 bent, cloths = ps.laid(b, look, pose)

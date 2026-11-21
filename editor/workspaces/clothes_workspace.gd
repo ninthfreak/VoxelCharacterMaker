@@ -45,11 +45,13 @@ func _build() -> void:
 	clothes.changed.connect(rebuild)
 
 	heading(side, "Clothes")
+	model_controls(side, "Low-poly so far: clothing and hair made of regions; click the figure to pick a region. "
+		+ "Special shapes (straps, skirts, capes, the hood, drawn shapes) show on the voxel model only.")
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void:
 			body_id = value
 			rebuild())
-	note(side, "Step through all six bodies: a garment is only right when it is "
+	note(side, "Step through every body: a garment is only right when it is "
 		+ "right on every one.")
 	_head_pick = picker(side, "Head", editor.library.head_shapes(), [],
 		func(value: String) -> void:
@@ -117,7 +119,8 @@ func refresh() -> void:
 		return
 	clothes.validate()
 	worn = _live_worn()
-	select_value(_body_pick, body_id)
+	refresh_model_controls()
+	body_id = refill_bodies(_body_pick, body_id)
 	select_value(_head_pick, head_shape)
 	select_value(_pose_pick, pose)
 	select_value(_show_pick, show_mode)
@@ -131,9 +134,8 @@ func refresh() -> void:
 	refill(_hair_pick, hair_ids, hair_labels, hair_id)
 
 
-func status_text(assembled: CharacterAssembler.Assembled) -> String:
-	var what := "this item only" if show_mode == SHOW_ITEM else "%d worn" % worn.size()
-	return "%s   |   %s" % [super.status_text(assembled), what]
+func status_extra() -> String:
+	return "   |   %s" % ("this item only" if show_mode == SHOW_ITEM else "%d worn" % worn.size())
 
 
 # ------------------------------------------------------------- worn items --

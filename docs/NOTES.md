@@ -1107,6 +1107,31 @@ keeps working until then. Phase 1 is done.
   `--preview model=lowpoly` (and any other Preview choice) for pictures.
 - **Tests:** 22 new Godot checks (1697 in all); the Python check holds `tests/lowpoly_expected.json` current.
 
+## 4u. The editor moves to low-poly: phase 2, ordinary clothing
+
+- **The garment rules in GDScript** (`core/lowpoly/lowpoly_assembler.gd`; difficulty medium; confidence high).
+  The rules of SPEC 7.3 as `lowpoly/dress.py` has them: regions, roles and colourways, bulk lifting polygons off the
+  body, hems where a lifted polygon meets a neighbour with less, layering by bulk then draw order, nothing below the
+  floor, nothing growing between the legs, ears staying skin. It takes the voxel assembler's own request, so a tab
+  builds one request and either model draws it. Hair made of regions (the short crop) comes with it. An item with a
+  special shape is worn without the shape, and the figure's warnings say so (shapes are phases 3 and 4).
+- **Checked against the Python, polygon by polygon.** `lowpoly/expected.py` now also dresses seven figures from the
+  game's own files (five starter outfits on the feminine average with a short crop, the everyday clothes on the
+  masculine short, the overalls on the masculine heavy, bald), and Godot must make the same polygons in the same
+  order, in the same colours, from the same items, with every corner within 0.001 units. It does. Broken on purpose
+  (the leg-gap rule switched off), the check fails on six of the seven, as it should.
+- **Found and fixed: hems faced inward** (difficulty low; confidence high). A hem polygon, the step from a lifted
+  polygon down to its neighbour, was wound so that it faced back into the garment. The Python renderer draws both
+  sides of every polygon, so the sheets never showed it; Godot hides back faces, so every hem was invisible from
+  outside. Fixed in `dress.py` and in the port alike, and both now check that every hem faces out over its step.
+- **In the editor:** the Model and Shading switches are shared by the tabs; the Clothes tab has them too. In the
+  Clothes tab a click on the low-poly figure picks the region of the polygon hit, in whatever pose it is in (a ray
+  against the posed polygons, no physics bodies). `tools/screenshot_editor.gd` takes `--set K=V` for the tab shown.
+- **Seen while checking, not new:** a sleeve on a raised arm stands out from the shoulder as a lump, because the
+  shoulder is a ball and the sleeve's edge turns with the arm. This is open item 1 in `lowpoly/README.md` (sleeves
+  at the shoulder).
+- **Tests:** 1717 Godot checks; 228 Python checks.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

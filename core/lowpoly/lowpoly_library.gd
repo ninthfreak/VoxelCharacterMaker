@@ -55,7 +55,8 @@ class Body extends RefCounted:
 class Head extends RefCounted:
 	var shape := ""
 	var points := PackedVector3Array()
-	## {corners: PackedInt32Array, region: String}
+	## {corners: PackedInt32Array, region: String, at: Array}; `at` says where on the head the polygon is:
+	## ["ring", ring band, place round it], ["crown", place], ["base", quarter] or ["ear", side]
 	var polygons: Array = []
 
 
@@ -193,5 +194,5 @@ static func _read_head(data: Dictionary, shape: String) -> Head:
 		var corners := _corners(poly.get("v", []), h.points.size())
 		if corners.size() < 3:
 			return null
-		h.polygons.append({"corners": corners, "region": String(poly.get("region", ""))})
+		h.polygons.append({"corners": corners, "region": String(poly.get("region", "")), "at": poly.get("at", [])})
 	return h

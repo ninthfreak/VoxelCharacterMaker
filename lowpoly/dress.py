@@ -148,7 +148,7 @@ class Look:
         return pose.posed_groups(self.body, self, pose_ or {})
 
 
-def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, brow=None, mouth=None):
+def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, brow=None, mouth=None, special_shapes=True):
     """A figure, dressed. Returns a Look.
     worn      [(item id, colourway)] from the wardrobe's items
     features  [(feature id, colourway)] from its features: hair, facial hair (Wardrobe.facial_hair makes any)
@@ -157,7 +157,9 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
               eye, neutral)
     brow      a brow colour, instead of the one the hair gives
     mouth     None for no mouth, or the name of one of faces.MOUTHS
-    paint     optional {region key: rgb} to colour bare regions (for the region map)"""
+    paint     optional {region key: rgb} to colour bare regions (for the region map)
+    special_shapes  False: leave every special shape out (facial hair too), as the game's low-poly figure does until its
+              phases bring them (lowpoly/expected.py)"""
     notes = []
     tables = []
 
@@ -192,7 +194,7 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
     for it, item_id, cw in wearing:
         colours = {role: colour_of(name) for role, name in it["colourways"][cw].items() if name.startswith("@") or name in wardrobe.palette}
         cov = resolve(it)
-        for sp in it.get("specials", []):
+        for sp in (it.get("specials", []) if special_shapes else []):
             kind = sp["type"]
             if kind == "facial_hair":                                # it claims the head's own polygons: see below
                 parts, length, more = facial_hair.read(sp.get("params", {}))
@@ -270,9 +272,9 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
         if r["piece"] == "head": return [{"head": 1.0}] * len(src)   # every corner of a head follows the head alone
         return [body["shares"][lb.share_key(r["piece"], s)] for s in src]
 
-    def put(r, pts, rgb, src, by=None):
+    def put(r, pts, rgb, src, by=None, hem=False):
         out.append(dict(pts=np.asarray(pts, float), rgb=rgb, src=src, shares=shares_of(r, src), part=r["part"], piece=r["piece"],
-                        band=r["band"], hidden=r["hidden"], by=by))
+                        band=r["band"], hidden=r["hidden"], by=by, hem=hem))
 
     for i, r in enumerate(polys):
         w = win[i]
@@ -291,9 +293,12 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
             if q["hidden"]: continue
             m = win[others[0]][0] if win[others[0]] is not None else 0
             if m >= bulk: continue
-            hem = [lifted(i, va), lifted(i, vb), lifted(others[0], vb), lifted(others[0], va)]
+            # wound to face out over the step, toward the neighbour: the lifted polygon runs va to vb, so the hem
+            # runs the other way round (taken the same way round, a hem faced back into the garment, which a renderer
+            # that hides back faces does not draw)
+            hem = [lifted(others[0], va), lifted(others[0], vb), lifted(i, vb), lifted(i, va)]
             if max(np.linalg.norm(hem[0] - hem[3]), np.linalg.norm(hem[1] - hem[2])) > 1e-6:
-                put(r, np.array(hem), rgb, np.array([va, vb, vb, va]), by)
+                put(r, np.array(hem), rgb, np.array([va, vb, vb, va]), by, hem=True)
 
     # special shapes: those that lie on the figure first, then hanging cloth in draw order, each hanging over
     # everything before it

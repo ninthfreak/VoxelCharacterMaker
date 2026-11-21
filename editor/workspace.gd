@@ -12,10 +12,18 @@ extends HSplitContainer
 
 var editor: CharacterEditor = null
 var view: PreviewView = null
+## "voxel", or "lowpoly": the low-poly figure, which the editor is moving to a phase at a time (docs/NOTES.md 4t).
+## A tab that offers the choice calls model_controls().
+var model: String = "voxel"
+## the low-poly figure's shading: "flat" or "smooth" (which the game uses is the owner's call)
+var shading: String = "flat"
 ## The controls column, inside a scroller.
 var side: VBoxContainer = null
 
 var _stale := true
+var _model_pick: OptionButton = null
+var _shading_pick: OptionButton = null
+var _lowpoly_note: Label = null
 
 
 func setup(p_editor: CharacterEditor) -> void:
@@ -72,8 +80,85 @@ func rebuild() -> void:
 		_stale = true
 		return
 	_stale = false
+	if model == "lowpoly":
+		_rebuild_lowpoly()
+		return
 	var assembled := view.show_request(make_request())
 	editor.show_status(self, assembled)
+
+
+## The low-poly model: the same request, assembled by LowpolyAssembler.
+func _rebuild_lowpoly() -> void:
+	if editor.lowpoly == null:
+		return
+	var request := make_request()
+	var figure := LowpolyAssembler.assemble(editor.lowpoly, request)
+	if figure == null:
+		editor.show_status_line(self, "", "no low-poly body '%s' or head '%s'" % [request.body_id, request.head_shape])
+		return
+	view.set_flat_shading(shading == "flat")
+	view.show_lowpoly(figure)
+	var warning := ""
+	if not figure.warnings.is_empty():
+		warning = figure.warnings[0] + ("" if figure.warnings.size() == 1 else " (and %d more)" % (figure.warnings.size() - 1))
+	editor.show_status_line(self, lowpoly_status_text(figure), warning)
+
+
+## Short description of a low-poly figure for the status line.
+func lowpoly_status_text(figure: LowpolyFigure) -> String:
+	var body := editor.lowpoly.body(figure.body_id)
+	return "%s - %s head   |   low-poly: %d polygons, %d triangles   |   %s shading%s" % [
+		body.display_name() if body != null else figure.body_id, figure.head_shape, figure.visible_polygons(),
+		figure.triangles(), shading, status_extra()]
+
+
+## Override: what a tab adds to its status line ("   |   ..."), for either model.
+func status_extra() -> String:
+	return ""
+
+
+## The Model and Shading choices, and a note on what the low-poly model shows so far.
+func model_controls(parent: Container, note_text: String) -> void:
+	_model_pick = picker(parent, "Model", ["voxel", "lowpoly"], ["Voxel", "Low-poly"],
+		func(value: String) -> void:
+			model = value
+			refresh()
+			rebuild())
+	_shading_pick = picker(parent, "Shading", ["flat", "smooth"],
+		["Flat: every polygon one shade", "Smooth: shade blended across polygons"],
+		func(value: String) -> void:
+			shading = value
+			view.set_flat_shading(value == "flat"))
+	_lowpoly_note = note(parent, note_text)
+
+
+## Push the model choice into its controls. Call from refresh().
+func refresh_model_controls() -> void:
+	if _model_pick == null:
+		return
+	select_value(_model_pick, model)
+	select_value(_shading_pick, shading)
+	_shading_pick.get_parent().visible = model == "lowpoly"
+	_lowpoly_note.visible = model == "lowpoly"
+
+
+## Fill a body picker with the bodies the chosen model has (the low-poly one adds a short body for each sex).
+## Returns the body id to show: `current`, or the same sex's average where the model has no such body.
+func refill_bodies(option: OptionButton, current: String) -> String:
+	var ids: Array = []
+	var labels: Array = []
+	if model == "lowpoly" and editor.lowpoly != null:
+		for id in editor.lowpoly.body_ids():
+			ids.append(id)
+			labels.append(editor.lowpoly.body(id).display_name())
+	else:
+		for id in editor.library.body_ids():
+			ids.append(id)
+		labels = body_labels()
+	if not ids.has(current):
+		current = current.split("_")[0] + "_average"
+	refill(option, ids, labels, current)
+	return current
 
 
 func mark_stale() -> void:
@@ -85,6 +170,9 @@ func mark_stale() -> void:
 ## The shell calls this when the tab is brought forward.
 func on_shown() -> void:
 	refresh()
+	if model == "lowpoly":
+		rebuild()
+		return
 	if _stale or view.assembled == null:
 		rebuild()
 	else:
@@ -222,7 +310,7 @@ static func pose_labels() -> Array:
 func status_text(assembled: CharacterAssembler.Assembled) -> String:
 	if assembled == null or assembled.body == null:
 		return ""
-	return "%s - %s head   |   %d voxels, %d parts" % [
+	return "%s - %s head   |   %d voxels, %d parts%s" % [
 		assembled.body.display_name(),
 		assembled.head.shape if assembled.head != null else "?",
-		assembled.total_voxels(), assembled.order.size()]
+		assembled.total_voxels(), assembled.order.size(), status_extra()]

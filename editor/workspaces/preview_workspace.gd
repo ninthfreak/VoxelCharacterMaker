@@ -8,11 +8,6 @@ extends Workspace
 ##
 ## Nothing is edited here, so nothing here can be lost. It is a place to look.
 
-## "voxel", or "lowpoly": the low-poly figure, which the editor is moving to a phase at a time. For now it is the
-## bare body and head (phase 1); clothes, eyes and hair come in the next phases.
-var model: String = "voxel"
-## the low-poly figure's shading: "flat" or "smooth" (which the game uses is the owner's call)
-var shading: String = "flat"
 var body_id: String = "male_average"
 var head_shape: String = "round"
 var pose: String = Poses.REST
@@ -30,9 +25,6 @@ var accessory_id: String = ""
 ## Clothing worn: Array of {"item": id, "colourway": name}
 var worn: Array = []
 
-var _model_pick: OptionButton = null
-var _shading_pick: OptionButton = null
-var _lowpoly_note: Label = null
 var _body_pick: OptionButton = null
 var _head_pick: OptionButton = null
 var _pose_pick: OptionButton = null
@@ -60,15 +52,9 @@ func _build() -> void:
 	heading(side, "The whole character")
 	note(side, "Put together anything made in the other tabs. Nothing is edited "
 		+ "here.")
-	_model_pick = picker(side, "Model", ["voxel", "lowpoly"], ["Voxel", "Low-poly"],
-		func(value: String) -> void: _choose("model", value))
-	_shading_pick = picker(side, "Shading", ["flat", "smooth"],
-		["Flat: every polygon one shade", "Smooth: shade blended across polygons"],
-		func(value: String) -> void:
-			shading = value
-			view.set_flat_shading(value == "flat"))
-	_lowpoly_note = note(side, "Low-poly, phase 1: the bare body and head, in the skin tone. "
-		+ "Eyes, hair and clothes come in the next phases; for now they show on the voxel model only.")
+	model_controls(side, "Low-poly so far: bodies, heads, skin tones, hair and clothing made of regions. "
+		+ "Not yet: eyes and facial hair, and the special shapes (straps, skirts, capes, the hood, drawn shapes): "
+		+ "those show on the voxel model only.")
 
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void: _choose("body_id", value))
@@ -141,50 +127,6 @@ func _choose(field: String, value: String) -> void:
 	rebuild()
 
 
-## The body ids the chosen model has: the low-poly one adds a short body for each sex.
-func _body_choices() -> Array:
-	if model == "lowpoly" and editor.lowpoly != null:
-		var ids: Array = []
-		var labels: Array = []
-		for id in editor.lowpoly.body_ids():
-			ids.append(id)
-			labels.append(editor.lowpoly.body(id).display_name())
-		return [ids, labels]
-	var voxel_ids: Array = []
-	for id in editor.library.body_ids():
-		voxel_ids.append(id)
-	return [voxel_ids, body_labels()]
-
-
-## Re-assemble and show; the low-poly model goes its own way (it is not assembled by CharacterAssembler).
-func rebuild() -> void:
-	if model != "lowpoly":
-		super.rebuild()
-		return
-	if editor == null or editor.lowpoly == null:
-		return
-	if not is_visible_in_tree():
-		_stale = true
-		return
-	_stale = false
-	var figure := LowpolyFigure.make(editor.lowpoly, body_id, head_shape, Palette.skin_tones(skin_tone)[1])
-	if figure == null:
-		editor.show_status_line(self, "", "no low-poly body '%s' or head '%s'" % [body_id, head_shape])
-		return
-	view.set_flat_shading(shading == "flat")
-	view.show_lowpoly(figure)
-	editor.show_status_line(self, "%s - %s head   |   low-poly: %d polygons, %d triangles   |   %s shading   |   %s"
-		% [editor.lowpoly.body(body_id).display_name(), head_shape, figure.visible_polygons(), figure.triangles(),
-			shading, Poses.display_name(pose)])
-
-
-func on_shown() -> void:
-	if model != "lowpoly":
-		super.on_shown()
-		return
-	refresh()
-	rebuild()
-
 
 func make_request() -> CharacterAssembler.Request:
 	var request := CharacterAssembler.Request.make(editor.library, body_id, head_shape)
@@ -213,14 +155,8 @@ func refresh() -> void:
 	if w == null or _body_pick == null:
 		return
 	_guard += 1
-	select_value(_model_pick, model)
-	select_value(_shading_pick, shading)
-	_shading_pick.get_parent().visible = model == "lowpoly"
-	_lowpoly_note.visible = model == "lowpoly"
-	var bodies: Array = _body_choices()
-	if not ((bodies[0] as Array).has(body_id)):
-		body_id = body_id.split("_")[0] + "_average"            # a short body has no voxel twin
-	refill(_body_pick, bodies[0], bodies[1], body_id)
+	refresh_model_controls()
+	body_id = refill_bodies(_body_pick, body_id)
 	select_value(_head_pick, head_shape)
 	select_value(_pose_pick, pose)
 	select_value(_skin_pick, skin_tone)
@@ -386,6 +322,5 @@ func _refresh_summary() -> void:
 	_summary.text = "\n".join(lines)
 
 
-func status_text(assembled: CharacterAssembler.Assembled) -> String:
-	return "%s   |   %d worn   |   %s" % [super.status_text(assembled), _live_worn().size(),
-		Poses.display_name(pose)]
+func status_extra() -> String:
+	return "   |   %d worn   |   %s" % [_live_worn().size(), Poses.display_name(pose)]

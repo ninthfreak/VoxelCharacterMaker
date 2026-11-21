@@ -18,7 +18,10 @@ extends SceneTree
 ##   --select ID       select a wardrobe item (in its own section)
 ##   --scroll PIXELS   scroll the controls column down
 ##   --preview K=V     set one of the Preview tab's choices before the shot (repeatable), e.g. model=lowpoly,
-##                     shading=smooth, body_id=female_short, head_shape=strong, pose=sitting, skin_tone=tan
+##                     shading=smooth, body_id=female_short, head_shape=strong, pose=sitting, skin_tone=tan,
+##                     outfit=overalls (wears that outfit), hair_id=short_crop, hair_colourway=auburn
+##   --set K=V         set a choice on the tab shown, before the shot (repeatable), e.g. model=lowpoly,
+##                     body_id=female_heavy, show_mode=worn
 
 const SETTLE_FRAMES := 14
 const SIZE := Vector2i(1800, 1000)
@@ -34,6 +37,7 @@ var _name := ""
 var _select := ""
 var _scroll := 0
 var _preview: Dictionary = {}
+var _set: Dictionary = {}
 
 
 func _initialize() -> void:
@@ -57,6 +61,10 @@ func _initialize() -> void:
 			_select = String(args[i + 1])
 		elif String(args[i]) == "--scroll" and i + 1 < args.size():
 			_scroll = int(args[i + 1])
+		elif String(args[i]) == "--set" and i + 1 < args.size():
+			var kv2 := String(args[i + 1]).split("=", true, 1)
+			if kv2.size() == 2:
+				_set[kv2[0]] = kv2[1]
 		elif String(args[i]) == "--preview" and i + 1 < args.size():
 			var kv := String(args[i + 1]).split("=", true, 1)
 			if kv.size() == 2:
@@ -102,10 +110,18 @@ func _process(_delta: float) -> bool:
 					target.call("select", _select)
 		if not _section.is_empty() and ws.has_method("show_section"):
 			ws.call("show_section", _section)
+		if not _set.is_empty():
+			for key in _set.keys():
+				ws.set(String(key), _set[key])
+			ws.call("refresh")
+			ws.call("rebuild")
 		if not _preview.is_empty():
 			var preview: Object = _editor.get("preview")
 			for key in _preview.keys():
-				preview.set(String(key), _preview[key])
+				if String(key) == "outfit":
+					preview.set("worn", (_editor.get("wardrobe") as Object).call("outfit", _preview[key]))
+				else:
+					preview.set(String(key), _preview[key])
 			if _preview.has("pose"):
 				(preview.get("view") as Object).call("set_pose", String(_preview["pose"]))
 			if _preview.has("shading"):

@@ -223,7 +223,7 @@ func _on_container_input(event: InputEvent) -> void:
 ## Trimesh collision, built only while picking is on: it costs real time on a
 ## few thousand quads and most editing is done from the region list.
 func _build_pick_bodies() -> void:
-	if not picking_enabled:
+	if not picking_enabled or showing_lowpoly:          # the low-poly figure is picked by its own polygons
 		return
 	for name in rig.mesh_instances.keys():
 		var instance: MeshInstance3D = rig.mesh_instances[name]
@@ -231,8 +231,16 @@ func _build_pick_bodies() -> void:
 
 
 func _pick_at(screen_position: Vector2) -> void:
-	var space := _viewport.world_3d.direct_space_state
 	var from := camera.project_ray_origin(screen_position)
+	if showing_lowpoly:
+		var into := lowpoly_rig.global_transform.affine_inverse()
+		var i := lowpoly_rig.pick(into * from, into.basis * camera.project_ray_normal(screen_position))
+		if i >= 0:
+			var region := String(lowpoly_rig.figure.polygons[i]["region"])
+			if not region.is_empty():
+				region_picked.emit(region)
+		return
+	var space := _viewport.world_3d.direct_space_state
 	var to := from + camera.project_ray_normal(screen_position) * 100.0
 	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, to))
 	if hit.is_empty():

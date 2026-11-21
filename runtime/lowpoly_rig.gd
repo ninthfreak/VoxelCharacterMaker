@@ -162,6 +162,50 @@ func posed_points(pose: Dictionary = _pose) -> PackedVector3Array:
 	return out
 
 
+## The polygon a ray meets first, in its pose: its index in figure.polygons, or -1. The ray is in this rig's own
+## space (Godot units and axes), as a camera gives it once taken into the rig's frame.
+func pick(origin: Vector3, direction: Vector3) -> int:
+	if figure == null:
+		return -1
+	var posed := posed_points()
+	var at := PackedVector3Array()
+	for v in posed:
+		at.push_back(VoxelAxes.point_to_godot(v))
+	var best := INF
+	var hit := -1
+	for i in figure.polygons.size():
+		var p: Dictionary = figure.polygons[i]
+		if bool(p["hidden"]):
+			continue
+		var corners: PackedInt32Array = p["corners"]
+		for j in range(1, corners.size() - 1):
+			var t := _ray_triangle(origin, direction, at[corners[0]], at[corners[j]], at[corners[j + 1]])
+			if t > 0.0 and t < best:
+				best = t
+				hit = i
+	return hit
+
+
+## How far along the ray it meets the triangle (either face), or -1 (Moller and Trumbore).
+static func _ray_triangle(o: Vector3, d: Vector3, a: Vector3, b: Vector3, c: Vector3) -> float:
+	var e1 := b - a
+	var e2 := c - a
+	var h := d.cross(e2)
+	var det := e1.dot(h)
+	if absf(det) < 1e-12:
+		return -1.0
+	var inv := 1.0 / det
+	var s := o - a
+	var u := s.dot(h) * inv
+	if u < 0.0 or u > 1.0:
+		return -1.0
+	var q := s.cross(e1)
+	var v := d.dot(q) * inv
+	if v < 0.0 or u + v > 1.0:
+		return -1.0
+	return e2.dot(q) * inv
+
+
 ## The bounds of the figure standing, in Godot space, for framing a camera. part: just that part's.
 func figure_aabb(part: String = "") -> AABB:
 	if figure == null:

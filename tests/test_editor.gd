@@ -292,7 +292,8 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(pv._summary.text.contains("blink") and pv._summary.text.contains("deep"),
 		"and the summary says so")
 
-	# The low-poly model (the editor's move to low-poly, phase 1): the bare figure, eight bodies, two shadings.
+	# The low-poly model (the editor's move to low-poly; phases 1 and 2): eight bodies, two shadings, and the same
+	# character dressed, as far as low-poly goes so far.
 	pv._choose("model", "lowpoly")
 	t.check_equal(pv._body_pick.item_count, 8, "the low-poly model offers eight bodies, a short one for each sex")
 	pv._choose("body_id", "male_short")
@@ -300,15 +301,48 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(pv.view.showing_lowpoly and lp.visible and not pv.view.rig.visible and lp.figure != null
 		and lp.figure.body_id == "male_short" and lp.figure.head_shape == "strong",
 		"choosing the low-poly model shows the low-poly figure, with the chosen body and head, in place of the voxel one")
-	t.check_equal(lp.polygon_count(), 434, "a bare low-poly figure is 434 polygons: 320 of the body's and 114 of the head's")
-	t.check((lp.figure.polygons[0]["colour"] as Color).is_equal_approx(Palette.skin_tones("deep")[1]),
-		"in the chosen skin tone")
+	var on := {}
+	var skin_ok := true
+	for poly in lp.figure.polygons:
+		on[String(poly["by"])] = true
+		if String(poly["by"]).is_empty() and not bool(poly["hidden"]):
+			skin_ok = skin_ok and (poly["colour"] as Color).is_equal_approx(Palette.skin_tones("deep")[1])
+	for id in ["tunic", "trousers", "boots", "ponytail"]:
+		t.check(on.has(id), "low-poly: %s is on the character" % id)
+	t.check(skin_ok, "low-poly: bare skin is in the chosen skin tone")
+	var named := " ".join(lp.figure.warnings)
+	t.check(named.contains("cloak") and named.contains("long_beard"),
+		"low-poly: what it cannot show yet (the cloak's cape, the long beard) is named in the warnings")
 	pv._shading_pick.select(1)
 	pv._shading_pick.item_selected.emit(1)
 	t.check(not lp.flat_shading, "the shading switch reaches the figure")
 	pv._choose("model", "voxel")
 	t.check(not pv.view.showing_lowpoly and pv.view.rig.visible and pv.body_id == "male_average",
 		"back on the voxel model, which has no short body, the same sex's average is shown")
+
+	# The Clothes tab: the same switch, and clicking the figure picks the region of the polygon hit.
+	ed.show_tab("Clothes")
+	var cw := ed.clothes
+	cw._model_pick.select(1)
+	cw._model_pick.item_selected.emit(1)
+	cw.body_id = "female_average"
+	cw.refresh()
+	cw.rebuild()
+	var crig := cw.view.lowpoly_rig
+	t.check(cw.view.showing_lowpoly and crig.figure != null and crig.figure.body_id == "female_average",
+		"the Clothes tab shows the low-poly figure too")
+	var hit := crig.pick(Vector3(0.02, 0.8, -3.0), Vector3(0, 0, 1))
+	t.check(hit >= 0 and String(crig.figure.polygons[hit]["region"]) == "lower_chest.R.F",
+		"a ray from in front, just right of the middle, at chest height, picks the lower chest, right, front",
+		"picked %s" % (String(crig.figure.polygons[hit]["region"]) if hit >= 0 else "nothing"))
+	crig.apply_pose(Poses.T_POSE)
+	hit = crig.pick(Vector3(0.5, 0.92, -3.0), Vector3(0, 0, 1))     # Godot's +x is the character's right
+	t.check(hit >= 0 and String(crig.figure.polygons[hit]["region"]).ends_with(".R")
+		and String(crig.figure.polygons[hit]["part"]).ends_with("arm_R"),
+		"in a T-pose, the same kind of ray far out to the right picks the raised right arm: picking follows the pose",
+		"picked %s" % (String(crig.figure.polygons[hit]["region"]) if hit >= 0 else "nothing"))
+	cw._model_pick.select(0)
+	cw._model_pick.item_selected.emit(0)
 
 
 # ------------------------------------------------------------------- undo --

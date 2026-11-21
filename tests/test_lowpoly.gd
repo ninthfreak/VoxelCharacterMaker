@@ -12,7 +12,7 @@ extends RefCounted
 const EXPECTED_PATH := "res://tests/lowpoly_expected.json"
 
 
-static func run(t: TestReport) -> void:
+static func run(t: TestReport, voxel_library: AssetLibrary) -> void:
 	t.group("low-poly: the bodies and heads, read from assets/lowpoly/")
 	var library := LowpolyLibrary.new()
 	t.check(library.load_all(), "every low-poly body and head file reads", ", ".join(library.errors))
@@ -26,6 +26,11 @@ static func run(t: TestReport) -> void:
 	t.group("low-poly: the figure bends as lowpoly/ bends it")
 	_rig(t, library)
 	_against_python(t, library)
+
+	t.group("low-poly: clothing, as lowpoly/ dresses a figure")
+	var wardrobe := Wardrobe.create_default(voxel_library)
+	_dressed_against_python(t, library, wardrobe)
+	_dressing_rules(t, library, wardrobe)
 
 
 static func _layout(t: TestReport, library: LowpolyLibrary) -> void:
@@ -158,3 +163,101 @@ static func _against_python(t: TestReport, library: LowpolyLibrary) -> void:
 	rig.free()
 	t.check(worst <= tolerance, "in all %d cases (every body standing; every test pose on the feminine average and the masculine short) every corner is where lowpoly/ puts it, within %s units"
 		% [cases, tolerance], "off by %f at %s" % [worst, where])
+
+
+## Every dressed figure in tests/lowpoly_expected.json, polygon by polygon: the same polygons in the same order, each
+## with its corners where lowpoly/dress.py puts them, in its colour, made by the same worn item.
+static func _dressed_against_python(t: TestReport, library: LowpolyLibrary, wardrobe: Wardrobe) -> void:
+	var expected := JsonIO.read_dict(EXPECTED_PATH)
+	var cases: Array = expected.get("dressed", [])
+	if not t.check(not cases.is_empty(), "tests/lowpoly_expected.json has dressed figures", "run: python3 lowpoly/expected.py"):
+		return
+	var tolerance := float(expected.get("tolerance", 0.001))
+	for c in cases:
+		var case_: Dictionary = c
+		var req := CharacterAssembler.Request.new()
+		req.body_id = String(case_["body"])
+		req.head_shape = String(case_["head"])
+		req.wardrobe = wardrobe
+		req.worn = wardrobe.outfit(String(case_["outfit"]))
+		if not String(case_["hair"]).is_empty():
+			req.features = [{"item": String(case_["hair"]), "colourway": String(case_["hair_colourway"])}]
+		var f := LowpolyAssembler.assemble(library, req)
+		var want: Array = case_["polygons"]
+		var label := "%s, %s, %s: %d polygons as lowpoly/ makes them" % [case_["body"], case_["outfit"],
+			"with %s" % case_["hair"] if not String(case_["hair"]).is_empty() else "bald", want.size()]
+		if f == null or f.polygons.size() != want.size():
+			t.check(false, label, "%d polygons" % (f.polygons.size() if f != null else -1))
+			continue
+		var worst := 0.0
+		var wrong := ""
+		for i in want.size():
+			var w: Dictionary = want[i]
+			var got: Dictionary = f.polygons[i]
+			var corners: PackedInt32Array = got["corners"]
+			var pts: Array = w["points"]
+			var colour := "#" + (got["colour"] as Color).to_html(false)
+			if corners.size() != pts.size() or colour != String(w["colour"]) or String(got["by"]) != String(w["by"]):
+				wrong = "polygon %d: %d corners, %s by '%s'; expected %d, %s by '%s'" % [i, corners.size(), colour,
+					got["by"], pts.size(), w["colour"], w["by"]]
+				break
+			for k in pts.size():
+				worst = maxf(worst, f.points[corners[k]].distance_to(LowpolyLibrary._vec(pts[k])))
+		t.check(wrong.is_empty() and worst <= tolerance, label + " (colours, items, corners within %s)" % tolerance,
+			wrong if not wrong.is_empty() else "off by %f" % worst)
+
+
+## The rules themselves, on one figure: what the cross-check above cannot say by itself.
+static func _dressing_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wardrobe) -> void:
+	var req := CharacterAssembler.Request.new()
+	req.body_id = "female_average"
+	req.head_shape = "round"
+	req.wardrobe = wardrobe
+	req.worn = wardrobe.outfit("travelling")
+	var f := LowpolyAssembler.assemble(library, req)
+	var ears_bare := true
+	var floor_ok := true
+	for p in f.polygons:
+		if String(p["at"]) == "ear" and not String(p["by"]).is_empty():
+			ears_bare = false
+		for k in p["corners"]:
+			floor_ok = floor_ok and f.points[k].z >= -1e-6
+	t.check(floor_ok, "nothing worn goes below the floor (rule 3)")
+	var hems := 0
+	var inward := 0
+	var parent: Dictionary = {}
+	for p in f.polygons:
+		if not p.get("hem", false):
+			parent = p
+			continue
+		var c: PackedInt32Array = p["corners"]
+		var n := Vector3.ZERO
+		var mid := Vector3.ZERO
+		for i in c.size():
+			n += f.points[c[i]].cross(f.points[c[(i + 1) % c.size()]])
+			mid += f.points[c[i]] / c.size()
+		var pc: PackedInt32Array = parent["corners"]
+		var parent_mid := Vector3.ZERO
+		for k in pc:
+			parent_mid += f.points[k] / pc.size()
+		if n.length() > 1e-6:
+			hems += 1
+			inward += 1 if n.dot(mid - parent_mid) <= 0.0 else 0
+	t.check(hems > 0 and inward == 0, "all %d hems face out over their step, so a renderer that hides back faces draws them" % hems,
+		"%d face inward" % inward)
+	var cloak_noted := false
+	for w in f.warnings:
+		cloak_noted = cloak_noted or (w.begins_with("cloak") and w.contains("not on the low-poly figure yet"))
+	t.check(cloak_noted, "an item's special shape not built for low-poly yet is named in the warnings (the cloak's cape)")
+	req.features = [{"item": "short_crop", "colourway": "default"}]
+	f = LowpolyAssembler.assemble(library, req)
+	for p in f.polygons:
+		if String(p["at"]) == "ear" and not String(p["by"]).is_empty():
+			ears_bare = false
+	t.check(ears_bare, "ears stay skin under hair")
+	req.solo_item = "boots"
+	f = LowpolyAssembler.assemble(library, req)
+	var others := false
+	for p in f.polygons:
+		others = others or (not String(p["by"]).is_empty() and String(p["by"]) != "boots")
+	t.check(not others, "with one item soloed, only that item is on the figure")
