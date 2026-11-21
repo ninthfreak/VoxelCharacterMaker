@@ -288,23 +288,7 @@ func _add_starter_features() -> void:
 	tail.colourways = {"default": {"hair": "hair_black", "tie": "rust"}}
 	for key in ["crown.L.F", "crown.L.B", "mid_head.L.B", "lower_head.L.B"]:
 		tail.set_region(key, "hair", 1)
-	var at := tail.add_special("shape")
-	tail.set_special_param(at, "anchor", "nape")
-	tail.set_special_param(at, "wrap", false)
-	tail.set_special_param(at, "mirror", true)
-	# Two columns each side of the mirror line: four cells wide. One column
-	# (two wide) read as a string rather than a ponytail.
-	var cells: Array = []
-	for a in [0, 1]:
-		cells.append([a, 1, 4, "tie"])
-		cells.append([a, 2, 4, "tie"])
-		for c in [3, 2, 1, 0, -1, -2, -3, -4]:
-			if a == 1 and c < -2:
-				continue  # taper toward the tip
-			cells.append([a, 1, c, "hair"])
-			if c > -3:
-				cells.append([a, 2, c, "hair"])
-	tail.set_special_param(at, "cells", cells)
+	tail.add_special("ponytail")
 	add_item(tail)
 
 	# Facial hair follows each head's own surface, and takes its colours from
@@ -321,26 +305,11 @@ func _add_starter_features() -> void:
 			fh.set_special_param(at_fh, String(key), settings[key])
 		add_item(fh)
 
-	# A face accessory, not a facial hair style: optional, hung under the chin,
-	# a drawn shape (the low-poly figure does not draw these yet). b is how far
-	# below the chin, c how far forward of the anchor (the column just behind
-	# the face plane); mirrored, so a = 0..4 is ten wide.
+	# A face accessory, not a facial hair style: optional, hung under the chin, worn with facial hair or without.
 	var long_beard := GarmentItem.create_feature("long_beard", "Long beard", "face_accessory")
 	long_beard.roles = ["hair"]
 	long_beard.colourways = {"default": {"hair": Palette.REF_HAIR}}
-	var lb := long_beard.add_special("shape")
-	long_beard.set_special_param(lb, "anchor", "chin")
-	long_beard.set_special_param(lb, "wrap", false)
-	long_beard.set_special_param(lb, "mirror", true)
-	var lb_cells: Array = []
-	for a in range(0, 5):
-		for c in range(-2, 3):           # under the chin, front to back
-			lb_cells.append([a, 0, c, "hair"])
-	for row in [[1, 5], [2, 4], [3, 3], [4, 2]]:   # hanging down, narrowing
-		for a in range(0, int(row[1])):
-			for c in [1, 2]:
-				lb_cells.append([a, int(row[0]), c, "hair"])
-	long_beard.set_special_param(lb, "cells", lb_cells)
+	long_beard.add_special("long_beard")
 	add_item(long_beard)
 
 

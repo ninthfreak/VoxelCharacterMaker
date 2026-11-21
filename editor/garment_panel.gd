@@ -106,9 +106,8 @@ func _build_regions() -> void:
 
 func _build_specials() -> void:
 	var box := section("Special shapes")
-	hint(box, "Shapes with a form of their own: skirts, capes, straps, facial hair, "
-		+ "hoods. The hood is kept in the file but not shown yet; drawn shapes (the long "
-		+ "beard, the ponytail's tail) are kept, and cannot be added or drawn for now.")
+	hint(box, "Shapes with a form of their own: skirts, capes, straps, facial hair, hoods, and shapes fixed at a "
+		+ "place on the figure (a long beard, a ponytail, a bun, horns, pauldrons), each with a few settings.")
 	_specials = make_list(box, 90)
 	_specials.item_selected.connect(func(index: int) -> void:
 		if is_guarded():
@@ -121,9 +120,7 @@ func _build_specials() -> void:
 	_add_type = OptionButton.new()
 	var addable: Array = []
 	var labels: Array = []
-	for type in SpecialItem.types():
-		if type == "shape":
-			continue                     # nothing to draw it in until the figure draws them
+	for type in SpecialItem.types():     # the old drawn shape is not among them: it is only read from old files
 		addable.append(type)
 		labels.append(SpecialItem.display_name(type)
 			+ ("" if SpecialItem.is_built(type) else " (not shown yet)"))
@@ -249,7 +246,7 @@ func _refresh_special_detail() -> void:
 				option.item_selected.connect(func(_i: int) -> void:
 					_set_param(index, key, option_value(option), label))
 			_:
-				continue  # "cells": a drawn shape's drawing, kept in the file; there is no low-poly drawn shape yet
+				continue  # "cells": an old drawn shape's drawing, kept in the file and not drawn
 		if spec.has("hint"):
 			hint(_params, String(spec["hint"]))
 
@@ -345,11 +342,7 @@ func _on_add_special() -> void:
 	if it == null:
 		return
 	var type := option_value(_add_type)
-	_special_index = it.add_special(type)
-	# Hair and facial hair are on the head, so a drawn shape starts there.
-	if type == "shape" and it.is_feature():
-		it.set_special_param(_special_index, "anchor",
-			"face" if it.slot == "facial_hair" else "nape")
+	_special_index = it.add_special(type)       # with the roles it colours, if the item lacks them
 	commit("Add %s to %s" % [SpecialItem.display_name(type).to_lower(), it.name])
 	refresh()
 

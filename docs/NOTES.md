@@ -1331,13 +1331,52 @@ hood and on how drawn shapes are to be made (below).
   a second); drawn shapes as hand-set sections are low to medium for the figure and medium for an editor (a list of
   sections with numbers, and front and side views to drag them in); converting the old drawings is low.
 
+## 4zb. The hood and the shapes of their own, in the game (owner's choice)
+
+The owner chose fixed shape types with a few settings each (option C of 4za) over hand-set sections or the cell
+drawing, as best for the long term, and agreed the first set of five.
+
+- **The types** (`lowpoly/drawn.py`, `core/lowpoly/lowpoly_drawn.gd`): long beard (under the chin: length 1-5,
+  width 1-4, point 0-3, jut 0-3), ponytail (back of the head: height 0-3 from the nape to the crown, length 1-5,
+  thickness 1-3, tie), bun (top, back or nape; size 1-3), horns (a pair from the brow: length, curve, spread,
+  thickness), pauldrons (a pair on the shoulders: size, drop). Underneath each is the loft of 4za: its settings give a
+  few oval sections, joined into one closed piece. Each has a fixed anchor, so there is no anchor or mirror control.
+  A beard stands clear of the chest and a tail of the back and the hair; the jut is added after that, so it shows on
+  every chest. Sheet: `lowpoly/renders/shape_types.png` (every setting from one end to the other).
+- **Two fixes found while building the types:** an oval's width now follows a direction fixed per type (across, or
+  front to back for a pauldron), because taken from the path it flipped half a turn where a path rises then falls,
+  twisting the piece; a pauldron bends between the chest and its upper arm (0.2 to 0.85 with the arm from its inner
+  to its outer end), because following the arm alone it turned under the armpit with the arm overhead. It still
+  sinks into the shoulder there: the arm is one rigid piece at the shoulder.
+- **The hood** is the 4za first pass, in the game as it is (`core/lowpoly/lowpoly_hood.gd`); its "Thickness" setting
+  is now labelled "Looseness" (same name in the file, `depth`). The lowered hood was simplified first: the collar and
+  the pouch are separate pieces, and the pouch is one layer (it lies on the back; nothing sees its inside).
+- **Old files.** A drawn shape under the chin becomes a long beard, one at the nape a ponytail, each at its default
+  settings (`GarmentItem.from_json`); any other is kept in the file with its drawing, not drawn, and named in the
+  figure's warnings. The starter ponytail and long beard are the new types. Adding a type to an item, or reading one,
+  gives the item the roles the type colours (hair, tie, horn, plate), in every colourway (`SpecialItem.roles_of`).
+- **Editor.** The types are in the Add shape list with their settings; the old drawn shape is not offered. No new
+  editor screen: the settings panel builds their controls from `SpecialItem.param_spec`, as for skirts and capes.
+- **Cross-check.** `lowpoly/expected.py` now dresses with every shape the game builds and has seven more figures:
+  hoods raised over a ponytail, loose and lined on a heavy body, lowered on a short one, and every type away from its
+  defaults; all 21 match the Python corner for corner. A case lists all its features now (hair, facial hair, a face
+  accessory). New Godot checks: a raised hood covers the whole head but the face on three builds, nothing of it is in
+  front of the eyes, the head part turns with the head and the cowl with the chest, lining only when lined, a lowered
+  hood stays under the jaw, a raised hood is made after a ponytail; each type is built in its roles' colours, follows
+  the right parts, is the same on both sides, and its settings reach it. 408 checks pass.
+- **A bug found on the way:** Godot's packed arrays are copied when taken out of a dictionary and changed, so the hood's
+  push-out pass, which sorts the figure's corners into a grid of cells, found every cell empty and pushed nothing.
+  The cells are plain arrays now; worth remembering for any port.
+- **Cost.** A raised hood adds about 160 ms to putting a figure together in Godot (190 against 28), a lowered one about
+  40 ms; the push-out pass and the opening's search are most of it. Fine for the editor and for building a character
+  once; worth a look if characters are rebuilt often in the game.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed
 in `lowpoly/README.md`. The items below come from the voxel system. Items 6
 and 7 are overtaken by the move: baked lighting becomes the choice between
-flat and smooth shading, and hoods wait for the special shapes to be rebuilt
-as polygons.
+flat and smooth shading; the looser hood is built (4za, 4zb).
 
 Carried from `SPEC.md` section 13, plus what building raised:
 
@@ -1363,5 +1402,5 @@ Carried from `SPEC.md` section 13, plus what building raised:
    setting on the assembler, since the game assembles characters anyway.
 7. **Hoods are on hold.** The current hood is a skin-tight shell and does
    not read as a hood. The owner chose: generate a looser hood, then
-   hand-tune it. The looser hood is built as a first pass in the low-poly
-   reference (4za); hand-tuning is not.
+   hand-tune it. The looser hood is built and in the game (4za, 4zb);
+   hand-tuning is not.

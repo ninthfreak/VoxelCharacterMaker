@@ -33,6 +33,10 @@ static func run(t: TestReport) -> void:
 	_dressing_rules(t, library, wardrobe)
 	_cloth_in_the_rig(t, library, wardrobe)
 
+	t.group("low-poly: the hood, and the shapes of their own")
+	_hood_rules(t, library, wardrobe)
+	_own_shapes(t, library, wardrobe)
+
 	t.group("low-poly: faces and facial hair, as lowpoly/ draws them")
 	_faces_against_python(t, library, wardrobe)
 	_face_rules(t, library, wardrobe)
@@ -192,8 +196,8 @@ static func _dressed_against_python(t: TestReport, library: LowpolyLibrary, ward
 		req.wardrobe = w
 		for pair in case_["worn"]:
 			req.worn.append({"item": String(pair[0]), "colourway": String(pair[1])})
-		if not String(case_["hair"]).is_empty():
-			req.features = [{"item": String(case_["hair"]), "colourway": String(case_["hair_colourway"])}]
+		for pair in case_.get("features", [[case_["hair"], case_["hair_colourway"]]] if not String(case_["hair"]).is_empty() else []):
+			req.features.append({"item": String(pair[0]), "colourway": String(pair[1])})
 		var f := LowpolyAssembler.assemble(library, req)
 		var want: Array = case_["polygons"]
 		var what := String(case_["outfit"]) if not String(case_["outfit"]).is_empty() else ", ".join(items.keys())
@@ -299,10 +303,21 @@ static func _dressing_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wa
 			inward += 1 if n.dot(mid - parent_mid) <= 0.0 else 0
 	t.check(hems > 0 and inward == 0, "all %d hems face out over their step, so a renderer that hides back faces draws them" % hems,
 		"%d face inward" % inward)
-	var cloak_noted := false
-	for w in f.warnings:
-		cloak_noted = cloak_noted or (w.begins_with("cloak") and w.contains("not on the low-poly figure yet"))
-	t.check(cloak_noted, "an item's special shape not built for low-poly yet is named in the warnings (the cloak's cape)")
+	# An old drawn shape that did not become one of the shapes of their own (not under the chin or at the nape) is kept
+	# in the file and named in the warnings.
+	var old := GarmentItem.from_json("old_badge", {"name": "Old badge", "category": "accessory", "draw_order": 80,
+		"roles": ["cloth"], "colourways": {"default": {"cloth": "ink"}}, "coverage": {},
+		"specials": [{"type": "shape", "params": {"anchor": "hip", "wrap": true, "mirror": true, "cells": [[0, 0, 0, "cloth"]]}}]})
+	var with_old := Wardrobe.from_json(wardrobe.to_json())
+	with_old.add_item(old)
+	req.wardrobe = with_old
+	req.worn = [{"item": "old_badge", "colourway": "default"}]
+	var g := LowpolyAssembler.assemble(library, req)
+	var noted := false
+	for w in g.warnings:
+		noted = noted or (w.begins_with("old_badge") and w.contains("not on the low-poly figure"))
+	t.check(old.special_types() == (["shape"] as Array[String]) and noted,
+		"an old drawn shape kept in a file is named in the warnings, not drawn", ", ".join(g.warnings))
 	req.features = [{"item": "short_crop", "colourway": "default"}]
 	f = LowpolyAssembler.assemble(library, req)
 	for p in f.polygons:
@@ -546,3 +561,173 @@ static func _face_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wardro
 	for warning in no_set.warnings:
 		said = said or warning.contains("no eye set")
 	t.check(said, "a wardrobe with no eye set: the figure says its face has no eyes")
+
+
+## An item wearing one special shape with these settings.
+static func _one_shape(w: Wardrobe, id: String, type: String, settings: Dictionary, roles: Dictionary) -> String:
+	var it := GarmentItem.create(id, id, "accessory")
+	it.colourways = {"default": {}}
+	for role in roles.keys():
+		it.roles.append(String(role))
+		it.colourways["default"][role] = roles[role]
+	var at := it.add_special(type)
+	for key in settings.keys():
+		it.set_special_param(at, String(key), settings[key])
+	w.add_item(it)
+	return id
+
+
+static func _figure_with(library: LowpolyLibrary, w: Wardrobe, body: String, head: String, worn: Array, features: Array = []) -> LowpolyFigure:
+	var req := CharacterRequest.make(body, head, w)
+	for id in worn:
+		req.worn.append({"item": String(id), "colourway": "default"})
+	for pair in features:
+		req.features.append({"item": String(pair[0]), "colourway": String(pair[1])})
+	return LowpolyAssembler.assemble(library, req)
+
+
+static func _of(f: LowpolyFigure, piece: String) -> Array:
+	var out: Array = []
+	for p in f.polygons:
+		if String(p["piece"]) == piece:
+			out.append(p)
+	return out
+
+
+static func _hood_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wardrobe) -> void:
+	var w := Wardrobe.from_json(wardrobe.to_json())
+	var colours := {"cloth": "moss", "lining": "rust"}
+	_one_shape(w, "hood_up", "hood", {"raised": true}, colours)
+	_one_shape(w, "hood_lined", "hood", {"raised": true, "lined": true, "depth": 3, "opening": 3}, colours)
+	_one_shape(w, "hood_down", "hood", {"raised": false, "lined": true}, colours)
+	var moss := w.colour("moss")
+	var rust := w.colour("rust")
+	for body in ["female_average", "male_heavy", "male_short"]:
+		var started := Time.get_ticks_msec()
+		var f := _figure_with(library, w, body, "round", ["tunic", "hood_up"], [["short_crop", "black"]])
+		var took := Time.get_ticks_msec() - started
+		var hood := _of(f, "shape:hood")
+		var raise := library.body(body).head_raise
+		# Every corner of the dressed head, seen outward from the middle of the head at its own height, has the hood
+		# beyond it, but in the face opening.
+		var tris: Array = []
+		for p in hood:
+			var c: PackedInt32Array = p["corners"]
+			for i in range(1, c.size() - 1):
+				tris.append([f.points[c[0]], f.points[c[i]], f.points[c[i + 1]]])
+		var bare := 0
+		var looked := 0
+		for p in _of(f, "head"):
+			for k in p["corners"]:
+				var v: Vector3 = f.points[k]
+				var out := Vector3(v.x - 12.0, v.y - 12.0, 0.0)
+				var front := out.y < 0.0 and absf(out.x) < 8.0 and v.z > 25.5 + raise and v.z < 38.5 + raise
+				if front or out.length() < 0.5:
+					continue                     # the face opening, or the middle of the crown
+				looked += 1
+				var beyond := false
+				for tri in tris:
+					var hit: Variant = Geometry3D.ray_intersects_triangle(Vector3(12.0, 12.0, v.z), out.normalized(), tri[0], tri[1], tri[2])
+					if hit != null and Vector2((hit as Vector3).x - 12.0, (hit as Vector3).y - 12.0).length() > out.length() + 0.1:
+						beyond = true
+						break
+				bare += 0 if beyond else 1
+		t.check(not hood.is_empty() and bare == 0, "%s: a raised hood covers the whole head but the face (%d of its corners looked at)" % [body, looked],
+			"%d not covered" % bare)
+		var eyes_clear := true
+		for p in hood:
+			for k in p["corners"]:
+				var v: Vector3 = f.points[k]
+				eyes_clear = eyes_clear and not (absf(v.x - 12.0) < 5.5 and v.z > 29.0 + raise and v.z < 35.0 + raise and v.y < 12.0)
+		t.check(eyes_clear, "%s: nothing of the hood is in front of the eyes" % body)
+		var head_rows := true
+		var cowl := true
+		for p in hood:
+			for k in p["corners"]:
+				var share: Dictionary = f.weights[k]
+				if f.points[k].z > 26.5 + raise:
+					head_rows = head_rows and is_equal_approx(float(share.get("head", 0.0)), 1.0)
+				elif f.points[k].z < library.body(body).heights64["collar"][0] + 0.1:
+					cowl = cowl and is_equal_approx(float(share.get("chest", 0.0)), 1.0)
+		t.check(head_rows and cowl, "%s: the hood over the head turns with the head, the cowl on the shoulders with the chest" % body)
+		var unlined := true
+		for p in hood:
+			unlined = unlined and (p["colour"] as Color).is_equal_approx(moss)
+		t.check(unlined, "%s: unlined, it is all in the cloth colour" % body)
+		t.check(took < 3000, "%s: a figure with a raised hood is put together in %d ms" % [body, took])
+	var lined := _figure_with(library, w, "male_average", "boxy", ["tunic", "hood_lined"])
+	var has_lining := false
+	for p in _of(lined, "shape:hood"):
+		has_lining = has_lining or (p["colour"] as Color).is_equal_approx(rust)
+	t.check(has_lining, "lined, its inside and edges are in the lining colour")
+	var down := _figure_with(library, w, "female_average", "round", ["tunic", "hood_down"])
+	var below_chin := true
+	var on_back := 0
+	for p in _of(down, "shape:hood"):
+		for k in p["corners"]:
+			below_chin = below_chin and down.points[k].z < 27.0          # round the neck, under the jaw
+			on_back += 1 if down.points[k].y > 12.0 and down.points[k].z < 24.0 else 0
+	t.check(not _of(down, "shape:hood").is_empty() and below_chin and on_back > 0,
+		"lowered, it lies below the chin, round the neck and down the back")
+	var over_tail := _figure_with(library, w, "female_average", "round", ["tunic", "hood_up"], [["ponytail", "default"]])
+	var last_tail := -1
+	var first_hood := -1
+	for i in over_tail.polygons.size():
+		var piece := String(over_tail.polygons[i]["piece"])
+		if piece == "shape:ponytail":
+			last_tail = i
+		if piece == "shape:hood" and first_hood < 0:
+			first_hood = i
+	t.check(last_tail >= 0 and first_hood > last_tail, "a raised hood is made after a ponytail's tail, so that it stands clear of it")
+
+
+static func _own_shapes(t: TestReport, library: LowpolyLibrary, wardrobe: Wardrobe) -> void:
+	var w := Wardrobe.from_json(wardrobe.to_json())
+	var colour := {"hair": "hair_brown", "tie": "rust", "horn": "bone", "plate": "slate"}
+	for type in SpecialItem.OWN_SHAPES:
+		var roles := {}
+		for role in SpecialItem.roles_of(type).keys():
+			roles[role] = colour[role]
+		_one_shape(w, "own_" + type, type, {}, roles)
+		var f := _figure_with(library, w, "male_average", "round", ["shirt", "own_" + type])
+		var made := _of(f, "shape:" + type)
+		var in_colours := true
+		var follows_ok := true
+		var left := 0
+		var right := 0
+		for p in made:
+			in_colours = in_colours and roles.values().any(func(n: Variant) -> bool:
+				return (p["colour"] as Color).is_equal_approx(w.colour(String(n))))
+			for k in p["corners"]:
+				var share: Dictionary = f.weights[k]
+				if type == "pauldrons":
+					follows_ok = follows_ok and share.has("chest") and (share.has("upper_arm_L") or share.has("upper_arm_R"))
+				else:
+					follows_ok = follows_ok and is_equal_approx(float(share.get("head", 0.0)), 1.0)
+				left += 1 if f.points[k].x > 12.0 + 1e-3 else 0
+				right += 1 if f.points[k].x < 12.0 - 1e-3 else 0
+		t.check(not made.is_empty() and in_colours, "%s: built, in its roles' colours (%d polygons)" % [type, made.size()])
+		t.check(follows_ok, "%s: %s" % [type, "each bends between the chest and its upper arm" if type == "pauldrons" else "turns with the head"])
+		t.check(left == right, "%s: the same on both sides" % type, "%d left, %d right" % [left, right])
+	# The settings reach the shape.
+	_one_shape(w, "beard_short", "long_beard", {"length": 1}, {"hair": "hair_brown"})
+	_one_shape(w, "beard_long", "long_beard", {"length": 5}, {"hair": "hair_brown"})
+	_one_shape(w, "tail_low", "ponytail", {"height": 0}, {"hair": "hair_brown", "tie": "rust"})
+	_one_shape(w, "tail_high", "ponytail", {"height": 3}, {"hair": "hair_brown", "tie": "rust"})
+	var lowest := func(id: String) -> float:
+		var f := _figure_with(library, w, "male_average", "round", ["shirt", id])
+		var z := INF
+		for p in _of(f, "shape:" + ("long_beard" if id.begins_with("beard") else "ponytail")):
+			for k in p["corners"]:
+				z = minf(z, f.points[k].z)
+		return z
+	var highest_tie := func(id: String) -> float:
+		var f := _figure_with(library, w, "male_average", "round", ["shirt", id])
+		var z := -INF
+		for p in _of(f, "shape:ponytail"):
+			if (p["colour"] as Color).is_equal_approx(w.colour("rust")):
+				for k in p["corners"]:
+					z = maxf(z, f.points[k].z)
+		return z
+	t.check(float(lowest.call("beard_long")) < float(lowest.call("beard_short")) - 6.0, "a longer beard hangs lower")
+	t.check(float(highest_tie.call("tail_high")) > float(highest_tie.call("tail_low")) + 6.0, "a higher ponytail is tied higher")

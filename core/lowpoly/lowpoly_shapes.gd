@@ -2,8 +2,9 @@
 class_name LowpolyShapes
 extends RefCounted
 
-## Special shapes on the low-poly figure: straps, skirt, cape (SPEC.md section 0). The same as lowpoly/specials.py,
-## which this is checked against corner by corner (tests/test_lowpoly.gd); read that file for the reasoning.
+## Special shapes on the low-poly figure: straps, skirt, cape (SPEC.md section 0); the hood is LowpolyHood and the
+## shapes of their own LowpolyDrawn, both measured from the Fit below. The same as lowpoly/specials.py, which this is
+## checked against corner by corner (tests/test_lowpoly.gd); read that file for the reasoning.
 ##
 ## Each takes the settings its item has (SpecialItem.param_spec: the same names, options and defaults) and is
 ## measured from the dressed figure (Fit), so it fits any body and stands clear of whatever is worn under it.
@@ -17,7 +18,7 @@ extends RefCounted
 ##
 ## Full precision throughout (Vec64), as for the face and the cloth.
 
-const BUILT: Array[String] = ["skirt", "cape", "straps"]
+const BUILT: Array[String] = ["skirt", "cape", "straps", "hood", "long_beard", "ponytail", "bun", "horns", "pauldrons"]
 const HANGS: Array[String] = ["skirt", "cape"]       ## placed after everything else worn, in draw order among themselves
 
 const SKIRT_LENGTH := {"to_knee": "knee", "to_shin": "shin", "to_ankle": "ankle"}     ## the band whose floor the hem reaches
@@ -39,6 +40,31 @@ class Fit extends RefCounted:
 	var surface: Dictionary = {}        ## a bare body corner -> where it is once dressed (only those that moved)
 	var laid: Array = []                ## cloth laid standing so far: [[polygon (flat points), role], ...]
 	var cx := 12.0
+	var head: LowpolyLibrary.Head       ## the head (its rings), for a hood and the shapes on the head; null if none
+	var raise := 0.0                    ## how far the head is moved from the head library's heights onto this neck
+	var head_corners := {}              ## a head corner's bare place (to a ten-thousandth) -> its number
+	var crown_k := -1                   ## the head's top corner
+
+	## The head, and its corners in the figure: numbers first to first + count - 1, before anything was dressed.
+	func use_head(p_head: LowpolyLibrary.Head, p_raise: float, first: int, count: int) -> void:
+		head = p_head
+		raise = p_raise
+		for k in range(first, first + count):
+			var key := Vector3i(roundi(figure.points64[3 * k] * 1e4), roundi(figure.points64[3 * k + 1] * 1e4),
+				roundi(figure.points64[3 * k + 2] * 1e4))
+			if not head_corners.has(key):
+				head_corners[key] = k
+			if crown_k < 0 or figure.points64[3 * k + 2] > figure.points64[3 * crown_k + 2]:
+				crown_k = k
+
+	## Where a head corner (by its bare place) is once the figure is dressed; the place itself if no corner is there.
+	func head_at(p: PackedFloat64Array) -> PackedFloat64Array:
+		var key := Vector3i(roundi(p[0] * 1e4), roundi(p[1] * 1e4), roundi(p[2] * 1e4))
+		return at(int(head_corners[key])) if head_corners.has(key) else p.duplicate()
+
+	## The head's top corner, bare.
+	func crown() -> PackedFloat64Array:
+		return figure.point64(crown_k)
 
 	## A band's bottom and top on this body.
 	func band(name: String) -> PackedFloat64Array:
@@ -105,9 +131,10 @@ class Fit extends RefCounted:
 			out.append(ks[order[(at + j) % n]])
 		return out
 
-	## Where one of the bare body's corners is once the figure is dressed.
+	## Where one of the bare figure's corners (the body's, or the head's) is once the figure is dressed. The dressed
+	## figure keeps every bare corner at its own number, so one that did not move is read from there.
 	func at(k: int) -> PackedFloat64Array:
-		return surface[k] if surface.has(k) else Vec64.at(body.points64, k)
+		return surface[k] if surface.has(k) else Vec64.at(figure.points64, k)
 
 	func bare(k: int) -> PackedFloat64Array:
 		return Vec64.at(body.points64, k)

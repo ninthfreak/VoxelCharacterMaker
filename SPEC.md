@@ -62,16 +62,16 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
 cut so that their polygons follow the region map of section 3.4, with the shares and pivots that make them bend;
 ordinary garments from the wardrobe file go onto them and bend with them. The five heads of section 4 are rebuilt as rounded low-poly
 forms that keep what section 4 says every head shares (size, eye box, ears). The faces of section 5 are rebuilt on
-them: eye sets and their colourways, the ten lid states, lids, brows and the six skin tones. Three of section 7.4's
-special shapes are rebuilt (straps, skirt, cape), so all seven starter outfits dress all eight bodies, and facial hair is
-rebuilt for the new face (four parts and one length); the hood, drawn shapes (the long beard among them) and hair are
-not. All of that is made in Python first (`lowpoly/`), and the game builds it the same way in Godot (`core/lowpoly/`,
+them: eye sets and their colourways, the ten lid states, lids, brows and the six skin tones. Section 7.4's special
+shapes are rebuilt (straps, skirt, cape, hood), so all seven starter outfits dress all eight bodies, and facial hair is
+rebuilt for the new face (four parts and one length). The voxel drawn shape has no low-poly form: the owner chose fixed
+shape types with a few settings each in its place (2026-11): long beard, ponytail, bun, horns, pauldrons (section
+7.4). All of that is made in Python first (`lowpoly/`), and the game builds it the same way in Godot (`core/lowpoly/`,
 `runtime/lowpoly_rig.gd`), checked against the Python corner by corner. The move happened in five phases (owner's
 go-ahead, 2026-11), all done: 1, bare bodies and heads in the game, bending; 2, ordinary clothing; 3, faces and facial
 hair; 4, straps, skirts and capes; 5, the editor switched over and the voxel code removed (the last commit with it is
 `fa40fa0`). The editor has three tabs (Face & Hair, Clothes, Preview); bodies and heads are made in Python, not edited
-in the game. Not on the low-poly figure yet, though the wardrobe file keeps their settings: the hood, drawn shapes (the
-long beard, the ponytail's tail) and edge style.
+in the game. Not on the low-poly figure yet, though the wardrobe file keeps its setting: edge style.
 
 **How to read the rest of this document.** Sections 1 to 13 are the original design, for voxel figures. They stay
 the record of what was decided and still holds: the part hierarchy (3.1), the region map (3.4), faces (5), the
@@ -366,8 +366,9 @@ rejected: goatee, moustache, moustache + goatee, a volumetric full beard, flat s
 - **Colours follow the character** through colour references: `@stubble` is always darker than the skin (the skin
   half a shade darker, leaning a third toward the hair, darkened further if the hair is lighter than the skin);
   `@hair` is the worn hair's colour (dark brown when bald). Any item role can use them.
-- **Face accessory** slot (optional, one at a time): the **long beard**, a hand-drawn shape hung from the new **chin**
-  anchor (under the chin, hanging down), so it can be tweaked in the shape grid. Its colour is `@hair`.
+- **Face accessory** slot (optional, one at a time): the **long beard**, hung from under the chin. *On the voxel
+  figure a hand-drawn shape at the chin anchor; on the low-poly figure one of the shapes of their own (section 7.4:
+  length, width, point, jut).* Its colour is `@hair`.
 
 ## 6. Shading and colour
 
@@ -459,8 +460,13 @@ that make it asymmetric, both aimed at one **side** (the character's own left or
 
 **Built so far (voxel):** skirt (above), cape, hood, shoulder straps, facial hair (§5.1), and a hand-drawn shape placed
 at a body anchor. *On the low-poly figure: skirt, cape, straps and facial hair; skirts and capes are hanging cloth
-laid afresh for every pose, not cloth panels (section 0). The hood and drawn shapes keep their settings in the file
-and are not built yet.* **Straps** run up the chest, across the top beside the neck and straight down the back, one voxel proud, in a
+laid afresh for every pose, not cloth panels (section 0). The hood: raised, a loose shell over the head with the face
+open, falling to a cowl on the shoulders; lowered, a collar with the empty hood lying on the back (settings raised,
+looseness, opening, lined). The drawn shape is replaced by shapes of their own, each fixed at a place on the figure
+with a few settings (owner, 2026-11): long beard (under the chin: length, width, point, jut), ponytail (back of the
+head: height, length, thickness, tie), bun (top, back or nape; size), horns (a pair from the brow: length, curve,
+spread, thickness), pauldrons (a pair on the shoulders: size, drop). An old file's drawn shape under the chin becomes a
+long beard, one at the nape a ponytail; any other is kept in the file and not drawn.* **Straps** run up the chest, across the top beside the neck and straight down the back, one voxel proud, in a
 column halfway between the neck and the chest's edge, so they fit every body. Worn over a shirt they are suspenders.
 **Overalls are an outfit, not a garment** (owner): trousers, a bib of zones, and suspenders, all in one colour —
 the same idea as the dress.

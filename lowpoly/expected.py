@@ -32,7 +32,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import body as lb, heads as hd, pose as ps, dress as ld, facial_hair as fh, game
+import body as lb, heads as hd, pose as ps, dress as ld, facial_hair as fh, game, drawn
 
 OUT = os.path.join(os.path.dirname(HERE), "tests", "lowpoly_expected.json")
 TOLERANCE = 0.001           # units: a twenty-fourth of a millimetre
@@ -80,7 +80,18 @@ DRESSED = [("female_average", "round", outfit, [("short_crop", "black")])
            # two hanging items: a cape over a skirt; two skirts at once (each over the one before), with straps
            ("female_slim", "oval", [("boots", "default"), ("bodice", "default"), ("skirt", "default"), ("cloak", "default")],
             [("short_crop", "auburn")]),
-           ("male_average", "boxy", [("shirt", "default"), ("skirt", "default"), ("wrap_skirt", "default"), ("suspenders", "default")], [])]
+           ("male_average", "boxy", [("shirt", "default"), ("skirt", "default"), ("wrap_skirt", "default"), ("suspenders", "default")], []),
+           # hoods: raised over a ponytail (built after it, standing clear of it), loose and lined on a heavy body, lowered
+           # on a short one; the shapes of their own, away from their defaults
+           ("female_average", "round", [("boots", "default"), ("tunic", "rust"), ("test_hood_up", "default")], [("ponytail", "default")]),
+           ("male_heavy", "strong", [("tunic", "default"), ("test_hood_lined", "default")], [("short_crop", "black")]),
+           ("male_short", "heart", [("shirt", "default"), ("test_hood_down", "default")], [("short_crop", "auburn")]),
+           ("female_slim", "oval", [("shirt", "default"), ("test_bun_top", "default"), ("test_horns", "default")], []),
+           ("male_average", "round", [("shirt", "default"), ("test_pauldrons", "default")],
+            [("short_crop", "default"), ("full_beard", "default"), ("long_beard", "default")]),
+           ("female_short", "boxy", [("bodice", "default"), ("test_beard_long", "default"), ("test_ponytail_high", "default")],
+            [("short_crop", "black")]),
+           ("male_slim", "heart", [("shirt", "default"), ("test_bun_nape", "default")], [])]
 CLOTH_POSES_ALL = ("female_average",)        # every test pose; the others: standing, sitting and mid stride
 CLOTH_POSES = ("rest", "sitting", "mid_stride")
 # Not a game pose: every part turned about all three axes, the pelvis too, so that cloth is laid over a figure turned
@@ -99,6 +110,14 @@ def test_items(wardrobe):
         it["specials"] = [dict(type=kind, params={**next(sp for sp in it["specials"] if sp["type"] == kind)["params"], **params})]
         it["name"] = "test: " + ", ".join(f"{k} {v}" for k, v in params.items())
         return it
+
+    def own(kind, **params):
+        """An item with one of the shapes of their own, in the colours a new one starts in (SpecialItem.roles_of)."""
+        roles = {"hair": "@hair", "tie": "rust", "horn": "bone", "plate": "slate"}
+        used = list(drawn.ROLES[kind])
+        return dict(name="test: " + kind + ", " + ", ".join(f"{k} {v}" for k, v in params.items()), category="accessory",
+                    draw_order=80, edge_style="soft", mirror=True, roles=used, colourways={"default": {r: roles[r] for r in used}},
+                    coverage={}, specials=[dict(type=kind, params=dict(params))])
     return {
         "test_skirt_two": like("skirt", "skirt", panels="two", opening="none", length="to_knee", flare=3, slant=3, side="right",
                                waistband=False, hem_trim=False),
@@ -107,6 +126,15 @@ def test_items(wardrobe):
         "test_cape_wide": like("cloak", "cape", width="wide", length="to_waist", flare=3, hem_trim=False),
         "test_cape_narrow": like("cloak", "cape", width="narrow", length="to_ankle", flare=0),
         "test_straps_wide": like("suspenders", "straps", width=2),
+        "test_hood_up": like("cloak", "hood", raised=True),
+        "test_hood_lined": like("cloak", "hood", raised=True, lined=True, opening=3, depth=3),
+        "test_hood_down": like("cloak", "hood", raised=False, depth=2, lined=True),
+        "test_beard_long": own("long_beard", length=5, width=1, point=3, jut=2),
+        "test_ponytail_high": own("ponytail", height=3, length=5, thickness=1, tie=False),
+        "test_bun_top": own("bun", position="top", size=3),
+        "test_bun_nape": own("bun", position="nape", size=1),
+        "test_horns": own("horns", length=4, curve=3, spread=2, thickness=1),
+        "test_pauldrons": own("pauldrons", size=3, drop=2),
     }
 
 
@@ -138,11 +166,6 @@ def figure_from_files(body_id, head_name):
                 info=dict(head=head_name, head_dz=data["head_raise"]))
 
 
-# The special shapes the game's figure builds so far (the hood and drawn shapes are tried here first, in hood.py and
-# drawn.py, and are not in the game yet)
-GAME_BUILDS = ("facial_hair", "straps", "skirt", "cape")
-
-
 def dressed(tables, wardrobe):
     import pose as ps
     poses = {name: v["parts"] for name, v in tables["poses"].items()}
@@ -154,7 +177,7 @@ def dressed(tables, wardrobe):
     for body_id, head_name, outfit, features in DRESSED:
         worn = wardrobe.outfit(outfit) if isinstance(outfit, str) else outfit
         body = figure_from_files(body_id, head_name)
-        look = ld.dress(body, wardrobe, worn, features=features, special_shapes=GAME_BUILDS)
+        look = ld.dress(body, wardrobe, worn, features=features)
         polys = [{"points": [[round(float(x), 3) for x in v] for v in q["pts"]], "colour": rgb(q["rgb"]), "by": q["by"] or ""}
                  for q in look.polys]
         cloths = {}
@@ -168,6 +191,7 @@ def dressed(tables, wardrobe):
         out.append({"body": body_id, "head": head_name, "outfit": outfit if isinstance(outfit, str) else "",
                     "worn": [[i, cw] for i, cw in worn], "items": {i: extra[i] for i, _ in worn if i in extra},
                     "hair": features[0][0] if features else "", "hair_colourway": features[0][1] if features else "",
+                    "features": [[i, cw] for i, cw in features],
                     "notes": look.notes, "polygons": polys, "cloths": cloths,
                     "custom_poses": {"twist": TWIST} if cloths else {}})
     return out

@@ -57,7 +57,7 @@ func _build() -> void:
 	note(side, "Eyes, hair and facial hair work like clothes, but every character "
 		+ "has exactly one of each. Change the head to check a style fits them all.")
 	figure_controls(side, "The eyes are drawn from the eye set: an oval filling the cells it fills, a pupil over its "
-		+ "pupil cells. Not shown yet: face accessories and other drawn shapes (their settings are kept).")
+		+ "pupil cells.")
 	_head_pick = cycler(side, "Head", editor.library.head_shapes(), [],
 		func(value: String) -> void:
 			head_shape = value
@@ -97,8 +97,8 @@ func _build() -> void:
 	add_panel(ColourPanel.new(), facial_hair, facial_box)
 
 	var accessory_box := _tab("Face accessory")
-	note(accessory_box, "Optional, one at a time: a long beard and the like. These are "
-		+ "drawn shapes, which the figure does not show yet; their drawings are kept in the file.")
+	note(accessory_box, "Optional, one at a time: a long beard and the like, each a shape of its own with a few "
+		+ "settings (under Special shapes).")
 	add_panel(ItemListPanel.new(), face_accessory, accessory_box)
 	_accessory_garment = GarmentPanel.new()
 	_accessory_garment.families = ["head"]

@@ -216,9 +216,14 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 		if String(poly["by"]).is_empty() and not bool(poly["hidden"]) and String(poly["piece"]) != LowpolyAssembler.FACE_PIECE:
 			skin_ok = skin_ok and (poly["colour"] as Color).is_equal_approx(Palette.skin_tones("deep")[1])
 	t.check(skin_ok, "bare skin is in the chosen skin tone")
+	var pieces := {}
+	for poly in lp.figure.polygons:
+		pieces[String(poly["piece"])] = true
+	t.check(pieces.has("shape:hood") and pieces.has("shape:long_beard") and pieces.has("shape:ponytail"),
+		"the cloak's hood, the long beard and the ponytail's tail are drawn", ", ".join(pieces.keys()))
 	var named := " ".join(lp.figure.warnings)
-	t.check(named.contains("hood") and named.contains("long_beard"),
-		"what the figure cannot show yet (the cloak's hood, the long beard) is named in the warnings", named)
+	t.check(not named.contains("hood") and not named.contains("long_beard"),
+		"and nothing is left out for want of a low-poly form", named)
 	t.check(pv._summary.text.contains("Wearing:") and pv._summary.text.contains("masculine short"),
 		"and a summary of what is on, naming the body", pv._summary.text)
 

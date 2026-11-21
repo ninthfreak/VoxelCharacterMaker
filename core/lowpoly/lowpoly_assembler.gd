@@ -26,15 +26,16 @@ extends RefCounted
 ## face (LowpolyFace: eyes, lids, brows, mouth) is drawn last, on the head's flat patches; a moustache longer than
 ## stubble hides the mouth under it.
 ##
-## Special shapes come last (LowpolyShapes), measured from the figure as dressed: straps lie on the chest and bend
-## with it; skirts and capes are hanging cloth (LowpolyCloth), kept on the figure and laid afresh for every pose, over
-## everything worn and over the cloths before them. A skirt's waistband covers the waist as a garment would.
+## Special shapes come last, measured from the figure as dressed: straps (LowpolyShapes) lie on the chest and bend
+## with it; the shapes of their own (LowpolyDrawn: long beard, ponytail, bun, horns, pauldrons) follow the head or the
+## shoulders; a hood (LowpolyHood) is built after them when raised, so that it stands clear of them; skirts and capes
+## are hanging cloth (LowpolyCloth), kept on the figure and laid afresh for every pose, over everything worn and over
+## the cloths before them. A skirt's waistband covers the waist as a garment would.
 ##
 ## Everything is worked out in full precision (the figure's points64; Vec64), so that it agrees with lowpoly/.
 ##
-## The editor's move to low-poly, phase 4: everything above. Not built yet: the hood, drawn shapes (the long beard, a
-## ponytail's tail) and hair beyond what regions give; an item that has one is worn without it, and the figure's
-## warnings say so.
+## Not built: an old drawn shape (cells) that did not become one of the shapes of their own, and edge style; an item
+## that has one is worn without it, and the figure's warnings say so.
 
 const BULK_UNIT := 1.0              ## how far one step of bulk stands off the body, in the files' units (lowpoly/README.md)
 const FACE_PIECE := "face"
@@ -56,12 +57,13 @@ static func assemble(library: LowpolyLibrary, req: CharacterRequest) -> LowpolyF
 		if not whiskers.is_empty():
 			_grow_facial_hair(base, head, raise, whiskers, _wears_hair(req))
 		var surface := {}
+		var bare_count := base.points.size()             # the body's corners, then the head's (after facial hair)
 		if not layers.is_empty():
 			var dressed := _dress(base, layers)
 			f = dressed[0]
 			surface = dressed[1]
 		if not shapes.is_empty():
-			_add_shapes(f, body, surface, shapes)
+			_add_shapes(f, body, head, surface, shapes, bare_count)
 	_draw_face(f, head, raise, req, skin, whiskers)
 	return f
 
@@ -103,7 +105,10 @@ static func _layers(req: CharacterRequest, warnings: Array[String], whiskers: Ar
 					"claim": [float(LowpolyFacialHair.STEPS[length]), it.draw_order, colour, it.id]})
 				continue
 			if not LowpolyShapes.BUILT.has(type):
-				warnings.append("%s: its %s is not on the low-poly figure yet" % [it.id, type.replace("_", " ")])
+				if type == "shape":
+					warnings.append("%s: its old drawn shape is not on the low-poly figure (the shapes of their own replace it)" % it.id)
+				else:
+					warnings.append("%s: its %s is not on the low-poly figure yet" % [it.id, type.replace("_", " ")])
 				continue
 			var own := cov
 			cov = LowpolyShapes.coverage(type, params)      # the shape's regions, then the item's own over them
@@ -325,18 +330,29 @@ static func _moved(p: Dictionary, v: PackedFloat64Array, normal: PackedFloat64Ar
 
 # ------------------------------------------------------------------------------------------- the shapes ---
 
-## Straps, skirts and capes, measured from the dressed figure: those that lie on it first, then hanging cloth in draw
+## Special shapes, measured from the dressed figure: those that lie on it first (a raised hood last of them, so that
+## it stands clear of a ponytail or a bun; a lowered one lies on the back under them), then hanging cloth in draw
 ## order, each hanging over everything before it (laid standing, so the next one hangs over it).
-static func _add_shapes(f: LowpolyFigure, body: LowpolyLibrary.Body, surface: Dictionary, shapes: Array) -> void:
+static func _add_shapes(f: LowpolyFigure, body: LowpolyLibrary.Body, head: LowpolyLibrary.Head, surface: Dictionary,
+		shapes: Array, bare_count: int) -> void:
 	var fit := LowpolyShapes.Fit.new()
 	fit.body = body
 	fit.figure = f
 	fit.surface = surface
 	fit.cx = 12.0
+	if head != null:
+		var first := body.points.size()
+		fit.use_head(head, body.head_raise, first, bare_count - first)
+	var raised_hood := func(s: Array) -> bool:
+		return String(s[4]) == "hood" and LowpolyShapes._flag(LowpolyShapes.settings("hood", s[5])["raised"])
 	var order := shapes.duplicate()
 	order.sort_custom(func(a: Array, b: Array) -> bool:
 		if bool(a[0]) != bool(b[0]):
 			return not bool(a[0])
+		var ha: bool = raised_hood.call(a)
+		var hb: bool = raised_hood.call(b)
+		if ha != hb:
+			return not ha
 		if int(a[1]) != int(b[1]):
 			return int(a[1]) < int(b[1])
 		return int(a[2]) < int(b[2]))
@@ -351,6 +367,10 @@ static func _add_shapes(f: LowpolyFigure, body: LowpolyLibrary.Body, surface: Di
 			"straps": made = LowpolyShapes.straps(fit, params, colours, item_id)
 			"skirt": made = LowpolyShapes.skirt(fit, params, colours, item_id)
 			"cape": made = LowpolyShapes.cape(fit, params, colours, item_id)
+			"hood": made = LowpolyHood.hood(fit, params, colours, item_id)
+			_:
+				if SpecialItem.OWN_SHAPES.has(kind):
+					made = LowpolyDrawn.build(fit, kind, params, colours, item_id)
 		if made.size() < 2:
 			f.warnings.append("%s: its %s could not be built" % [item_id, kind])
 			continue
@@ -363,7 +383,7 @@ static func _add_shapes(f: LowpolyFigure, body: LowpolyLibrary.Body, surface: Di
 				var corners := PackedInt32Array()
 				for i in pts.size() / 3:
 					corners.push_back(f.add_point(Vec64.at(pts, i), (shares[i] as Dictionary).duplicate()))
-				f.polygons.append({"corners": corners, "colour": q["colour"], "region": "", "part": "chest",
+				f.polygons.append({"corners": corners, "colour": q["colour"], "region": "", "part": String(q.get("part", "chest")),
 					"piece": "shape:" + kind, "hidden": false, "by": item_id, "at": ""})
 		elif made[0] != null:
 			var cloth: LowpolyCloth = made[0]

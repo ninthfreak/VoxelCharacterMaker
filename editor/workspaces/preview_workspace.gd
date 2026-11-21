@@ -54,8 +54,8 @@ func _build() -> void:
 	heading(side, "The whole character")
 	note(side, "Put together anything made in the other tabs. Nothing is edited "
 		+ "here.")
-	figure_controls(side, "Skirts and capes hang afresh in every pose. Not shown yet: the hood, drawn shapes such "
-		+ "as the long beard, and edge style (their settings are kept).")
+	figure_controls(side, "Skirts and capes hang afresh in every pose. Not shown yet: edge style (its setting is "
+		+ "kept).")
 
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void: _choose("body_id", value))

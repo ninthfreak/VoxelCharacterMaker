@@ -141,20 +141,40 @@ static func _special_settings(t: TestReport) -> void:
 		var spec := SpecialItem.param_spec(type)
 		var defaults := SpecialItem.default_params(type)
 		t.check(not spec.is_empty() and defaults.size() == spec.size(), "%s: every setting has a default" % type)
-	t.check(SpecialItem.is_built("skirt") and SpecialItem.is_built("cape") and SpecialItem.is_built("straps")
-		and SpecialItem.is_built("facial_hair") and not SpecialItem.is_built("hood") and not SpecialItem.is_built("shape"),
-		"the figure builds skirts, capes, straps and facial hair; not yet hoods or drawn shapes")
-	# What the figure does not build yet is kept, setting for setting, through a save and a load.
+	var all_built := true
+	for type in SpecialItem.types():
+		all_built = all_built and SpecialItem.is_built(type)
+	t.check(all_built and not SpecialItem.types().has("shape") and not SpecialItem.is_built("shape"),
+		"the figure builds every type an item can be given; the old drawn shape is not among them")
 	var w := Wardrobe.create_default()
 	var cloak := w.item("cloak")
-	var beard := w.item("long_beard")
 	var again := Wardrobe.from_json(JSON.parse_string(w.to_text()))
 	t.check(cloak != null and cloak.special_types().has("hood")
 		and JSON.stringify(again.item("cloak").to_json()) == JSON.stringify(cloak.to_json()),
 		"the cloak's hood keeps its settings in the file")
-	t.check(beard != null and beard.special_types().has("shape") and not (beard.special_params(0)["cells"] as Array).is_empty()
-		and JSON.stringify(again.item("long_beard").to_json()) == JSON.stringify(beard.to_json()),
-		"the long beard keeps its drawing in the file")
+	t.check(w.item("long_beard") != null and w.item("long_beard").special_types() == (["long_beard"] as Array[String])
+		and w.item("ponytail") != null and w.item("ponytail").special_types() == (["ponytail"] as Array[String]),
+		"the starter long beard and ponytail are the shapes of their own")
+
+	t.group("model: old drawn shapes")
+	var old := {"name": "Old", "category": "hair", "draw_order": 70, "roles": ["hair"],
+		"colourways": {"default": {"hair": "hair_black"}}, "coverage": {}, "specials": [
+			{"type": "shape", "params": {"anchor": "nape", "wrap": false, "mirror": true, "cells": [[0, 1, 0, "hair"]]}},
+			{"type": "shape", "params": {"anchor": "chin", "wrap": false, "mirror": true, "cells": [[0, 0, 0, "hair"]]}},
+			{"type": "shape", "params": {"anchor": "hip", "wrap": true, "mirror": true, "cells": [[0, 0, 0, "hair"]]}}]}
+	var read := GarmentItem.from_json("old", old)
+	t.check_equal(read.special_types(), ["ponytail", "long_beard", "shape"] as Array[String],
+		"one at the nape becomes a ponytail, one under the chin a long beard; any other is kept as it was")
+	t.check(JSON.stringify(read.special_params(0)) == JSON.stringify(SpecialItem.default_params("ponytail"))
+		and not (read.special_params(2)["cells"] as Array).is_empty(),
+		"at the type's own defaults; the one kept keeps its drawing")
+	t.check(read.roles.has("tie") and String(read.colourways["default"]["tie"]) == "rust",
+		"the item gains the roles its new shapes colour, in every colourway")
+	var fresh := GarmentItem.create("plain", "Plain", "accessory")
+	fresh.colourways = {"default": {}}
+	fresh.add_special("horns")
+	t.check(fresh.roles.has("horn") and String(fresh.colourways["default"]["horn"]) == "bone",
+		"adding a shape of its own adds the roles it colours")
 	t.check(int(SpecialItem.with_defaults("skirt", {"length": "to_ankle"})["flare"]) == 1, "a setting not saved is its default")
 
 

@@ -1,5 +1,5 @@
-"""Special shapes as polygons: straps, skirt, cape. (Facial hair is in facial_hair.py; the hood, in hood.py, and drawn
-shapes, in drawn.py, are a first pass not yet in the game.)
+"""Special shapes as polygons: straps, skirt, cape. (Facial hair is in facial_hair.py; the hood is in hood.py, and the
+shapes of their own (long beard, ponytail, bun, horns, pauldrons) in drawn.py.)
 
 Each takes the game's own settings for it (core/specials/special_item.gd), with the same names, options and defaults;
 check.py holds DEFAULTS below equal to the game's table. The game builds them the same way
@@ -25,8 +25,13 @@ DEFAULTS = {
               "waistband": True, "hem_trim": True},
     "cape": {"length": "to_knee", "width": "shoulders", "flare": 1, "hem_trim": True},
     "hood": {"raised": True, "depth": 1, "opening": 1, "lined": False},
-    "shape": {"anchor": "chest", "wrap": True, "mirror": True, "cells": []},
+    "long_beard": {"length": 3, "width": 3, "point": 2, "jut": 1},
+    "ponytail": {"height": 1, "length": 3, "thickness": 2, "tie": True},
+    "bun": {"position": "back", "size": 2},
+    "horns": {"length": 2, "curve": 1, "spread": 1, "thickness": 2},
+    "pauldrons": {"size": 2, "drop": 1},
 }
+BUN_POSITIONS = ("top", "back", "nape")
 SKIRT_LENGTH = {"to_knee": "knee", "to_shin": "shin", "to_ankle": "ankle"}       # the band whose floor the hem reaches
 CAPE_LENGTH = {"to_waist": "waist", "to_knee": "knee", "to_ankle": "ankle"}
 CAPE_WIDTH = {"narrow": -1.0, "shoulders": 0.0, "wide": 1.0}
@@ -347,10 +352,13 @@ def hood(fit, params, colours, name="hood"):
     return hd.hood(fit, params, colours, name)
 
 
-def shape(fit, params, colours, name="shape"):
-    import drawn
-    return drawn.shape(fit, params, colours, name)
+def _shape_type(kind):
+    def build(fit, params, colours, name=kind):
+        import drawn
+        return drawn.build(fit, kind, params, colours, name)
+    return build
 
 
-BUILT = {"skirt": skirt, "cape": cape, "straps": straps, "hood": hood, "shape": shape}
+BUILT = {"skirt": skirt, "cape": cape, "straps": straps, "hood": hood}
+BUILT.update({kind: _shape_type(kind) for kind in ("long_beard", "ponytail", "bun", "horns", "pauldrons")})
 HANGS = ("skirt", "cape")                # placed after everything else that is worn, in draw order among themselves

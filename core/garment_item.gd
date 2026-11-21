@@ -186,10 +186,24 @@ func max_bulk() -> int:
 
 # ---------------------------------------------------------------- specials --
 
-## Add a special shape with its default parameters. Returns its index.
+## Add a special shape with its default parameters (and the roles it colours, if the item lacks them). Returns its
+## index.
 func add_special(type: String) -> int:
 	specials.append({"type": type, "params": SpecialItem.default_params(type)})
+	complete_roles_for(type)
 	return specials.size() - 1
+
+
+## Give the item the roles a special shape colours (SpecialItem.roles_of), in every colourway, where it lacks them.
+func complete_roles_for(type: String) -> void:
+	var wanted := SpecialItem.roles_of(type)
+	for role in wanted.keys():
+		if not roles.has(String(role)):
+			roles.append(String(role))
+		for way in colourways.keys():
+			var set_for: Dictionary = colourways[way]
+			if not set_for.has(role):
+				set_for[String(role)] = String(wanted[role])
 
 
 func remove_special(index: int) -> void:
@@ -402,12 +416,22 @@ static func from_json(p_id: String, data: Dictionary, p_slot: String = CLOTHES) 
 	for entry in (data.get("specials", []) as Array):
 		var e: Dictionary = entry
 		var params := JsonIO.normalise_numbers(e.get("params", {})) as Dictionary
-		if String(e.get("type", "")) == "facial_hair":
+		var type := String(e.get("type", ""))
+		if type == "facial_hair":
 			params = FacialHairSettings.migrate(params)       # saved before the four parts and the length
-		item.specials.append({"type": String(e.get("type", "")), "params": params})
+		elif type == "shape":
+			# The voxel figure's drawn shape: under the chin it was the long beard, at the nape the ponytail's tail,
+			# and becomes that type at its default settings. Any other is kept as it was, and not drawn.
+			var became := String({"chin": "long_beard", "nape": "ponytail"}.get(String(params.get("anchor", "")), ""))
+			if not became.is_empty():
+				type = became
+				params = SpecialItem.default_params(type)
+		item.specials.append({"type": type, "params": params})
 
 	if item.special_types().has("facial_hair"):
 		FacialHairSettings.complete_roles(item)
+	for type in item.special_types():
+		item.complete_roles_for(type)
 
 	# Version 1 files: an item was either parametric or special, never both.
 	if String(data.get("kind", "")) == "special" and data.has("special_type"):

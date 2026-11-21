@@ -220,9 +220,9 @@ here; see "Not decided yet", 1.
 | `rings.py` | cutting a clay into rings; also the first two cuts ("A" and "B") that the look was approved from |
 | `body.py` | the bodies: regions, parts, joints; writes `bodies/*.json` and `*.obj` |
 | `dress.py` | a whole character from the wardrobe file: body, skin tone, eyes, mouth, features (hair, facial hair) and garments (see the note below). Every polygon it makes says which worn item made it |
-| `specials.py` | the special shapes: straps, skirt, cape, with the voxel generators' settings; the hood and drawn shapes are in the next two files |
-| `hood.py` | the hood, raised or lowered: a first pass, not in the game yet |
-| `drawn.py` | drawn shapes as a loft of oval sections at an anchor: a first pass, not in the game yet |
+| `specials.py` | the special shapes: straps, skirt, cape, with the voxel generators' settings; the hood and the shapes of their own are in the next two files |
+| `hood.py` | the hood, raised or lowered |
+| `drawn.py` | the shapes of their own (long beard, ponytail, bun, horns, pauldrons): a loft of oval sections from each type's settings |
 | `facial_hair.py` | facial hair: four parts and a length, cut into the head's own polygons |
 | `hang.py` | hanging cloth: how a skirt or a cape is laid over the figure in a pose |
 | `heads.py` | the five heads; writes `heads/*.json` and `*.obj` |
@@ -274,7 +274,7 @@ on PATH). Without Godot, `check.py` skips the clothing and the faces and says so
 minutes (the eight bodies are dressed side by side, four at a time).
 
 `sheets.py` takes `look`, `male`, `builds`, `bodies`, `regions`, `joints`, `heads`, `faces`, `beards`, `shapes`, `moving`, `hood`,
-`drawn` or `all`; the clay
+`types` or `all`; the clay
 pictures take about 40 seconds a view and are kept in `lowpoly/_work/` for the next run.
 
 ## Not decided yet
@@ -338,7 +338,7 @@ All of these are the owner's to settle. Recommendations are recommendations.
      Amish parts at medium (its narrow strap is not a part any more), full beard as every part at medium;
    - **turned down for the voxel face and back now** (`SPEC.md` 5.1): the goatee and the moustache are parts, and a
      beard can have thickness;
-   - the long beard is a drawn shape: see 10.
+   - the long beard is one of the shapes of their own: see 10.
 8. **The mouth** is a first pass for the owner to react to: its size, its four shapes, its colour, and whether a
    face has one at all. The game keeps the mouths in a small table next to the lid states (`core/mouths.gd`; `faces.py`
    draws from the same numbers, and `check.py` holds the two equal). Still to settle: how a mouth pairs with a lid
@@ -368,21 +368,22 @@ All of these are the owner's to settle. Recommendations are recommendations.
    - a strap is a flat band standing 0.12 units off what it lies on, with no thickness of its own;
    - a cape hangs from the shoulder line whatever the arms do. An arm swung far back goes through its edge.
 
-10. **The hood and drawn shapes** are a first pass here, not in the game yet (`renders/hood.png`,
-   `renders/drawn_shapes.png`, `docs/NOTES.md` 4za):
+10. **The hood and the shapes of their own** (`renders/hood.png`, `renders/shape_types.png`, `docs/NOTES.md` 4za, 4zb):
    - **the hood**, raised: a loose shell measured off the dressed head (hair included), a brim over the brows, more
      room at the back and over the crown, the face left open, falling to a short cowl on the shoulders; lowered: a
-     cowl closed round the neck and the empty hood lying on the upper back. The game's "Thickness" setting is read as
-     how loose the hood is (1.3, 1.9 or 2.5 units off the head): a cloth this low-poly has no thickness to show.
-     The owner's plan was to generate a looser hood, then hand-tune it; the hand-tuning is not built;
-   - **drawn shapes**: the voxel drawing (cells in a 17 by 7 by 21 box) has no direct low-poly form. Built for
-     comparison: a loft of oval sections at an anchor (where each is, how wide, how thick), fed either from the old
-     cells (read slice by slice) or from sections set by hand. How drawn shapes should be made from now on is the
-     owner's choice. Recommendation: sections set by hand, the old drawings converted once when a file is read;
+     cowl closed round the neck and the empty hood lying on the upper back. Its "Looseness" setting (`depth` in the
+     file, "Thickness" before) is how far it stands off the head: 1.3, 1.9 or 2.5 units. The owner's plan was to
+     generate a looser hood, then hand-tune it; the hand-tuning is not built (recommendation: a few more shape
+     settings, brim, fullness at the back, peak, cowl length, rather than moving points by hand);
+   - **the shapes of their own** replace the voxel drawn shape (owner's choice: fixed types with a few settings, over
+     hand-set sections or the cell drawing; `renders/drawn_shapes.png` is the comparison it was chosen from, and the
+     code that drew it is in commit `a8ef07e`). Five so far: long beard, ponytail, bun, horns, pauldrons. A new type
+     is a small function and its settings, here and in the game;
    - weak spots: an arm raised or reaching forward goes through the hood's cowl, which follows the chest (as an arm
      swung back goes through a cape's edge); over a ponytail the raised hood bulges in a rough ridge; a lowered hood's
-     lining faces up and is hidden by the head at a low camera; a shape at the shoulder (a pauldron) sinks into the
-     shoulder when the arm goes overhead, because the arm is one rigid piece there.
+     lining faces up and is hidden by the head at a low camera; a pauldron sinks into the shoulder when the arm goes
+     overhead (the arm is one rigid piece at the shoulder); a hand reaching forward goes through a long beard; from
+     straight in front the big head hides much of a pauldron.
 
 Known weak spots of the clothing built so far: hands hang close to the hips, so a skirt with much flare meets them;
 a bulky boot touches a shin-length hem and pushes it out a little; the wardrobe's shirt and trousers leave the waist

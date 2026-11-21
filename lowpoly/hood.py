@@ -1,4 +1,5 @@
-"""The hood, as polygons: a first pass, for the owner to judge before it moves to the game.
+"""The hood, as polygons. The game builds it the same way (core/lowpoly/lowpoly_hood.gd), checked against this corner by
+corner (expected.py).
 
 A raised hood is a loose shell over the head with the face left open, falling to a short cowl that lies on the
 shoulders. It is measured from the dressed figure (the head with its hair, the neck, the tops of the arms), so it fits
@@ -19,8 +20,8 @@ every head and body and stands clear of whatever is under it.
 A lowered hood (raised off) is a cowl closed round the neck, with the empty hood lying on the upper back over it,
 its opening turned up (in the lining colour when the hood is lined).
 
-Settings, with the game's names (core/specials/special_item.gd): raised, depth (here: how loose the hood is, 1 to 3),
-opening (how far past the eye box the opening reaches, 0 to 3), lined.
+Settings, with the game's names (core/specials/special_item.gd): raised, depth (shown as "Looseness": how far the hood
+stands off the head, 1 to 3), opening (how far past the eye box the opening reaches, 0 to 3), lined.
 """
 import numpy as np
 import body as lb
@@ -36,6 +37,7 @@ BROW_TOP = heads.FACE_Z[1]      # the brow row's top
 WIDE = 31.0                     # the head's widest row: below it the hood falls loose to the shoulders
 JAW = 28.6                      # where the opening's sides turn in under the chin
 SHOULDER = 0.95                 # where the cowl lies on the shoulder, against the shoulder's width
+POUCH_ROWS, POUCH_COLUMNS = 5, 6  # a lowered hood's pouch: rows down the back, quads across
 
 
 def _unit(v):
@@ -188,8 +190,8 @@ class _Shell:
         self.V = V
 
     def polygons(self, cloth, inside, edges):
-        """The outside in the cloth colour, the inside THICK within it, and a strip between the two along each edge.
-        edges: runs of (corner, its neighbour away from the edge)."""
+        """The outside in the cloth colour, the inside THICK within it (none if inside is None), and a strip between the
+        two along each edge. edges: runs of (corner, its neighbour away from the edge)."""
         V = np.asarray(self.V); vn, _ = self.normals(); V_in = V - THICK * vn
         polys = []
 
@@ -203,7 +205,7 @@ class _Shell:
         for f in self.faces:
             sh = [self.follows[i] for i in f]
             put(V[list(f)], cloth, sh)
-            put(V_in[list(f)][::-1], inside, sh[::-1])
+            if inside is not None: put(V_in[list(f)][::-1], inside, sh[::-1])
         for run in edges:
             for (a, na), (b, nb) in zip(run[:-1], run[1:]):
                 if a == b: continue
@@ -284,56 +286,52 @@ def raised(fit, p, colours, name="hood"):
 
 
 def lowered(fit, p, colours, name="hood"):
-    """A hood that is down: a cowl closed round the neck, and the empty hood lying on the upper back, its opening
-    turned up. Returns ([polygon dicts], notes)."""
+    """A hood that is down: a cowl closed round the neck, and the empty hood lying on the upper back over it, its
+    opening turned up. Returns ([polygon dicts], notes)."""
     m = _Measure(fit)
     loose = LOOSE.get(int(np.clip(int(p["depth"]), 1, 3)), LOOSE[1])
     cloth, inside = _colours(p, colours)
-    sh = _Shell(); full = [k * 2.0 * np.pi / SEGMENTS for k in range(SEGMENTS)]
-    neck = sh.ring([np.array([CX, CY, m.neck]) + (m.body(t, m.neck) + 0.45 * loose) * _direction(t) for t in full],
-                   {"head": 0.3, "chest": 0.7}, True)
-    on = sh.ring([np.array([CX, CY, m.shoulder]) + m.lying(t, m.shoulder, SHOULDER * m.shoulder_w + 0.2, 0.5 * loose) * _direction(t) for t in full],
-                 {"chest": 1.0}, True)
-    hem = sh.ring([np.array([CX, CY, m.hem]) + m.lying(t, m.hem, m.shoulder_w + 0.9, 0.5 * loose + 0.4) * _direction(t) for t in full],
-                  {"chest": 1.0}, True)
-    sh.strip(neck, on); sh.strip(on, hem)
-    sh.wind_out(np.array([CX, CY, m.shoulder - 3.0]))
+    full = [k * 2.0 * np.pi / SEGMENTS for k in range(SEGMENTS)]
+    cowl = _Shell()
+    neck = cowl.ring([np.array([CX, CY, m.neck]) + (m.body(t, m.neck) + 0.45 * loose) * _direction(t) for t in full],
+                     {"head": 0.3, "chest": 0.7}, True)
+    on = cowl.ring([np.array([CX, CY, m.shoulder]) + m.lying(t, m.shoulder, SHOULDER * m.shoulder_w + 0.2, 0.5 * loose) * _direction(t)
+                    for t in full], {"chest": 1.0}, True)
+    hem = cowl.ring([np.array([CX, CY, m.hem]) + m.lying(t, m.hem, m.shoulder_w + 0.9, 0.5 * loose + 0.4) * _direction(t) for t in full],
+                    {"chest": 1.0}, True)
+    cowl.strip(neck, on); cowl.strip(on, hem)
+    cowl.wind_out(np.array([CX, CY, m.shoulder - 3.0]))
     body = m.corners(m.hem - 8.0, head=False)                        # the chin hangs over the collar: not the head
-    sh.clear(body)
-    cowl = len(sh.V); cowl_faces = list(sh.faces)
-    # the empty hood: a pouch from the back of the neck down the back, fullest at the top, to a soft point
+    cowl.clear(body)
+    # the empty hood: a pouch from the back of the neck down the back, fullest at the top, to a soft point. It lies on
+    # the back, so it is one layer: nothing sees its inside.
     depth = 5.4 + 0.8 * loose                                        # how far down the back it lies
-    rows = 5; cols = 6
     spread = np.radians(64.0)
-    pouch = []
-    for i in range(rows + 1):
-        v = i / rows; zw = m.neck + 0.3 - v * depth
-        w = spread * float(np.sqrt(max(0.0, 1.0 - v ** 1.7))) if i < rows else 0.0
+    pouch = _Shell(); grid = []
+    for i in range(POUCH_ROWS + 1):
+        v = i / POUCH_ROWS; zw = m.neck + 0.3 - v * depth
+        w = spread * float(np.sqrt(max(0.0, 1.0 - v ** 1.7))) if i < POUCH_ROWS else 0.0
         pts = []
-        for k in range(cols + 1):
-            u = -1.0 + 2.0 * k / cols
+        for k in range(POUCH_COLUMNS + 1):
+            u = -1.0 + 2.0 * k / POUCH_COLUMNS
             t = np.pi + u * w
             full_at = 1.0 - u * u
             r = m.body(t, zw) + 0.3 + (0.5 + 0.7 * loose) * full_at * (1.0 - 0.6 * v) + (0.6 * loose if i == 0 else 0.0) * full_at
             pts.append(np.array([CX, CY, zw]) + r * _direction(t))
-        pouch.append([sh.add(v_, {"chest": 1.0}) for v_ in pts])
-    for a, b in zip(pouch[:-1], pouch[1:]): sh.strip(a, b)
-    pouch_shell = _Shell(); pouch_shell.V = list(sh.V); pouch_shell.follows = list(sh.follows)
-    pouch_shell.faces = [f for f in sh.faces if f not in cowl_faces]
-    pouch_shell.wind_out(np.array([CX, CY, m.shoulder - 3.0]))
-    pouch_shell.clear(np.concatenate([body, np.asarray(sh.V)[:cowl]]))  # lying over the collar, not under it
-    V = np.asarray(pouch_shell.V); V[:cowl] = np.asarray(sh.V)[:cowl]
-    sh.V = list(V); sh.faces = cowl_faces + pouch_shell.faces
+        grid.append(pouch.ring(pts, {"chest": 1.0}, False))
+    for a, b in zip(grid[:-1], grid[1:]): pouch.strip(a, b)
+    pouch.wind_out(np.array([CX, CY, m.shoulder - 3.0]))
+    pouch.clear(np.concatenate([body, np.asarray(cowl.V)]))         # lying over the collar, not under it
+    polys = cowl.polygons(cloth, inside, [[(neck[k], on[k]) for k in range(SEGMENTS + 1)], [(hem[k], on[k]) for k in range(SEGMENTS + 1)]])
+    polys += pouch.polygons(cloth, None, [])
     # the pouch's mouth: across its top, from the outside down to the back it lies on, in the lining colour
-    top = pouch[0]; mouth = []
-    for k in range(cols + 1):
-        u = -1.0 + 2.0 * k / cols; t = np.pi + u * spread; zw = m.neck + 0.3
-        mouth.append(sh.add(np.array([CX, CY, zw - 0.2]) + (m.body(t, zw) + 0.25) * _direction(t), {"chest": 1.0}))
-    mouth_faces = [(top[k], top[k + 1], mouth[k + 1], mouth[k]) for k in range(cols)]
-    V = np.asarray(sh.V)
-    polys = sh.polygons(cloth, inside, [[(neck[k], on[k]) for k in range(SEGMENTS + 1)], [(hem[k], on[k]) for k in range(SEGMENTS + 1)]])
-    for f in mouth_faces:
-        pts = V[list(f)]; n = np.zeros(3)
+    V = np.asarray(pouch.V); zw = m.neck + 0.3
+    for k in range(POUCH_COLUMNS):
+        rim = []
+        for j in (k, k + 1):
+            t = np.pi + (-1.0 + 2.0 * j / POUCH_COLUMNS) * spread
+            rim.append(np.array([CX, CY, zw - 0.2]) + (m.body(t, zw) + 0.25) * _direction(t))
+        pts = np.array([V[grid[0][k]], V[grid[0][k + 1]], rim[1], rim[0]]); n = np.zeros(3)
         for i in range(4): n += np.cross(pts[i], pts[(i + 1) % 4])
         if n[2] < 0: pts = pts[::-1]
         polys.append(dict(pts=pts, rgb=inside, shares=[{"chest": 1.0}] * 4, part="chest"))

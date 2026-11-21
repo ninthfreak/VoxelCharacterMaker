@@ -10,8 +10,8 @@ order, colourways, special shapes, outfits) and applies the parametric rules of 
   6  where worn items claim the same region, the larger bulk wins, then the higher draw order
   8  nothing on a leg or foot grows toward the other leg
 Special shapes (specials.py): straps, skirt and cape are built; a skirt or a cape is hanging cloth (hang.py) and is
-placed after everything else that is worn. The hood (hood.py) and drawn shapes (drawn.py) are a first pass, not yet
-in the game; a raised hood is built after every other shape that lies on the figure, so that it stands clear of them. A skin tone, a face (faces.py), hair, a beard and a moustache
+placed after everything else that is worn. The hood (hood.py) and the shapes of their own (drawn.py) lie on the figure;
+a raised hood is built after every other shape that does, so that it stands clear of them. A skin tone, a face (faces.py), hair, a beard and a moustache
 (facial_hair.py) make the figure a character. Not done here: rule 7 (soft or hard edge style).
 
 The game keeps its garment logic in core/ (GDScript). The rules here are being moved there a phase at a time

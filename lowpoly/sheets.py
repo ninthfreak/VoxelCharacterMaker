@@ -23,6 +23,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import json
 import clay, rings as ring_tools, body as lb, dress as ld, picture as mr, pose as ps, heads as hd, faces as fc, facial_hair as fh, game
+import drawn as dr
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -777,93 +778,88 @@ def sheet_hood():
     save_sheet(rows, "hood.png")
 
 
-HAND = {   # drawn shapes as sections, chosen by hand (drawn.py): a across, b out from the anchor, c along it
-    "beard": [dict(a=0, b=-0.6, c=-0.8, w=9.0, t=5.6, role="hair"), dict(a=0, b=1.2, c=0.4, w=8.6, t=4.2, role="hair"),
-              dict(a=0, b=3.2, c=1.2, w=6.8, t=3.2, role="hair"), dict(a=0, b=5.2, c=1.6, w=4.4, t=2.4, role="hair"),
-              dict(a=0, b=7.0, c=1.6, w=2.0, t=1.4, role="hair"), dict(a=0, b=8.0, c=1.4, w=0, t=0, role="hair")],
-    "ponytail": [dict(a=0, b=-0.4, c=3.2, w=2.4, t=2.0, role="tie"), dict(a=0, b=0.5, c=3.0, w=2.6, t=2.2, role="hair"),
-                 dict(a=0, b=1.3, c=2.6, w=3.4, t=2.8, role="hair"), dict(a=0, b=1.8, c=0.4, w=3.8, t=2.8, role="hair"),
-                 dict(a=0, b=1.2, c=-2.6, w=3.2, t=2.4, role="hair"), dict(a=0, b=-0.6, c=-5.4, w=2.2, t=1.6, role="hair"),
-                 dict(a=0, b=-1.4, c=-7.2, w=0, t=0, role="hair")],
-    "bun": [dict(a=0, b=-1.2, c=2.2, w=3.6, t=3.6, role="hair"), dict(a=0, b=0.4, c=2.7, w=5.0, t=4.8, role="hair"),
-            dict(a=0, b=2.0, c=3.0, w=4.2, t=4.0, role="hair"), dict(a=0, b=2.9, c=3.1, w=0, t=0, role="hair")],
-    "horns": [dict(a=3.8, b=-1.6, c=0.6, w=1.8, t=1.8, role="horn"), dict(a=4.4, b=-0.6, c=2.2, w=1.5, t=1.5, role="horn"),
-              dict(a=5.0, b=-0.4, c=3.8, w=1.1, t=1.1, role="horn"), dict(a=5.4, b=-1.0, c=5.0, w=0.6, t=0.6, role="horn"),
-              dict(a=5.6, b=-2.0, c=5.6, w=0, t=0, role="horn")],
-    "pauldrons": [dict(a=-1.2, b=0.5, c=0, w=1.0, t=5.4, role="metal"), dict(a=0.6, b=1.0, c=0, w=1.8, t=7.0, role="metal"),
-                  dict(a=2.4, b=0.4, c=0, w=1.8, t=7.2, role="metal"), dict(a=3.6, b=-1.0, c=0, w=1.6, t=6.6, role="metal"),
-                  dict(a=4.2, b=-2.6, c=0, w=1.2, t=5.6, role="metal"), dict(a=4.3, b=-3.4, c=0, w=0.8, t=4.6, role="metal")],
-}
-
-
-def sheet_drawn():
-    """Drawn shapes on the low-poly figure: the old cell drawings read as sections, against sections chosen by hand."""
+def sheet_types():
+    """The shapes of their own: each type's settings, one at a time from one end to the other, on several builds and
+    in the game's poses."""
     w = ld.Wardrobe(wardrobe_path())
     poses = {name: ps.from_game(v["parts"]) for name, v in game.tables()["poses"].items()}
     clothes = [("boots", "default"), ("trousers", "default"), ("tunic", "rust")]
     beard = w.facial_hair(("moustache", "sideburns", "goatee", "cheeks"), "short")
+    colours = {"hair": "@hair", "tie": "rust", "horn": "bone", "plate": "slate"}
 
-    def variant(feature, tag, **params):
-        slot, item = w.features[feature]
-        item = copy.deepcopy(item); item["specials"][0]["params"].update(params)
-        w.features[f"{feature} ({tag})"] = (slot, item)
-        return f"{feature} ({tag})"
+    def item(kind, **settings):
+        item_id = kind + " " + " ".join(f"{k}={v}" for k, v in sorted(settings.items()))
+        roles = list(dr.ROLES[kind])
+        w.items[item_id] = dict(name=item_id, category="accessory", draw_order=80, edge_style="soft", mirror=True, roles=roles,
+                                colourways={"default": {r: colours[r] for r in roles}}, coverage={},
+                                specials=[dict(type=kind, params=dict(settings))])
+        return (item_id, "default")
 
-    def new_item(item_id, anchor, sections, roles, mirror=True):
-        w.items[item_id] = dict(name=item_id, category="accessory", draw_order=80, edge_style="soft", mirror=True, roles=list(roles),
-                                colourways={"default": roles}, coverage={},
-                                specials=[dict(type="shape", params=dict(anchor=anchor, wrap=False, mirror=mirror, cells=[], sections=sections))])
-        return item_id
-
-    head = dict(scale=20.0, width=22.0, z_range=(14.0, 45.0))
     notes = set()
 
-    def tiles(sex, shape, views, worn=(), features=(), pose=None, frame=head):
-        prep, look = figure(lb.build(sex, "average", shape), w, clothes + list(worn), poses.get(pose) if pose else None, features=list(features))
+    def tiles(kind, settings, views, frame, sex="male", build="average", shape="round", pose=None, hair=("short_crop", "default"), whiskers=False):
+        features = ([hair] if hair else []) + ([(beard, "default")] if whiskers else [])
+        prep, look = figure(lb.build(sex, build, shape), w, clothes + [item(kind, **settings)], poses.get(pose) if pose else None, features=features)
         notes.update(n for n in look.notes if "edge style" not in n)
         return [mr.render(prep, y, p, **frame) for y, p in views]
 
-    ways = [("from cells, stepped", dict(from_cells="stepped")), ("from cells, smooth", dict(from_cells="smooth")), ("by hand", dict(sections=HAND["beard"]))]
+    tall = dict(scale=16.0, width=22.0, z_range=(8.0, 45.0))
+    head = dict(scale=19.0, width=22.0, z_range=(14.0, 45.0))
+    front, side, turned, behind = (0, 8), (90, 8), (35, 10), (150, 12)
     rows = []
-    tl = []; lab = []
-    for tag, params in ways:
-        f = variant("long_beard", tag, **params)
-        tl += tiles("male", "round", [(0, 8), (90, 8)], features=[("short_crop", "default"), (beard, "default"), (f, "default")])
-        lab += [f"{tag}: front", "side"]
-    f = variant("long_beard", "by hand", sections=HAND["beard"])
-    tl += tiles("male", "heart", [(35, 10)], features=[("short_crop", "default"), (beard, "default"), (f, "default")])
-    lab += ["by hand: heart head"]
-    rows.append(("1. The long beard (chin anchor), worn with a short full beard",
-                 "the same tool, a loft of oval sections, fed three ways. The first two read the starter's old cell drawing slice by slice; the third is six sections set by hand.",
-                 band(tl, lab, gap_after=(1, 3, 5))))
-    hand_tail = HAND["ponytail"]
-    tl = []; lab = []
-    for tag, params in [ways[0], ways[1], ("by hand", dict(sections=hand_tail))]:
-        f = variant("ponytail", tag, **params)
-        tl += tiles("female", "round", [(90, 8), (145, 12)], features=[(f, "default")])
-        lab += [f"{tag}: side", "from behind"]
-    rows.append(("2. The ponytail's tail (nape anchor)",
-                 "the old drawing is a straight slab four wide, two deep, nine tall (moved a unit in to touch the head). By hand: a tie, a swell, and a tail that curves in toward the back.",
-                 band(tl, lab, gap_after=(1, 3))))
-    bun = variant("ponytail", "bun", anchor="crown", sections=HAND["bun"])
-    horns = new_item("horns", "brow", HAND["horns"], {"horn": "bone"})
-    pads = new_item("pauldrons", "shoulder", HAND["pauldrons"], {"metal": "slate"})
-    tl = tiles("female", "round", [(35, 10), (145, 12)], features=[(bun, "default")])
-    tl += tiles("male", "boxy", [(0, 8), (35, 10)], worn=[(horns, "default")])
-    tl += tiles("male", "strong", [(0, 8), (35, 10)], worn=[(pads, "default")])
-    rows.append(("3. Other things the same tool makes, by hand",
-                 "a bun (crown anchor, four sections); horns (brow anchor, mirrored: five sections); pauldrons (shoulder anchor, mirrored onto the other arm, which they follow).",
-                 band(tl, ["bun: turned", "from behind", "horns: front", "turned", "pauldrons: front", "turned"], gap_after=(1, 3))))
-    tail = variant("ponytail", "by hand", sections=hand_tail)
-    tl = tiles("female", "round", [(90, 8)], features=[(tail, "default")], pose="mid_stride")
-    tl += tiles("female", "round", [(145, 12)], features=[(tail, "default")], pose="reaching")
-    tl += tiles("male", "round", [(35, 10)], features=[("short_crop", "default"), (beard, "default"), (f, "default")], pose="reaching")
-    tl += tiles("male", "strong", [(35, 10)], worn=[(pads, "default")], pose="arms_raised")
-    tl += tiles("male", "strong", [(35, 10)], worn=[(pads, "default")], pose="reaching")
-    rows.append(("4. In the game's poses", "a shape follows the part its anchor is on: the beard and the tail turn with the head, a pauldron with its upper arm.",
-                 band(tl, ["tail: mid-stride", "tail: reaching", "beard: reaching", "pauldrons: arms raised", "reaching"], gap_after=(1, 2))))
+
+    def row(title, sub, plan, frame, **who):
+        tl = []; lab = []; gaps = []
+        for label, settings, views in plan:
+            tl += [t for v in views for t in tiles(kind_of[0], settings, [v], frame, **who)]
+            lab += [label] + [""] * (len(views) - 1)
+            gaps.append(len(tl) - 1)
+        rows.append((title, sub, band(tl, lab, gap_after=tuple(gaps[:-1]))))
+
+    kind_of = ["long_beard"]
+    row("1. Long beard (under the chin), worn with a short full beard",
+        "length 1 to 5, width 1 to 4, point 0 (blunt) to 3 (a point), jut 0 to 3 (how far forward). It stands clear of the chest. Defaults: length 3, width 3, point 2, jut 1.",
+        [("default: front, side", {}, [front, side]), ("length 1", dict(length=1), [side]), ("length 5", dict(length=5), [side]),
+         ("width 1", dict(width=1), [front]), ("width 4", dict(width=4), [front]), ("point 0", dict(point=0), [front]),
+         ("point 3", dict(point=3), [front]), ("jut 0", dict(jut=0), [side]), ("jut 3", dict(jut=3), [side])], tall, whiskers=True)
+    kind_of[0] = "ponytail"
+    row("2. Ponytail (from the back of the head)",
+        "height 0 (the nape) to 3 (the crown), length 1 to 5, thickness 1 to 3, tie on or off. It hangs clear of the back. Defaults: height 1, length 3, thickness 2, tie on.",
+        [("default: side, behind", {}, [side, behind]), ("height 0", dict(height=0), [side]), ("height 3", dict(height=3), [side]),
+         ("length 1", dict(length=1), [side]), ("length 5", dict(length=5), [side]), ("thickness 1", dict(thickness=1), [behind]),
+         ("thickness 3", dict(thickness=3), [behind]), ("no tie", dict(tie=False), [behind])], tall, sex="female", hair=("short_crop", "black"))
+    kind_of[0] = "bun"
+    row("3. Bun", "position top, back or nape; size 1 to 3. Defaults: back, size 2.",
+        [("top", dict(position="top"), [turned, side]), ("back", {}, [turned, side]), ("nape", dict(position="nape"), [side]),
+         ("size 1", dict(size=1), [side]), ("size 3", dict(size=3), [side])], dict(scale=17.0, width=22.0, z_range=(14.0, 51.0)),
+        sex="female", hair=("short_crop", "black"))
+    kind_of[0] = "horns"
+    row("4. Horns (a pair, from the brow)",
+        "length 1 to 5, curve 0 (straight up) to 3 (swept back), spread 0 to 3, thickness 1 to 3. Defaults: length 2, curve 1, spread 1, thickness 2.",
+        [("default: front, turned", {}, [front, turned]), ("length 1", dict(length=1), [front]), ("length 5", dict(length=5), [front]),
+         ("curve 0", dict(curve=0), [side]), ("curve 3", dict(curve=3), [side]), ("spread 0", dict(spread=0), [front]),
+         ("spread 3", dict(spread=3), [front]), ("thickness 3", dict(thickness=3), [turned])], dict(scale=17.0, width=22.0, z_range=(14.0, 50.0)), hair=None)
+    kind_of[0] = "pauldrons"
+    row("5. Pauldrons (a pair, on the shoulders)", "size 1 to 3, drop 0 to 3 (how far down the arm). Defaults: size 2, drop 1.",
+        [("default: front, turned", {}, [front, turned]), ("size 1", dict(size=1), [front]), ("size 3", dict(size=3), [front]),
+         ("drop 0", dict(drop=0), [front]), ("drop 3", dict(drop=3), [front])], tall, shape="strong", hair=None)
+    tl = tiles("long_beard", {}, [turned], tall, build="heavy", shape="strong", whiskers=True)
+    tl += tiles("long_beard", {}, [side], tall, sex="female", build="average", whiskers=True)
+    tl += tiles("ponytail", dict(height=2, length=4), [behind], tall, sex="female", build="short", shape="heart", hair=("short_crop", "auburn"))
+    tl += tiles("horns", dict(length=3, curve=2), [turned], tall, sex="female", build="slim", shape="oval", hair=None)
+    tl += tiles("pauldrons", {}, [turned], tall, build="heavy", shape="boxy", hair=None)
+    rows.append(("6. On other builds and heads", "every type is measured from the dressed figure it is on.",
+                 band(tl, ["beard: heavy, strong head", "beard: female", "ponytail: short, heart head", "horns: slim, oval head", "pauldrons: heavy"])))
+    tl = tiles("ponytail", dict(length=4), [side], tall, sex="female", pose="mid_stride", hair=("short_crop", "black"))
+    tl += tiles("ponytail", dict(length=4), [behind], tall, sex="female", pose="reaching", hair=("short_crop", "black"))
+    tl += tiles("long_beard", {}, [turned], tall, pose="reaching", whiskers=True)
+    tl += tiles("horns", dict(length=3), [turned], tall, pose="reaching", hair=None)
+    tl += tiles("pauldrons", {}, [turned], tall, shape="strong", pose="arms_raised", hair=None)
+    tl += tiles("pauldrons", {}, [turned], tall, shape="strong", pose="reaching", hair=None)
+    rows.append(("7. In the game's poses", "a beard, a tail, a bun and horns turn with the head. A pauldron bends between the chest and the arm: with the arm overhead it still sinks into the shoulder.",
+                 band(tl, ["tail: mid-stride", "tail: reaching", "beard: reaching", "horns: reaching", "pauldrons: arms raised", "reaching"], gap_after=(1, 3))))
     for n in sorted(notes): print("  note:", n)
-    save_sheet(rows, "drawn_shapes.png")
+    save_sheet(rows, "shape_types.png")
 
 
 def sheet_moving():
@@ -904,7 +900,7 @@ def sheet_moving():
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
     jobs = dict(look=sheet_look, male=sheet_male, builds=sheet_builds, bodies=sheet_bodies, regions=sheet_regions, joints=sheet_joints, heads=sheet_heads,
-                faces=sheet_faces, beards=sheet_beards, shapes=sheet_shapes, moving=sheet_moving, hood=sheet_hood, drawn=sheet_drawn)
+                faces=sheet_faces, beards=sheet_beards, shapes=sheet_shapes, moving=sheet_moving, hood=sheet_hood, types=sheet_types)
     if which != "all" and which not in jobs:
         sys.exit(__doc__)
     for name in (jobs if which == "all" else [which]):

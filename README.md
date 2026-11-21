@@ -30,7 +30,9 @@ against the Python corner by corner.
 | Straps, skirts and capes; skirts and capes laid afresh in every pose | done |
 | One-file wardrobe (v2) with exact round-trip | done; v1 files and the old facial hair styles still open |
 | Editor: three tabs (Face & Hair, Clothes, Preview), flat or smooth shading, picking regions on the figure | done |
-| Hood, drawn shapes (long beard, ponytail's tail), edge style | kept in the wardrobe file, not on the figure yet |
+| Hood (raised or lowered) | done |
+| Shapes of their own: long beard, ponytail, bun, horns, pauldrons (replacing the voxel drawn shape) | done |
+| Edge style | kept in the wardrobe file, not on the figure yet |
 | Export (.vox / STL / OBJ) | OBJ copies of the bodies and heads in `lowpoly/`; the rest deferred |
 
 See `docs/NOTES.md` for decisions taken while building, and for the things

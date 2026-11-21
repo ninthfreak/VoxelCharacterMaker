@@ -140,6 +140,7 @@ else:
         theirs = {e["name"]: e["default"] for e in tables["specials"][kind]}
         expect(ours == theirs, f"{kind}: the same settings and defaults as the game's")
     options = lambda kind, name: next(e["options"] for e in tables["specials"][kind] if e["name"] == name)
+    expect(list(sp.BUN_POSITIONS) == options("bun", "position"), "bun positions: the game's options")
     expect(list(sp.SKIRT_LENGTH) == options("skirt", "length") and list(sp.CAPE_LENGTH) == options("cape", "length")
            and list(sp.CAPE_WIDTH) == options("cape", "width"), "skirt and cape lengths and widths: the game's options")
     poses = {name: ps.from_game(v["parts"]) for name, v in tables["poses"].items()}
