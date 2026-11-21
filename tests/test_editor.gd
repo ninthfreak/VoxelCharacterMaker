@@ -227,6 +227,17 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(pv._summary.text.contains("Wearing:") and pv._summary.text.contains("masculine short"),
 		"and a summary of what is on, naming the body", pv._summary.text)
 
+	# A choice for the face alone draws the face again on the figure already dressed; anything else dresses afresh.
+	var dressed_before := lp.figure
+	pv._choose("lids", "angry")
+	var face_only := lp.figure
+	pv._choose("skin_tone", "light")
+	var redressed := lp.figure
+	t.check(face_only != dressed_before and is_same(face_only.polygons[0], dressed_before.polygons[0])
+		and not is_same(redressed.polygons[0], face_only.polygons[0]),
+		"a new lid state redraws only the face; a new skin tone dresses the figure again")
+	pv._choose("skin_tone", "deep")
+
 	# Lids, skin tone, brows and the mouth are chosen here and nowhere else.
 	pv._choose("lids", EyeLids.DEFAULT)
 	pv._choose("mouth", "open")

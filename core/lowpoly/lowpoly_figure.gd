@@ -74,6 +74,22 @@ func add_point(p: PackedFloat64Array, shares: Dictionary) -> int:
 	return points.size() - 1
 
 
+## A copy to draw more on (LowpolyAssembler.face_on): its own lists of corners, polygons, cloths and warnings. The
+## polygons, corner shares and cloths in them are the same ones, and are not changed by adding to the lists.
+func copy() -> LowpolyFigure:
+	var c := LowpolyFigure.new()
+	c.body_id = body_id
+	c.head_shape = head_shape
+	c.points = points.duplicate()
+	c.points64 = points64.duplicate()
+	c.weights = weights.duplicate()
+	c.polygons = polygons.duplicate()
+	c.parts = parts
+	c.cloths = cloths.duplicate()
+	c.warnings = warnings.duplicate()
+	return c
+
+
 ## A corner in full precision.
 func point64(k: int) -> PackedFloat64Array:
 	return Vec64.at(points64, k)

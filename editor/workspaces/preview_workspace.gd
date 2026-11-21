@@ -126,11 +126,19 @@ func _build() -> void:
 		worn = editor.wardrobe.outfit("everyday")
 
 
+## Choices that change what another menu offers (an eye set's colours, a hair's or a beard's colourways): after these
+## the menus are filled again; after any other, only the summary changes.
+const REFILLS: Array[String] = ["eye_set_id", "hair_id", "facial_id"]
+
+
 func _choose(field: String, value: String) -> void:
 	if _guard > 0:
 		return
 	set(field, value)
-	refresh()
+	if field in REFILLS:
+		refresh()
+	else:
+		_refresh_summary()
 	rebuild()
 
 

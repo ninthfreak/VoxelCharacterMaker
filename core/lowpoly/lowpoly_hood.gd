@@ -131,6 +131,7 @@ class Measure extends RefCounted:
 	var body_z := PackedFloat64Array()
 	var body_rings: Array = []           ## per ring of the torso, bottom to top: its dressed points
 	var shoulder_w := 6.0
+	var _between := {}                   ## a head height -> the head's ring there, blended from the two either side
 
 	static func of(p_fit: LowpolyShapes.Fit) -> Measure:
 		var m := Measure.new()
@@ -178,16 +179,18 @@ class Measure extends RefCounted:
 			return LowpolyHood.ray_ring(head_rings[0], theta)
 		if zh <= head_z[n - 1]:
 			return LowpolyHood.ray_ring(head_rings[n - 1], theta)
-		var i := 0
-		while not (head_z[i + 1] <= zh and zh <= head_z[i]):
-			i += 1
-		var f := (head_z[i] - zh) / (head_z[i] - head_z[i + 1])
-		var ring: Array = []
-		for k in (head_rings[i] as Array).size():
-			var a: PackedFloat64Array = head_rings[i][k]
-			var b: PackedFloat64Array = head_rings[i + 1][k]
-			ring.append(Vec64.add(Vec64.mul(a, 1.0 - f), Vec64.mul(b, f)))
-		return LowpolyHood.ray_ring(ring, theta)
+		if not _between.has(zh):             # the opening's search asks at the same heights many times
+			var i := 0
+			while not (head_z[i + 1] <= zh and zh <= head_z[i]):
+				i += 1
+			var f := (head_z[i] - zh) / (head_z[i] - head_z[i + 1])
+			var ring: Array = []
+			for k in (head_rings[i] as Array).size():
+				var a: PackedFloat64Array = head_rings[i][k]
+				var b: PackedFloat64Array = head_rings[i + 1][k]
+				ring.append(Vec64.add(Vec64.mul(a, 1.0 - f), Vec64.mul(b, f)))
+			_between[zh] = ring
+		return LowpolyHood.ray_ring(_between[zh], theta)
 
 	## How far the dressed torso reaches from the middle line at a height of the figure.
 	func body(theta: float, zw: float) -> float:
@@ -312,37 +315,82 @@ class Shell extends RefCounted:
 			var push := PackedFloat64Array()
 			push.resize(V.size() / 3)
 			push.fill(0.0)
+			# Plain numbers rather than small vectors from here on: the same sums in the same order as Vec64 (so as
+			# lowpoly/hood.py), without making a vector for every corner looked at.
+			var cx := PackedFloat64Array()
+			var cy := PackedFloat64Array()
+			var cz := PackedFloat64Array()
 			for fi in faces.size():
 				var f: PackedInt32Array = faces[fi]
 				var n: PackedFloat64Array = fn[fi]
-				var pts := points_of(f)
+				var n0 := n[0]
+				var n1 := n[1]
+				var n2 := n[2]
 				var count := f.size()
-				var m := PackedFloat64Array([0.0, 0.0, 0.0])
-				var lo := Vec64.v(INF, INF, INF)
-				var hi := Vec64.v(-INF, -INF, -INF)
+				cx.resize(count)
+				cy.resize(count)
+				cz.resize(count)
+				var m0 := 0.0
+				var m1 := 0.0
+				var m2 := 0.0
+				var lo0 := INF
+				var lo1 := INF
+				var lo2 := INF
+				var hi0 := -INF
+				var hi1 := -INF
+				var hi2 := -INF
 				for k in count:
-					var p := Vec64.at(pts, k)
-					m = Vec64.add(m, p)
-					for j in 3:
-						lo[j] = minf(lo[j], p[j])
-						hi[j] = maxf(hi[j], p[j])
-				m = Vec64.div(m, float(count))
-				for j in 3:
-					lo[j] -= 3.0
-					hi[j] += 3.0
+					var i3 := 3 * f[k]
+					cx[k] = V[i3]
+					cy[k] = V[i3 + 1]
+					cz[k] = V[i3 + 2]
+					m0 += cx[k]
+					m1 += cy[k]
+					m2 += cz[k]
+					lo0 = minf(lo0, cx[k])
+					lo1 = minf(lo1, cy[k])
+					lo2 = minf(lo2, cz[k])
+					hi0 = maxf(hi0, cx[k])
+					hi1 = maxf(hi1, cy[k])
+					hi2 = maxf(hi2, cz[k])
+				m0 /= float(count)
+				m1 /= float(count)
+				m2 /= float(count)
+				lo0 -= 3.0
+				lo1 -= 3.0
+				lo2 -= 3.0
+				hi0 += 3.0
+				hi1 += 3.0
+				hi2 += 3.0
 				var need := 0.0
-				for cx in range(floori(lo[0] / CELL), floori(hi[0] / CELL) + 1):
-					for cy in range(floori(lo[1] / CELL), floori(hi[1] / CELL) + 1):
-						for cz in range(floori(lo[2] / CELL), floori(hi[2] / CELL) + 1):
-							var key := Vector3i(cx, cy, cz)
+				for gx in range(floori(lo0 / CELL), floori(hi0 / CELL) + 1):
+					for gy in range(floori(lo1 / CELL), floori(hi1 / CELL) + 1):
+						for gz in range(floori(lo2 / CELL), floori(hi2 / CELL) + 1):
+							var key := Vector3i(gx, gy, gz)
 							if not cells.has(key):
 								continue
 							for i in cells[key]:
-								var x := Vec64.at(P, i)
-								if x[0] < lo[0] or x[1] < lo[1] or x[2] < lo[2] or x[0] > hi[0] or x[1] > hi[1] or x[2] > hi[2]:
+								var x0 := P[3 * i]
+								var x1 := P[3 * i + 1]
+								var x2 := P[3 * i + 2]
+								if x0 < lo0 or x1 < lo1 or x2 < lo2 or x0 > hi0 or x1 > hi1 or x2 > hi2:
 									continue
-								var d := Vec64.dot(Vec64.sub(x, m), n)
-								if d > -CLEAR and d < 3.0 and LowpolyHood._inside(x, pts, n):
+								var d := (x0 - m0) * n0 + (x1 - m1) * n1 + (x2 - m2) * n2
+								if d <= -CLEAR or d >= 3.0:
+									continue
+								var inside := true                  # seen along n, inside the face (LowpolyHood._inside)
+								for k in count:
+									var j := (k + 1) % count
+									var e0 := cx[j] - cx[k]
+									var e1 := cy[j] - cy[k]
+									var e2 := cz[j] - cz[k]
+									var w0 := x0 - cx[k]
+									var w1 := x1 - cy[k]
+									var w2 := x2 - cz[k]
+									if (e1 * w2 - e2 * w1) * n0 + (e2 * w0 - e0 * w2) * n1 + (e0 * w1 - e1 * w0) * n2 < -1e-9:
+										inside = false
+										break
+								if inside:
 									need = maxf(need, d + CLEAR)
 				for i in f:
 					push[i] = maxf(push[i], need)

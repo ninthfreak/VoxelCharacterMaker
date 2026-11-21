@@ -42,10 +42,44 @@ const FACE_PIECE := "face"
 
 
 static func assemble(library: LowpolyLibrary, req: CharacterRequest) -> LowpolyFigure:
+	var dressed := dress(library, req)
+	return null if dressed.is_empty() else face_on(library, dressed, req, false)
+
+
+## What dress() depends on, as text: two requests with the same key dress the same figure. Everything but the face's
+## own choices (eye set and its colours, lids, mouth, brow colour): the body, head, skin tone and what is worn, with each
+## worn item and feature as it is now and the palette its colours come from, so that any change to them is seen however
+## it was made.
+static func dress_key(req: CharacterRequest) -> String:
+	var parts: Array = [req.body_id, req.head_shape, req.skin_tone, req.solo_item, req.worn, req.features]
+	var w := req.wardrobe
+	if w != null:
+		parts.append(w.get_instance_id())
+		parts.append(w.palette)
+		for entry in req.worn + req.features:
+			var it := w.item(String((entry as Dictionary).get("item", "")))
+			parts.append(it.to_json() if it != null else null)
+	return var_to_str(parts)
+
+
+## The face drawn on a dressed figure ([figure, whiskers], from dress()): on a copy of it, unless `copy` is false, so
+## that the editor can keep a dressed figure and draw another face on it when only the face's choices change.
+static func face_on(library: LowpolyLibrary, dressed: Array, req: CharacterRequest, copy: bool = true) -> LowpolyFigure:
+	var f: LowpolyFigure = dressed[0]
+	if copy:
+		f = f.copy()
+	_draw_face(f, library.head(req.head_shape), library.body(req.body_id).head_raise, req,
+		Palette.skin_tones(req.skin_tone)[1], dressed[1])
+	return f
+
+
+## Everything but the face: [the dressed figure, its facial hair (what the face needs to know of it)], or [] if the
+## library has no such body or head.
+static func dress(library: LowpolyLibrary, req: CharacterRequest) -> Array:
 	var skin: Color = Palette.skin_tones(req.skin_tone)[1]
 	var base := LowpolyFigure.make(library, req.body_id, req.head_shape, skin)
 	if base == null:
-		return null
+		return []
 	var body := library.body(req.body_id)
 	var head := library.head(req.head_shape)
 	var raise := body.head_raise
@@ -64,8 +98,7 @@ static func assemble(library: LowpolyLibrary, req: CharacterRequest) -> LowpolyF
 			surface = dressed[1]
 		if not shapes.is_empty():
 			_add_shapes(f, body, head, surface, shapes, bare_count)
-	_draw_face(f, head, raise, req, skin, whiskers)
-	return f
+	return [f, whiskers]
 
 
 ## Every worn item and feature, in the order worn: {cov: region -> {role, bulk}, order, colours: role -> Color, id}.
@@ -357,7 +390,8 @@ static func _add_shapes(f: LowpolyFigure, body: LowpolyLibrary.Body, head: Lowpo
 			return int(a[1]) < int(b[1])
 		return int(a[2]) < int(b[2]))
 	var rest := LowpolyPose.rest()
-	for shape in order:
+	for at in order.size():
+		var shape: Array = order[at]
 		var item_id := String(shape[3])
 		var kind := String(shape[4])
 		var params: Dictionary = shape[5]
@@ -389,8 +423,9 @@ static func _add_shapes(f: LowpolyFigure, body: LowpolyLibrary.Body, head: Lowpo
 			var cloth: LowpolyCloth = made[0]
 			cloth.by = item_id
 			f.cloths.append(cloth)
-			var got := fit.points(cloth.over)
-			fit.laid.append_array(cloth.lay(rest, got[0], got[1]))
+			if at < order.size() - 1:        # laid standing only for a cloth that hangs over it (they come last)
+				var got := fit.points(cloth.over)
+				fit.laid.append_array(cloth.lay(rest, got[0], got[1]))
 
 
 # ---------------------------------------------------------------------------------------------- the face ---

@@ -261,7 +261,9 @@ func _set_param(index: int, key: String, value: Variant, label: String) -> void:
 		return
 	it.set_special_param(index, key, value)
 	commit("Set %s on %s" % [label.to_lower(), it.name])
-	refresh()
+	# The controls already show the new value: they are not made again (that would also drop a spin box the user is
+	# still pressing). Only the note on where it attaches can depend on a setting (an old drawn shape's anchor).
+	_anchor_note.text = SpecialItem.anchor_description(it.special_type(index), it.special_params(index))
 
 
 # ------------------------------------------------------------------ actions --

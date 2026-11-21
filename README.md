@@ -101,6 +101,13 @@ Other options: `--tab "Face & Hair" --section Eyes`, `--tab Clothes --select
 skirt`, `--view back`, `--set body_id=female_short`, `--scroll PX`,
 `--name FILE`. Drop `xvfb-run -a` on a machine with a display.
 
+To see what the editor's common actions cost, and how many times each one
+rebuilds a figure:
+
+```bash
+godot --headless --path . --script res://tools/bench_editor.gd
+```
+
 ## Layout
 
 ```
@@ -113,7 +120,7 @@ runtime/         the rig the game uses, the test poses, a demo scene
 editor/          the in-engine editor, which calls the same core
 editor/workspaces/   its three tabs
 tests/           headless checks
-tools/           editor screenshots
+tools/           editor screenshots, and timings of the editor's actions
 assets/lowpoly/  generated bodies, heads and the region table
 lowpoly/         the Python that makes and checks all of it
 docs/            build notes and review renders

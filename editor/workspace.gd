@@ -19,6 +19,10 @@ var side: VBoxContainer = null
 
 var _stale := true
 var _shading_pick: OptionButton = null
+## The last figure dressed, without its face, and what it was dressed from (LowpolyAssembler.dress_key): when only the
+## face's choices change (lids, mouth, eyes, brows), the face is drawn again on a copy of it, not the whole figure.
+var _dressed: Array = []
+var _dress_key := ""
 
 
 func setup(p_editor: CharacterEditor) -> void:
@@ -76,7 +80,11 @@ func rebuild() -> void:
 		return
 	_stale = false
 	var request := make_request()
-	var figure := LowpolyAssembler.assemble(editor.library, request)
+	var key := LowpolyAssembler.dress_key(request)
+	if key != _dress_key or _dressed.is_empty():
+		_dressed = LowpolyAssembler.dress(editor.library, request)
+		_dress_key = key
+	var figure: LowpolyFigure = null if _dressed.is_empty() else LowpolyAssembler.face_on(editor.library, _dressed, request)
 	if figure == null:
 		editor.show_status_line(self, "", "no low-poly body '%s' or head '%s'" % [request.body_id, request.head_shape])
 		return
@@ -131,6 +139,7 @@ func refill_bodies(option: OptionButton, current: String) -> String:
 
 func mark_stale() -> void:
 	_stale = true
+	_dressed = []                        # the wardrobe changed elsewhere: dress afresh (the key would say so too)
 	if is_visible_in_tree():
 		rebuild()
 

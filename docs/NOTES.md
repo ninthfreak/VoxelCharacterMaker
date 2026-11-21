@@ -1387,6 +1387,36 @@ moving points by hand, and did not care for the pointed top.
   cross-check has one more figure (a hood with every shape setting away from its default) and the lined test hood now
   uses the far ends; 22 dressed figures match, 409 Godot checks pass.
 
+## 4zd. The editor's speed (owner's request)
+
+Asked for: check the editor for unnecessary performance issues. Measured with a new script that drives the real
+editor headless and times its common actions, counting the figures each one rebuilds (`tools/bench_editor.gd`;
+medians of five runs, on this machine; drawing is not included). No action rebuilt a figure more than once, and an
+edit's bookkeeping (the undo snapshot) is under a millisecond. What was found, and done:
+
+- **A new lid state, mouth, eye set or brow colour dressed the whole figure again** to draw a new face: 124 ms in the
+  travelling outfit, about 200 ms in a raised hood. Building is now two steps (`LowpolyAssembler.dress`, then
+  `face_on`), and each tab keeps its last dressed figure; when nothing but the face's choices changed, the face is
+  drawn on a copy of it: 27 ms, 17 ms in a hood. The kept figure is known by what it was dressed from
+  (`dress_key`): body, head, skin tone, what is worn, and each worn item and the palette as they are now, so a change
+  however made dresses afresh.
+- **The hood's push-out pass made a small vector for every corner it looked at**, and its search for the opening's
+  edge blended the same head ring hundreds of times. Plain numbers in the inner loop (the same sums, in the same
+  order) and one blend per height: a raised hood 140 ms to about 60; a figure in one 159 ms to 90. The cross-check
+  with the Python is unchanged.
+- **Every skirt or cape was also laid standing while the figure was built**, for a later cloth to hang over; the
+  last one needs it for nothing, and is no longer laid then (the figure is the same).
+- **A choice in the Preview tab refilled every menu and made the clothes list again** (12 ms); now only after a
+  choice that changes what another menu offers (eye set, hair, facial hair).
+- **Changing a special shape's setting made all its setting controls again**, which also dropped a spin box still
+  being pressed; they are now left as they are.
+- **Each preview compiled its own copies of the figure's shader**; one pair is shared (at start-up, with a graphics
+  card; the headless timings cannot see it).
+
+What is left is real work: dressing a figure (20 ms bare to about 90 in a raised hood), making its mesh (6 to 20 ms)
+and laying its cloth for a pose (12 ms). Changing the body, the outfit or a worn item's setting costs a dressing
+(70 to 110 ms with a cape or a hood); changing the pose only lays the cloth again.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

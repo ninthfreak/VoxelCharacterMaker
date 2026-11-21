@@ -69,12 +69,19 @@ func _init() -> void:
 	_cloth_material = _make_material("cull_disabled")
 
 
+## One of each, shared by every rig: the shader has no settings of its own, so each figure shown need not compile
+## its own copy.
+static var _shared := {}
+
+
 static func _make_material(cull: String) -> ShaderMaterial:
-	var shader := Shader.new()
-	shader.code = SHADER_CODE.replace("CULL_MODE", cull)
-	var m := ShaderMaterial.new()
-	m.shader = shader
-	return m
+	if not _shared.has(cull):
+		var shader := Shader.new()
+		shader.code = SHADER_CODE.replace("CULL_MODE", cull)
+		var m := ShaderMaterial.new()
+		m.shader = shader
+		_shared[cull] = m
+	return _shared[cull]
 
 
 ## Flat or smooth: the normals change, so the mesh is made again (it is under a thousand triangles).
