@@ -51,6 +51,7 @@ func _initialize() -> void:
 	TestMesher.run(_report, _library)
 	TestBodyEdit.run(_report, _library)
 	TestFeatures.run(_report, _library)
+	TestLowpoly.run(_report)
 
 
 func _process(_delta: float) -> bool:

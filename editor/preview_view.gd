@@ -20,6 +20,9 @@ enum Fit { FIGURE, HEAD }
 var camera: OrbitCamera = null
 var rig: CharacterRig = null
 var assembled: CharacterAssembler.Assembled = null
+## The low-poly figure, shown instead of the voxel one while `showing_lowpoly` (the editor's move to low-poly).
+var lowpoly_rig: LowpolyRig = null
+var showing_lowpoly := false
 var pose_name: String = Poses.REST
 var fit_mode: int = Fit.FIGURE
 var picking_enabled := false
@@ -91,6 +94,10 @@ func _init() -> void:
 	rig = CharacterRig.new()
 	rig.name = "Figure"
 	_viewport.add_child(rig)
+	lowpoly_rig = LowpolyRig.new()
+	lowpoly_rig.name = "LowpolyFigure"
+	lowpoly_rig.visible = false
+	_viewport.add_child(lowpoly_rig)
 
 	# A ground plane at the feet, so z = 0 is visible and pivots can be judged.
 	var ground := MeshInstance3D.new()
@@ -113,10 +120,29 @@ func allow_picking(on: bool) -> void:
 		_pick_toggle.button_pressed = false
 
 
+## Show a low-poly figure in place of the voxel one.
+func show_lowpoly(figure: LowpolyFigure) -> void:
+	var first := not showing_lowpoly or lowpoly_rig.figure == null
+	showing_lowpoly = true
+	rig.visible = false
+	lowpoly_rig.visible = true
+	lowpoly_rig.build(figure)
+	lowpoly_rig.apply_pose(pose_name)
+	if first:
+		fit_if_untouched()
+
+
+func set_flat_shading(on: bool) -> void:
+	lowpoly_rig.flat_shading = on
+
+
 ## Assemble and show a figure. Returns what was assembled.
 func show_request(request: CharacterAssembler.Request) -> CharacterAssembler.Assembled:
 	request.use_face_multiplier = use_face_multiplier
-	var first := assembled == null
+	var first := assembled == null or showing_lowpoly
+	showing_lowpoly = false
+	rig.visible = true
+	lowpoly_rig.visible = false
 	assembled = CharacterAssembler.assemble(request)
 	rig.use_face_multiplier = use_face_multiplier
 	rig.build(assembled)
@@ -131,6 +157,7 @@ func show_request(request: CharacterAssembler.Request) -> CharacterAssembler.Ass
 func set_pose(name: String) -> void:
 	pose_name = name
 	rig.apply_pose(name)
+	lowpoly_rig.apply_pose(name)
 
 
 func handle_key(event: InputEvent) -> bool:
@@ -140,10 +167,17 @@ func handle_key(event: InputEvent) -> bool:
 # --------------------------------------------------------------- framing ---
 
 func fit_view() -> void:
-	if camera == null or rig == null or rig.assembled == null:
+	if camera == null or rig == null:
 		return
 	var pane := _container.size
 	var aspect := 1.0 if pane.y <= 0.0 else pane.x / pane.y
+	if showing_lowpoly:
+		if lowpoly_rig.figure == null:
+			return
+		camera.frame(lowpoly_rig.figure_aabb("head" if fit_mode == Fit.HEAD else ""), aspect)
+		return
+	if rig.assembled == null:
+		return
 	var bounds := rig.figure_aabb()
 	if fit_mode == Fit.HEAD:
 		bounds = _part_aabb(BodyDef.HEAD_PART)

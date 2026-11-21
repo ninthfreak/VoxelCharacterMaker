@@ -13,7 +13,9 @@
    body as built; in a big move nothing flies off.
 4. The heads: closed, on their regions, the right size, the same layout of polygons on all five, and a flat patch
    wide and tall enough for each eye box and the brow row above it.
-5. The files in lowpoly/bodies/ and lowpoly/heads/ are what a rebuild gives. They are generated, not hand-edited.
+5. The files in assets/lowpoly/ (and the OBJ copies in lowpoly/bodies/ and lowpoly/heads/) are what a rebuild gives,
+   and so is tests/lowpoly_expected.json, which the Godot tests hold the game's posed figures to. They are generated,
+   not hand-edited.
 6. Clothing, with the game's own starter wardrobe and test poses (written out by dump_wardrobe.gd, so this part
    needs Godot: GODOT=/path/to/godot, or the two files already in lowpoly/_work/; without either it is skipped):
    the special shapes' settings and defaults are the game's; every starter outfit dresses all eight bodies; hanging cloth
@@ -141,6 +143,11 @@ else:
     expect(list(sp.SKIRT_LENGTH) == options("skirt", "length") and list(sp.CAPE_LENGTH) == options("cape", "length")
            and list(sp.CAPE_WIDTH) == options("cape", "width"), "skirt and cape lengths and widths: the game's options")
     poses = {name: ps.from_game(v["parts"]) for name, v in tables["poses"].items()}
+    import expected                                                  # what the Godot side is checked against
+    on_disk = json.load(open(expected.OUT)) if os.path.exists(expected.OUT) else {}
+    fresh = expected.data(tables)
+    expect(on_disk.get("cases") == fresh["cases"] and on_disk.get("tolerance") == fresh["tolerance"],
+           f"tests/lowpoly_expected.json ({len(fresh['cases'])} posed figures for the Godot tests) is what a rebuild gives (run: python3 lowpoly/expected.py)")
     known = lambda note: "edge style" in note or "'hood' not built" in note      # not built yet; see the README
     chest = lambda q: q["piece"] == "skin" and q["band"] in ("waist", "belly", "lower_chest", "upper_chest", "collar", "neck")
 

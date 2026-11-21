@@ -33,6 +33,8 @@ var state_path := STATE_PATH
 var edited_dir := AssetLibrary.EDITED_DIR
 
 var library: AssetLibrary = null
+## The low-poly bodies and heads (assets/lowpoly/): the editor is moving to them, a phase at a time.
+var lowpoly: LowpolyLibrary = null
 var wardrobe: Wardrobe = null
 var history := EditHistory.new()
 
@@ -80,6 +82,9 @@ func _ready() -> void:
 	library.edited_dir = edited_dir
 	if not library.load_all():
 		push_error("asset library: %s" % ", ".join(library.errors))
+	lowpoly = LowpolyLibrary.new()
+	if not lowpoly.load_all():
+		push_error("low-poly library: %s" % ", ".join(lowpoly.errors))
 
 	# The model is loaded BEFORE any control exists: tabs refresh themselves as
 	# they are set up, and must find nothing half-built.
@@ -274,6 +279,15 @@ func show_status(from: Workspace, assembled: CharacterAssembler.Assembled) -> vo
 	_status.text = from.status_text(assembled)
 	_warning.text = "" if assembled.warnings.is_empty() \
 		else "warning: %s" % assembled.warnings[0]
+	_refresh_title()
+
+
+## A tab reports what its preview is showing, as a line of its own (the low-poly figure is not an Assembled).
+func show_status_line(from: Workspace, text: String, warning: String = "") -> void:
+	if from != _current() or _status == null:
+		return
+	_status.text = text
+	_warning.text = "" if warning.is_empty() else "warning: %s" % warning
 	_refresh_title()
 
 

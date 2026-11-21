@@ -1,8 +1,10 @@
 # Low-poly characters
 
 The characters are low-poly (owner's decision, `SPEC.md` section 0). This folder holds what exists of them so far:
-the bodies and heads, and the Python that makes, dresses, poses and checks them. Nothing in `core/`, `runtime/` or
-`editor/` builds polygons yet; the Godot project still runs the earlier voxel system.
+the bodies and heads, and the Python that makes, dresses, poses and checks them. The Godot side is moving over in
+five phases (owner's go-ahead, 2026-11; `docs/NOTES.md` 4t). Phase 1 is done: the game reads the bodies and heads
+from `assets/lowpoly/` and draws them bending (`core/lowpoly/`, `runtime/lowpoly_rig.gd`), and the editor's Preview
+tab shows them. Everything else in the game still runs on the earlier voxel system.
 
 Godot ignores this folder (`.gdignore`), so nothing here is imported into the project.
 
@@ -51,7 +53,7 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Heads | all five (round, boxy, oval, strong, heart) as rounded forms: 114 polygons each, same layout; any head goes on any body (`renders/heads.png`) |
 | Faces: eyes, lids, lashes, eyebrows, skin tones | built: oval eyes from the wardrobe's eye sets and their colourways, the game's ten lid states, lids from the skin tone, a thin lash line, eyebrows from the hair, all six skin tones (`renders/faces.png`) |
 | The mouth | a first pass: a short line, straight or curved, or a small open oval. New here; the voxel faces have none |
-| Building polygons in Godot (assembler, editor, runtime) | not started |
+| Building polygons in Godot (assembler, editor, runtime) | phase 1 of 5 done: bare bodies and heads, bending on a skeleton, in the editor's Preview tab ("Model: Low-poly"), flat or smooth shading; Godot's posed corners are checked against the Python's. Next: ordinary clothing (2), faces and facial hair (3), straps, skirts and capes (4), switching over and removing the voxel code (5) |
 
 ## How a body is made
 
@@ -225,8 +227,9 @@ here; see "Not decided yet", 1.
 | `check.py` | checks the band table, the geometry, the regions, the files, the clothing in every test pose, the faces against the game's own cells, and the facial hair on every head |
 | `game.py` | fetches what is taken from the game: the starter wardrobe, the test poses, the special shapes' settings, the eyes and lid states, the skin, brow and stubble colours |
 | `dump_wardrobe.gd` | run by `game.py` in Godot: writes those as JSON into `_work/` |
-| `bodies/` | the eight body files (`body_<sex>_<build>`): corners and their shares, polygons with region and part, pivots, the band table and each band's heights on that body, how far the head is raised. Generated; do not hand-edit |
-| `heads/` | the head files: corners, polygons with their region, the eye box and its angle, the seven sections that define the shape. Generated |
+| `../assets/lowpoly/` | what the game reads (Godot ignores this folder, so the files live there). The eight body files (`body_<sex>_<build>.json`): corners and their shares, polygons with region and part, pivots, the band table and each band's heights on that body, how far the head is raised. The five head files: corners, polygons with their region, the eye box and its angle, the seven sections that define the shape. Generated; do not hand-edit |
+| `bodies/`, `heads/` | the same bodies and heads as OBJ files, to look at in any 3D viewer. Generated |
+| `expected.py` | writes `tests/lowpoly_expected.json`: where every corner of a figure must be in each test pose, which the Godot tests hold the game to |
 | `renders/` | the sheets each decision was made from. `faces_first_port.png` is the eyes as first ported, in cells with straight or square edges, which the owner turned down for rounded ovals |
 
 `dress.py`, `specials.py`, `hang.py`, `faces.py` and `facial_hair.py` hold the clothing and face rules for polygons in
@@ -250,6 +253,10 @@ python3 lowpoly/body.py
 
 ```bash
 python3 lowpoly/heads.py
+```
+
+```bash
+GODOT=/path/to/godot python3 lowpoly/expected.py
 ```
 
 ```bash
@@ -286,7 +293,8 @@ All of these are the owner's to settle. Recommendations are recommendations.
    for a head) and 603 ("B"); work since has used A. For scale: the 1997 Final Fantasy VII battle model of Cloud is put at about 900
    polygons for the whole character.
 3. **Flat or smooth shading.** It changes the look more than the polygon count does. The voxel system's baked
-   light/mid/dark does not carry over as it is, and the owner dislikes baked shading on 3D objects.
+   light/mid/dark does not carry over as it is, and the owner dislikes baked shading on 3D objects. Both can now be
+   seen in the editor itself: Preview tab, Model "Low-poly", then Shading.
 4. **How far one step of bulk stands off the body.** One old voxel (4.2 cm) now; it reads puffy on sleeves. One number
    in `dress.py` (`BULK_UNIT`).
 5. **Edge style.** Soft and hard edges were about which corner voxels to drop; they need a new meaning (see 1) or to

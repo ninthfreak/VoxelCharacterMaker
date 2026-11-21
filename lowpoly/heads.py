@@ -16,7 +16,7 @@ A head is seven rings of points, top to bottom, closed by a point at the crown a
 three numbers: its half-width, and its depth in front of and behind the centre. Those numbers, and how square the back
 is, are the whole shape; they play the part the clay plays for the bodies.
 
-  python3 lowpoly/heads.py     rebuild lowpoly/heads/*.json and *.obj
+  python3 lowpoly/heads.py     rebuild assets/lowpoly/head_*.json and lowpoly/heads/*.obj
 """
 import json, os, sys
 import numpy as np
@@ -219,6 +219,9 @@ def to_data(name, polys=None):
 
 
 def head_path(name, ext="json"):
+    """The game reads the JSON from assets/lowpoly/; the OBJ stays in lowpoly/heads/ (see body.body_path)."""
+    if ext == "json":
+        return os.path.join(lb.ASSETS, f"head_{name}.json")
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "heads", f"head_{name}.{ext}")
 
 
@@ -237,7 +240,7 @@ def write_obj(name, path, polys=None):
 
 
 if __name__ == "__main__":
-    os.makedirs(os.path.dirname(head_path("x")), exist_ok=True)
+    os.makedirs(os.path.dirname(head_path("x")), exist_ok=True); os.makedirs(os.path.dirname(head_path("x", "obj")), exist_ok=True)
     for name in NAMES:
         polys = build(name); ok, text = check(name, polys); print(text)
         if not ok: sys.exit(f"{name}: check FAILED")

@@ -1075,6 +1075,38 @@ from the average once dressed, so it is pushed further.
   (masculine) units. `check.py` now holds the seam to half a unit: the
   furthest on any body is 0.26.
 
+## 4t. The editor moves to low-poly: phase 1, bare characters in Godot (owner's go-ahead)
+
+The plan the owner agreed to: the editor asks `core/` for a character and draws it, so most of the work is moving
+the low-poly rules from Python into `core/`, and the editor's screens change much less. Five phases, each ending
+with something to look at in the editor: 1, bare bodies and heads, bending; 2, ordinary clothing; 3, faces and
+facial hair; 4, straps, skirts and capes; 5, switching over (the Bodies tab and the voxel code go). The voxel editor
+keeps working until then. Phase 1 is done.
+
+- **The files move to `assets/lowpoly/`** (difficulty low). Godot ignores `lowpoly/` (`.gdignore`), so the game
+  could not ship files from there. The JSON is written straight into `assets/lowpoly/`; the OBJ copies, for looking
+  at in a 3D viewer, stay in `lowpoly/bodies/` and `lowpoly/heads/`.
+- **Godot reads, builds and bends them** (difficulty medium; confidence high). `LowpolyLibrary` reads the eight
+  bodies and five heads; `LowpolyFigure` puts a body and a head together (the head lowered onto a short body's
+  neck); `LowpolyRig` draws the figure as one mesh skinned to a Skeleton3D with a bone per part, at the files'
+  pivots, with the files' shares as bone weights. Poses are the voxel rig's own (`runtime/poses.gd`).
+- **Checked against the Python, corner by corner.** `lowpoly/expected.py` poses the same files in Python and
+  writes where every corner must be (`tests/lowpoly_expected.json`: every body standing, and all six test poses on
+  the feminine average and the masculine short). Godot's corners are within 0.001 units of every one, so the game's
+  pose angles and the Python's reading of them agree. The skeleton turns its bones as the rig works them out.
+- **The preview's look** (calls made while building, each easy to change). The light is the review sheets' studio
+  light, fixed to the camera, so the editor shows a figure as the sheets do; it is a preview light, not a decision
+  about the game's lighting. Flat shading gives every polygon one shade from its own normal, as on the sheets.
+  Tried and dropped: shading each triangle flat (a four-sided polygon that is not quite flat showed two shades),
+  and carrying the polygon's normal in the tangent slot (it did not reach the shader in the Compatibility
+  renderer). Colours go to the screen as they are: the Compatibility renderer passes them straight through, as it
+  does the voxel colours, and a first try that converted them came out twice as dark.
+- **In the editor:** the Preview tab has "Model: Voxel / Low-poly" and, for low-poly, "Shading: Flat / Smooth". The
+  low-poly model offers all eight bodies; going back to voxel from a short body shows the same sex's average.
+  Eyes, hair and clothes do not show on the low-poly model yet. `tools/screenshot_editor.gd` takes
+  `--preview model=lowpoly` (and any other Preview choice) for pictures.
+- **Tests:** 22 new Godot checks (1697 in all); the Python check holds `tests/lowpoly_expected.json` current.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

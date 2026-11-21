@@ -64,8 +64,10 @@ forms that keep what section 4 says every head shares (size, eye box, ears). The
 them: eye sets and their colourways, the ten lid states, lids, brows and the six skin tones. Three of section 7.4's
 special shapes are rebuilt (straps, skirt, cape), so all seven starter outfits dress both bodies, and facial hair is
 rebuilt for the new face (four parts and one length); the hood, drawn shapes (the long beard among them) and hair are
-not. All of that is built in Python so far. Nothing in
-`core/`, `runtime/` or `editor/` builds polygons yet; the Godot project still runs the voxel system.
+not. All of that is built in Python so far. The Godot side is moving over in five phases (owner's go-ahead,
+2026-11): 1, bare bodies and heads in the game, bending, shown in the editor (done); 2, ordinary clothing; 3, faces
+and facial hair; 4, straps, skirts and capes; 5, the editor switched over and the voxel code removed. Until then the
+voxel system keeps working beside it.
 
 **How to read the rest of this document.** Sections 1 to 13 describe the voxel system as designed and built. They
 stay the reference for everything the low-poly version keeps and has not yet rebuilt: the part hierarchy and pivots

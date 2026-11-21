@@ -1,0 +1,90 @@
+@tool
+class_name LowpolyFigure
+extends RefCounted
+
+## A low-poly character put together: its corners, the parts each corner follows, and its polygons.
+##
+## This is what the game and the editor draw and pose (runtime/lowpoly_rig.gd). It is built once per change of
+## body, head or clothing; posing never rebuilds it. Phase 1 of the editor's move to low-poly puts a bare body and
+## head together in a skin colour. Clothing, faces and the special shapes are added to it in the later phases, by
+## the rules that lowpoly/dress.py and its neighbours hold in Python today.
+##
+## Units and axes are the asset files' (LowpolyLibrary): x across, y depth (the figure faces -y), z up.
+
+var body_id := ""
+var head_shape := ""
+## every corner, in the asset files' units
+var points := PackedVector3Array()
+## per corner: {part: share}
+var weights: Array = []
+## {corners: PackedInt32Array (into points), colour: Color, region: String, part: String, piece: String,
+##  hidden: bool}
+var polygons: Array = []
+## part -> {"parent": String, "pivot": Vector3}, every part after its parent (LowpolyLibrary.PARTS)
+var parts: Dictionary = {}
+var warnings: Array[String] = []
+
+
+## A bare body with a head on it, in one colour. Returns null if the body or the head is not in the library.
+static func make(library: LowpolyLibrary, p_body_id: String, p_head_shape: String, skin: Color) -> LowpolyFigure:
+	var body := library.body(p_body_id)
+	var head := library.head(p_head_shape)
+	if body == null or head == null:
+		return null
+	var f := LowpolyFigure.new()
+	f.body_id = p_body_id
+	f.head_shape = p_head_shape
+	f.parts = body.parts.duplicate(true)
+	f.points.append_array(body.points)
+	for w in body.shares:
+		f.weights.append((w as Dictionary).duplicate())
+	for p in body.polygons:
+		var poly: Dictionary = p
+		f.polygons.append({"corners": poly["corners"], "colour": skin, "region": poly["region"],
+			"part": poly["part"], "piece": poly["piece"], "hidden": poly["hidden"]})
+	# The head library's heads stand at the average body's heights; a short body's neck is lower.
+	var first := f.points.size()
+	var raise := Vector3(0.0, 0.0, body.head_raise)
+	for v in head.points:
+		f.points.push_back(v + raise)
+		f.weights.append({"head": 1.0})
+	for p in head.polygons:
+		var poly: Dictionary = p
+		var corners := PackedInt32Array()
+		for k in poly["corners"]:
+			corners.push_back(first + int(k))
+		f.polygons.append({"corners": corners, "colour": skin, "region": poly["region"], "part": "head",
+			"piece": "head", "hidden": false})
+	return f
+
+
+func visible_polygons() -> int:
+	var n := 0
+	for p in polygons:
+		if not bool(p["hidden"]):
+			n += 1
+	return n
+
+
+func triangles() -> int:
+	var n := 0
+	for p in polygons:
+		if not bool(p["hidden"]):
+			n += (p["corners"] as PackedInt32Array).size() - 2
+	return n
+
+
+## Bounds of the corners that a part's visible polygons use, at rest, in the asset files' units. "" for the whole
+## figure.
+func bounds(part: String = "") -> AABB:
+	var lo := Vector3(INF, INF, INF)
+	var hi := Vector3(-INF, -INF, -INF)
+	for p in polygons:
+		if bool(p["hidden"]) or (not part.is_empty() and String(p["part"]) != part):
+			continue
+		for k in p["corners"]:
+			lo = lo.min(points[k])
+			hi = hi.max(points[k])
+	if lo.x > hi.x:
+		return AABB()
+	return AABB(lo, hi - lo)

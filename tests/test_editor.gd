@@ -292,6 +292,24 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(pv._summary.text.contains("blink") and pv._summary.text.contains("deep"),
 		"and the summary says so")
 
+	# The low-poly model (the editor's move to low-poly, phase 1): the bare figure, eight bodies, two shadings.
+	pv._choose("model", "lowpoly")
+	t.check_equal(pv._body_pick.item_count, 8, "the low-poly model offers eight bodies, a short one for each sex")
+	pv._choose("body_id", "male_short")
+	var lp := pv.view.lowpoly_rig
+	t.check(pv.view.showing_lowpoly and lp.visible and not pv.view.rig.visible and lp.figure != null
+		and lp.figure.body_id == "male_short" and lp.figure.head_shape == "strong",
+		"choosing the low-poly model shows the low-poly figure, with the chosen body and head, in place of the voxel one")
+	t.check_equal(lp.polygon_count(), 434, "a bare low-poly figure is 434 polygons: 320 of the body's and 114 of the head's")
+	t.check((lp.figure.polygons[0]["colour"] as Color).is_equal_approx(Palette.skin_tones("deep")[1]),
+		"in the chosen skin tone")
+	pv._shading_pick.select(1)
+	pv._shading_pick.item_selected.emit(1)
+	t.check(not lp.flat_shading, "the shading switch reaches the figure")
+	pv._choose("model", "voxel")
+	t.check(not pv.view.showing_lowpoly and pv.view.rig.visible and pv.body_id == "male_average",
+		"back on the voxel model, which has no short body, the same sex's average is shown")
+
 
 # ------------------------------------------------------------------- undo --
 

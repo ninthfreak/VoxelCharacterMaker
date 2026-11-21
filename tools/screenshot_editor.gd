@@ -17,6 +17,8 @@ extends SceneTree
 ##   --name NAME       the file name, without .png
 ##   --select ID       select a wardrobe item (in its own section)
 ##   --scroll PIXELS   scroll the controls column down
+##   --preview K=V     set one of the Preview tab's choices before the shot (repeatable), e.g. model=lowpoly,
+##                     shading=smooth, body_id=female_short, head_shape=strong, pose=sitting, skin_tone=tan
 
 const SETTLE_FRAMES := 14
 const SIZE := Vector2i(1800, 1000)
@@ -31,6 +33,7 @@ var _section := ""
 var _name := ""
 var _select := ""
 var _scroll := 0
+var _preview: Dictionary = {}
 
 
 func _initialize() -> void:
@@ -54,6 +57,10 @@ func _initialize() -> void:
 			_select = String(args[i + 1])
 		elif String(args[i]) == "--scroll" and i + 1 < args.size():
 			_scroll = int(args[i + 1])
+		elif String(args[i]) == "--preview" and i + 1 < args.size():
+			var kv := String(args[i + 1]).split("=", true, 1)
+			if kv.size() == 2:
+				_preview[kv[0]] = kv[1]
 
 
 func _process(_delta: float) -> bool:
@@ -95,6 +102,16 @@ func _process(_delta: float) -> bool:
 					target.call("select", _select)
 		if not _section.is_empty() and ws.has_method("show_section"):
 			ws.call("show_section", _section)
+		if not _preview.is_empty():
+			var preview: Object = _editor.get("preview")
+			for key in _preview.keys():
+				preview.set(String(key), _preview[key])
+			if _preview.has("pose"):
+				(preview.get("view") as Object).call("set_pose", String(_preview["pose"]))
+			if _preview.has("shading"):
+				(preview.get("view") as Object).call("set_flat_shading", String(_preview["shading"]) == "flat")
+			preview.call("refresh")
+			preview.call("rebuild")
 		return false
 	if _frames == 8 and _scroll > 0 and _editor != null:
 		var current: Object = _editor.call("_current")
