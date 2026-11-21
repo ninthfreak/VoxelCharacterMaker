@@ -57,14 +57,17 @@ static func assemble(library: LowpolyLibrary, req: CharacterAssembler.Request) -
 ## Facial hair is added to `whiskers` as well: {parts, length, claim: [bulk, draw order, colour, item]}.
 static func _layers(req: CharacterAssembler.Request, warnings: Array[String], whiskers: Array) -> Array:
 	var out: Array = []
-	for entry in req.worn + req.features:
-		var e: Dictionary = entry
+	var features_from := req.worn.size()
+	var all: Array = req.worn + req.features
+	for index in all.size():
+		var e: Dictionary = all[index]
 		var id := String(e.get("item", ""))
 		var it := req.wardrobe.item(id)
 		if it == null:
 			warnings.append("%s: not in the wardrobe" % id)
 			continue
-		if not req.solo_item.is_empty() and it.id != req.solo_item:
+		# soloing an item hides the other clothes; hair and facial hair stay, as on the voxel figure
+		if index < features_from and not req.solo_item.is_empty() and it.id != req.solo_item:
 			continue
 		var way := String(e.get("colourway", ""))
 		if not it.has_colourway(way):
@@ -72,12 +75,12 @@ static func _layers(req: CharacterAssembler.Request, warnings: Array[String], wh
 		var colours := {}
 		for role in it.roles:
 			colours[role] = CharacterAssembler.role_tones(req, it.id, way, role)[1]
-		for index in it.specials.size():
-			var type := String((it.specials[index] as Dictionary).get("type", ""))
+		for at in it.specials.size():
+			var type := String((it.specials[at] as Dictionary).get("type", ""))
 			if type != "facial_hair":
 				warnings.append("%s: its %s is not on the low-poly figure yet" % [it.id, type.replace("_", " ")])
 				continue
-			var got := LowpolyFacialHair.read(it.special_params(index))
+			var got := LowpolyFacialHair.read(it.special_params(at))
 			for note in got[2]:
 				warnings.append("%s: %s" % [it.id, note])
 			var length := String(got[1])
@@ -94,8 +97,6 @@ static func _wears_hair(req: CharacterAssembler.Request) -> bool:
 		var e: Dictionary = entry
 		var it := req.wardrobe.item(String(e.get("item", "")))
 		if it == null or it.slot != "hair" or not it.roles.has("hair"):
-			continue
-		if not req.solo_item.is_empty() and it.id != req.solo_item:
 			continue
 		var way := String(e.get("colourway", ""))
 		if not it.has_colourway(way):
@@ -282,15 +283,20 @@ static func _moved(p: Dictionary, v: Vector3, normal: Vector3, bulk: float) -> V
 # ---------------------------------------------------------------------------------------------- the face ---
 
 ## The eyes with their lids and brows (when the wardrobe has an eye set: the one asked for, or its first) and the
-## mouth, as their own polygons on the head's flat patches: piece "face", following the head.
+## mouth, as their own polygons on the head's flat patches: piece "face", following the head. An eye the eye set has
+## not drawn at all is left out.
 static func _draw_face(f: LowpolyFigure, head: LowpolyLibrary.Head, raise: float, req: CharacterAssembler.Request,
 		skin: Color, whiskers: Array) -> void:
 	var face: Array = []
 	if req.wardrobe != null:
 		var eyes := req.wardrobe.eye_set(req.eye_set_id)
+		if eyes == null and not req.eye_set_id.is_empty():
+			f.warnings.append("eye set '%s': not in the wardrobe; the first one is drawn" % req.eye_set_id)
 		if eyes == null and not req.wardrobe.first_eye_set_id().is_empty():
 			eyes = req.wardrobe.eye_set(req.wardrobe.first_eye_set_id())
-		if eyes != null:
+		if eyes == null:
+			f.warnings.append("the wardrobe has no eye set: the face has no eyes")
+		else:
 			var way := req.eye_colourway if eyes.colourways.has(req.eye_colourway) else eyes.first_colourway()
 			var colours := {}
 			for role in LowpolyFace.UNLIT_ROLES:

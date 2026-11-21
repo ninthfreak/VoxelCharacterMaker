@@ -96,8 +96,7 @@ func _rebuild_lowpoly() -> void:
 	if figure == null:
 		editor.show_status_line(self, "", "no low-poly body '%s' or head '%s'" % [request.body_id, request.head_shape])
 		return
-	view.set_flat_shading(shading == "flat")
-	view.show_lowpoly(figure)
+	view.show_lowpoly(figure, shading == "flat")
 	var warning := ""
 	if not figure.warnings.is_empty():
 		warning = figure.warnings[0] + ("" if figure.warnings.size() == 1 else " (and %d more)" % (figure.warnings.size() - 1))

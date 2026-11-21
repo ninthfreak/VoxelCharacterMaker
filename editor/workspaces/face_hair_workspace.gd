@@ -156,23 +156,15 @@ func refresh() -> void:
 		_eyes_panel.refresh()
 
 
-func status_text(assembled: CharacterAssembler.Assembled) -> String:
-	var eyes := editor.wardrobe.eye_set(eye_set_id)
-	var bits: Array[String] = [super.status_text(assembled)]
-	bits.append("eyes: %s, wide open" % (eyes.name if eyes != null else "basic"))
-	bits.append("hair: %s" % (hair.item().name if hair.item() != null else "none"))
-	bits.append("facial hair: %s" % (facial_hair.item().name
-		if facial_hair.item() != null else "none"))
-	if face_accessory.item() != null:
-		bits.append("accessory: %s" % face_accessory.item().name)
-	return "   |   ".join(bits)
-
-
+## The tab's own part of the status line, on either model.
 func status_extra() -> String:
 	var eyes := editor.wardrobe.eye_set(eye_set_id)
-	return "   |   eyes: %s, wide open   |   hair: %s   |   facial hair: %s" % [eyes.name if eyes != null else "basic",
+	var out := "   |   eyes: %s, wide open   |   hair: %s   |   facial hair: %s" % [eyes.name if eyes != null else "basic",
 		hair.item().name if hair.item() != null else "none",
 		facial_hair.item().name if facial_hair.item() != null else "none"]
+	if face_accessory.item() != null:
+		out += "   |   accessory: %s" % face_accessory.item().name
+	return out
 
 
 func _on_region_picked(region: String) -> void:

@@ -14,8 +14,9 @@ placed after everything else that is worn. A skin tone, a face (faces.py), hair,
 (facial_hair.py) make the figure a character. Not done here: rule 7 (soft or hard edge style), and the other special
 shapes (hood, drawn shapes).
 
-The project keeps garment logic in exactly one place, and that place is core/ (GDScript), which today only knows
-voxels. When the Godot side builds polygons these rules move there, and this file goes or shrinks to a cross-check.
+The game keeps its garment logic in core/ (GDScript). The rules here are being moved there a phase at a time
+(core/lowpoly/, SPEC.md section 0); what has moved is checked against this file (expected.py), which then stays as the
+cross-check and the place new rules are tried first.
 """
 import json
 import numpy as np

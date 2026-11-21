@@ -64,7 +64,7 @@ forms that keep what section 4 says every head shares (size, eye box, ears). The
 them: eye sets and their colourways, the ten lid states, lids, brows and the six skin tones. Three of section 7.4's
 special shapes are rebuilt (straps, skirt, cape), so all seven starter outfits dress both bodies, and facial hair is
 rebuilt for the new face (four parts and one length); the hood, drawn shapes (the long beard among them) and hair are
-not. All of that is built in Python so far. The Godot side is moving over in five phases (owner's go-ahead,
+not. All of that is built in Python first; the Godot side is moving over in five phases (owner's go-ahead,
 2026-11): 1, bare bodies and heads in the game, bending, shown in the editor (done); 2, ordinary clothing (done); 3, faces
 and facial hair (done); 4, straps, skirts and capes; 5, the editor switched over and the voxel code removed. Until then
 the voxel system keeps working beside it. Since phase 3 the facial hair settings in the wardrobe file are the low-poly
@@ -134,9 +134,9 @@ hair. What is different:
   left round the mouth. A moustache that is more than stubble hangs over the mouth. With hair on, sideburns run up
   into the hair; on a bald head they stop at the top of the ear.
 - **Section 5.1 turned down** the goatee, the moustache and a beard with volume for the voxel face; all three are
-  back, by the owner's design. The game's three items are read as parts and a length (stubble: every part at
-  stubble; chinstrap: all but the moustache, medium; full beard: every part, medium). The parts and the length are
-  not in the game's wardrobe file, its generator or the editor yet.
+  back, by the owner's design. The parts and the length are the game's own facial hair settings (wardrobe file and
+  editor); its three items, once a style each, are now parts and a length (stubble: every part at stubble;
+  chinstrap: all but the moustache, medium; full beard: every part, medium).
 - Ears stay skin under hair.
 
 **Three places where a region now follows the body instead of a level line** (calls made while cutting the bodies;

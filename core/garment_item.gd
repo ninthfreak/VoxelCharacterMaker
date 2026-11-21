@@ -392,6 +392,9 @@ static func from_json(p_id: String, data: Dictionary, p_slot: String = CLOTHES) 
 			params = FacialHairGenerator.migrate(params)       # saved before the four parts and the length
 		item.specials.append({"type": String(e.get("type", "")), "params": params})
 
+	if item.special_types().has("facial_hair"):
+		FacialHairGenerator.complete_roles(item)
+
 	# Version 1 files: an item was either parametric or special, never both.
 	if String(data.get("kind", "")) == "special" and data.has("special_type"):
 		item.specials.append({

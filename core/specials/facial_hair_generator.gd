@@ -53,23 +53,45 @@ static func param_spec() -> Array:
 	]
 
 
-## Settings as parts and a length, from a file saved with the old "style" setting (or as they are).
+## Settings as parts and a length, from a file saved with the old "style" setting (or as they are). A style this
+## does not know is left as it is, so that the figure can say so and a save does not lose it.
 static func migrate(params: Dictionary) -> Dictionary:
-	if not params.has("style"):
+	if not params.has("style") or not FROM_STYLE.has(String(params["style"])):
 		return params
 	var style := String(params["style"])
 	var out := params.duplicate()
 	out.erase("style")
-	if FROM_STYLE.has(style):
-		var parts: Array = FROM_STYLE[style][0]
-		for part in PARTS:
-			out[part] = parts.has(part)
-		out["length"] = FROM_STYLE[style][1]
+	var parts: Array = FROM_STYLE[style][0]
+	for part in PARTS:
+		out[part] = parts.has(part)
+	out["length"] = FROM_STYLE[style][1]
 	return out
 
 
-## The voxel style nearest to a set of parts and a length.
+## The two colours facial hair needs, whatever an item was saved with: before the four parts and the length, a
+## stubble item had only "stubble" and a chinstrap only "hair". Each colourway gets the character's own for a role
+## it lacks.
+static func complete_roles(item: GarmentItem) -> void:
+	for role in [ROLE_HAIR, ROLE_STUBBLE]:
+		if not item.roles.has(role):
+			item.roles.append(role)
+		for way in item.colourways.keys():
+			var set_for: Dictionary = item.colourways[way]
+			if not set_for.has(role):
+				set_for[role] = Palette.REF_HAIR if role == ROLE_HAIR else Palette.REF_STUBBLE
+
+
+## The voxel style nearest to a set of parts and a length: "" for no part at all (nothing is drawn), stubble at
+## stubble length, the full beard for a moustache with cheeks (or a moustache alone: the voxel face has no moustache,
+## and the full beard is the one that covers the lip), the chinstrap for the rest.
 static func voxel_style(params: Dictionary) -> String:
+	if params.has("style"):
+		return ""                           # a style this does not know (migrate keeps it): nothing is drawn
+	var any := false
+	for part in PARTS:
+		any = any or bool(params.get(part, false))
+	if not any:
+		return ""
 	if String(params.get("length", "stubble")) == "stubble":
 		return "stubble"
 	if bool(params.get("moustache", false)) and bool(params.get("cheeks", false)):
@@ -105,6 +127,8 @@ static func generate(ctx: SpecialItem.Context, params: Dictionary) -> SpecialIte
 		out.warnings.append("no head to grow facial hair on")
 		return out
 	var style := voxel_style(params)
+	if style.is_empty():
+		return out                          # every part switched off: clean-shaven
 	if not (style in STYLES):
 		out.warnings.append("unknown facial hair style '%s'" % style)
 		return out

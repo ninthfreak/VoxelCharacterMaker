@@ -338,8 +338,9 @@ All of these are the owner's to settle. Recommendations are recommendations.
      beard can have thickness;
    - the long beard is a drawn shape and is still not rebuilt.
 8. **The mouth** is a first pass for the owner to react to: its size, its four shapes, its colour, and whether a
-   face has one at all. Still to settle with it: where mouth shapes are kept (they are a small table in `faces.py`
-   now; the game has no mouths), and how the game pairs a mouth with a lid state.
+   face has one at all. The game keeps the mouths in a small table next to the lid states (`core/mouths.gd`; `faces.py`
+   draws from the same numbers, and `check.py` holds the two equal). Still to settle: how a mouth pairs with a lid
+   state (for now they are chosen apart).
    Other calls made in the faces, each easy to change:
    - "vertically centred" was taken as: the middle of the eye at the middle of the flat part of the face. Higher
      than that, the eyebrows run out of room under the hairline;
@@ -351,9 +352,10 @@ All of these are the owner's to settle. Recommendations are recommendations.
    - a chinstrap's sideburn is the one polygon of each ring just in front of the ear (the voxel one was a strip
      three deep);
    - ears stay skin under hair. The crop's regions include the ears' polygons; coloured as hair they read as lumps;
-   - the face's polygons lie 0.04 units off the head, not cut into it. In Godot they should either be cut into the
-     head's polygons or be drawn with a depth offset, so that they never flicker against it. With this many small
-     polygons, painting the face with a small texture or a shader instead is worth weighing there.
+   - the face's polygons lie 0.04 units off the head (1.7 mm), not cut into it. Godot draws them that way too: at the
+     editor's distances the depth buffer tells 0.04 apart with room to spare, so they do not flicker. At a long
+     game-camera distance that is worth checking again; cutting them into the head, a depth offset, or painting the
+     face with a small texture or a shader are the ways out.
 9. **Calls made in the special shapes** that differ from the voxel ones; each is easy to change:
    - a skirt hangs from the waist line, not from below the hips (a lap needs the cloth to lift off the hips);
    - "four panels" is one cloth all round; "two panels" is a front cloth and a back cloth with the sides open (the
@@ -366,7 +368,11 @@ All of these are the owner's to settle. Recommendations are recommendations.
 
 Known weak spots of the clothing built so far: hands hang close to the hips, so a skirt with much flare meets them;
 a bulky boot touches a shin-length hem and pushes it out a little; the wardrobe's shirt and trousers leave the waist
-row bare between them (the voxel figure has the same strip of skin).
+row bare between them (the voxel figure has the same strip of skin). Where three different amounts of bulk meet at one
+corner (hair, a grown-out beard and bare skin at the top of a sideburn; two beards of different lengths), the three
+hems there leave a small open triangle between them: each hem steps between two of the three, and nothing closes the
+corner. A triangle on the three lifted corners would close it; that is a change to the hem rule here and in Godot
+alike (found in the review of phases 2 and 3, `docs/NOTES.md` 4w).
 
 Known weak spots of the faces built so far: the mouth cannot go lower than it is, because the flat part of the face
 ends a quarter of a unit under it and the jaw slopes away there; on the deepest skin tone the mouth and the default

@@ -49,17 +49,20 @@ MOUSTACHE = [(0.0, 29.66, 30.42), (1.0, 29.62, 30.28), (2.1, 29.50, 29.86)]   # 
 
 
 def read(params):
-    """An item's facial hair settings, as (parts, length, notes). Takes the four parts' toggles and a length, or the
-    game's own "style" setting."""
-    params = params or {}
-    if any(p in params for p in PARTS) or "length" in params:
-        parts = tuple(p for p in PARTS if params.get(p)); length = str(params.get("length", "short"))
-    else:
-        style = str(params.get("style", "stubble"))
-        if style not in GAME_STYLES: return (), "short", [f"unknown facial hair style '{style}'"]
+    """An item's facial hair settings, as (parts, length, notes). Settings it does not have are their defaults (the
+    game's, specials.DEFAULTS), as the game's editor shows them; the game's old "style" setting is read as parts and a
+    length, and a style that is not known gives no facial hair, and a note."""
+    import specials
+    params = dict(params or {})
+    if "style" in params:
+        style = str(params.pop("style"))
+        if style not in GAME_STYLES: return (), "stubble", [f"unknown facial hair style '{style}'"]
         parts, length = GAME_STYLES[style]
-    if length not in LENGTHS: return (), "short", [f"unknown facial hair length '{length}'"]
-    return tuple(parts), length, []
+        params.update({p: p in parts for p in PARTS}, length=length)
+    params = specials.settings("facial_hair", params)
+    parts = tuple(p for p in PARTS if params[p]); length = str(params["length"])
+    if length not in LENGTHS: return (), "stubble", [f"unknown facial hair length '{length}'"]
+    return parts, length, []
 
 
 def item(parts, length):

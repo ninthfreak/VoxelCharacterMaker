@@ -180,8 +180,8 @@ func pick(origin: Vector3, direction: Vector3) -> int:
 	var hit := -1
 	for i in figure.polygons.size():
 		var p: Dictionary = figure.polygons[i]
-		if bool(p["hidden"]):
-			continue
+		if bool(p["hidden"]) or String(p["piece"]) == LowpolyAssembler.FACE_PIECE:
+			continue                         # the face lies just off the head: a click on it picks the head under it
 		var corners: PackedInt32Array = p["corners"]
 		for j in range(1, corners.size() - 1):
 			var t := _ray_triangle(origin, direction, at[corners[0]], at[corners[j]], at[corners[j + 1]])

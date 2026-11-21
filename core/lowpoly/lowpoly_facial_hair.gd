@@ -39,29 +39,21 @@ const GOATEE_HALF := [2.0, 1.5]     ## half the goatee's width: at the top of th
 const MOUSTACHE := [[0.0, 29.66, 30.42], [1.0, 29.62, 30.28], [2.1, 29.50, 29.86]]
 
 
-## An item's facial hair settings: [parts (Array[String]), length, notes]. Takes the four parts' toggles and a
-## length, or the old "style" setting.
+## An item's facial hair settings: [parts (Array[String]), length, notes]. Settings it does not have are their
+## defaults (SpecialItem.param_spec), as the editor shows them; one saved with the old "style" is read as parts and a
+## length, and a style that is not known gives no facial hair, and a note.
 static func read(params: Dictionary) -> Array:
 	var p := FacialHairGenerator.migrate(params)
-	var given := p.has("length")
-	for part in FacialHairGenerator.PARTS:
-		given = given or p.has(part)
+	if p.has("style"):
+		return [[] as Array[String], "stubble", ["unknown facial hair style '%s'" % String(p["style"])]]
+	p = SpecialItem.with_defaults("facial_hair", p)
 	var parts: Array[String] = []
-	var length := "stubble"
-	if given:
-		for part in FacialHairGenerator.PARTS:
-			if bool(p.get(part, false)):
-				parts.append(part)
-		length = String(p.get("length", "short"))
-	else:
-		var style := String(p.get("style", "stubble"))
-		if not FacialHairGenerator.FROM_STYLE.has(style):
-			return [[] as Array[String], "short", ["unknown facial hair style '%s'" % style]]
-		for part in FacialHairGenerator.FROM_STYLE[style][0]:
-			parts.append(String(part))
-		length = String(FacialHairGenerator.FROM_STYLE[style][1])
+	for part in FacialHairGenerator.PARTS:
+		if bool(p[part]):
+			parts.append(part)
+	var length := String(p["length"])
 	if not STEPS.has(length):
-		return [[] as Array[String], "short", ["unknown facial hair length '%s'" % length]]
+		return [[] as Array[String], "stubble", ["unknown facial hair length '%s'" % length]]
 	return [parts, length, []]
 
 

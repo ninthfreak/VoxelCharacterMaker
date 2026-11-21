@@ -307,11 +307,14 @@ func _live_worn() -> Array:
 
 func _refresh_summary() -> void:
 	var w := editor.wardrobe
-	var body := editor.library.body(body_id)
 	var eyes := w.eye_set(eye_set_id)
 	var lines: Array[String] = []
-	lines.append("Body: %s, %s head, %s skin" % [
-		body.display_name() if body != null else body_id, head_shape, skin_tone])
+	var body_name := body_id
+	if model == "lowpoly" and editor.lowpoly != null and editor.lowpoly.body(body_id) != null:
+		body_name = editor.lowpoly.body(body_id).display_name()
+	elif editor.library.body(body_id) != null:
+		body_name = editor.library.body(body_id).display_name()
+	lines.append("Body: %s, %s head, %s skin" % [body_name, head_shape, skin_tone])
 	lines.append("Eyelids: %s; brows %s" % [EyeLids.display_name(lids),
 		"follow the hair" if brow_hair.is_empty() else "like %s hair" % brow_hair.trim_prefix("hair_")])
 	lines.append("Eyes: %s, %s" % [eyes.name if eyes != null else "basic",

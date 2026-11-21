@@ -263,9 +263,11 @@ static func _dressing_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wa
 	req.solo_item = "boots"
 	f = LowpolyAssembler.assemble(library, req)
 	var others := false
+	var hair_kept := false
 	for p in f.polygons:
-		others = others or (not String(p["by"]).is_empty() and String(p["by"]) != "boots")
-	t.check(not others, "with one item soloed, only that item is on the figure")
+		others = others or (not String(p["by"]).is_empty() and String(p["by"]) not in ["boots", "short_crop"])
+		hair_kept = hair_kept or String(p["by"]) == "short_crop"
+	t.check(not others and hair_kept, "with one item soloed, only that item of the clothes is on the figure; hair stays, as on the voxel figure")
 
 
 ## A figure's polygons whose piece is one of `pieces` (or, with `all_but_face`, every polygon but the face's).
@@ -409,3 +411,40 @@ static func _face_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wardro
 	for warning in f.warnings:
 		warned = warned or warning.contains("facial hair")
 	t.check(not warned, "facial hair is built on the low-poly figure: no warning", ", ".join(f.warnings))
+
+	# Settings: what an item does not set is the default, as the editor shows it; an unknown old style draws nothing
+	# and says so; an item saved before the four parts gets both colour roles.
+	var all_parts := LowpolyFacialHair.read({"length": "medium"})
+	t.check((all_parts[0] as Array).size() == 4 and String(all_parts[1]) == "medium",
+		"facial hair settings an item does not have are their defaults (every part on), as the editor shows them")
+	var bogus := LowpolyFacialHair.read({"style": "bogus"})
+	t.check((bogus[0] as Array).is_empty() and not (bogus[2] as Array).is_empty(), "an unknown old style draws nothing, and says so")
+	var old := GarmentItem.from_json("old_stubble", {"category": "facial_hair", "roles": ["stubble"],
+		"colourways": {"default": {"stubble": "@stubble"}}, "specials": [{"type": "facial_hair", "params": {"style": "stubble"}}]},
+		"facial_hair")
+	t.check(old.roles.has("hair") and old.roles.has("stubble") and String(old.colourways["default"].get("hair", "")) == "@hair"
+		and bool(old.special_params(0)["cheeks"]) and String(old.special_params(0)["length"]) == "stubble",
+		"an item saved with the old style gets its parts, its length and both colour roles")
+	var kept := GarmentItem.from_json("odd", {"category": "facial_hair", "specials": [{"type": "facial_hair",
+		"params": {"style": "bogus"}}]}, "facial_hair")
+	t.check(String(kept.special_params(0).get("style", "")) == "bogus" and FacialHairGenerator.voxel_style(kept.special_params(0)).is_empty(),
+		"an unknown old style is kept, so a save does not lose it")
+
+	# An eye erased in the grid: that eye is left out, the figure stays its own size.
+	var erased := Wardrobe.from_json(wardrobe.to_json())
+	var eyes := erased.eye_set(erased.first_eye_set_id())
+	for cell in eyes.eye_cells(EyeSet.EYE_RIGHT).keys():
+		eyes.set_cell(EyeSet.EYE_RIGHT, (cell as Vector2i).x, (cell as Vector2i).y, EyeSet.ROLE_SKIN)
+	req.wardrobe = erased
+	req.features = []
+	req.eye_set_id = eyes.id
+	var one_eye := LowpolyAssembler.assemble(library, req)
+	t.check(one_eye.bounds().size.length() < 60.0 and not _polygons_of(one_eye, [LowpolyAssembler.FACE_PIECE]).is_empty(),
+		"an eye with nothing drawn is left out; the other eye and the face are drawn, the figure keeps its size",
+		"bounds %s" % one_eye.bounds())
+	req.wardrobe = Wardrobe.new()
+	var no_set := LowpolyAssembler.assemble(library, req)
+	var said := false
+	for warning in no_set.warnings:
+		said = said or warning.contains("no eye set")
+	t.check(said, "a wardrobe with no eye set: the figure says its face has no eyes")

@@ -292,6 +292,7 @@ def eyes(tables, wardrobe, eye_set="standard", colourway="default", lids=None, s
     flat = set(t["flat_roles"])
     out = []
     for i, eye in enumerate(EYES):
+        if not drawing_of(es, eye): continue                        # nothing drawn for this eye (erased in the game's grid)
         state = t["states"][lids][i] if lids else [0, 0, 0, 0, 0]
         pieces = drawn(shape_of(drawing_of(es, eye)), state, eye, w, h)
         if lids != "": pieces = with_brow(pieces, brow_of(state, w, h))

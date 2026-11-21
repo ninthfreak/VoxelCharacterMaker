@@ -1153,17 +1153,51 @@ keeps working until then. Phase 1 is done.
   beard grown long, a moustache and goatee, stubble, sideburns into the hair). Godot makes the same head and face
   polygons in the same order, colours and items, every corner within 0.001 units. Broken on purpose (the lash line
   0.005 thicker, the goatee's floor 0.08 higher), the check fails on all six.
-- **The wardrobe file changed** (as planned with the owner). A facial hair item's settings are now the four parts and a
-  length; the old `style` setting is read as parts and a length when a file is opened, and the three starter items are
-  stored that way. The voxel figure draws the nearest of its three styles: stubble for any stubble, the full beard for
-  a moustache with cheeks, the chinstrap for the rest. In the editor the facial hair item shows four switches and a
-  length.
+- **The wardrobe file changed** (as planned with the owner). A facial hair item's settings are now the four parts and
+  a length; the old `style` setting is read as parts and a length when a file is opened, and the three starter items
+  are stored that way. The voxel figure draws the nearest of its three styles: nothing with every part off, stubble
+  for any stubble, the full beard for a moustache with cheeks or a moustache alone, the chinstrap for the rest. In the
+  editor the facial hair item shows four switches and a length.
 - **Mouths** are a small table next to the lid states (`core/mouths.gd`): neutral, smile, frown, open, and none. The
   Preview tab has a Mouth choice; the voxel faces have no mouth, so it shows on the low-poly model only. How mouths pair
   with lid states stays open (owner).
 - **In the editor:** the Face & Hair tab has the Model switch too. On the low-poly model the Clothes tab shows the first
   eye set's face with its eyelids at rest. Building a dressed figure with a full beard takes about 35 ms.
 - **Tests:** 1737 Godot checks; 229 Python checks (among them, the game's mouth table is the one drawn).
+
+## 4w. Review of phases 2 and 3 (owner's request)
+
+An independent read of the Godot port (a reviewer that had not written it) and a check of the documents. The port
+itself held: the reviewer made eleven more characters in Python (the four lid states and "as drawn" the tests did not
+use, the feminine short with a long beard, two facial hair items at once in either order, a moustache alone, sideburns
+alone, mutton chops, a scarf with head and neck bulk, a recolour mask) and Godot matched every one within 0.0001.
+Found at the edges, and fixed (difficulty low; confidence high):
+
+- **An eye erased in the grid made polygons a billion units across**, and Fit then zoomed out until the figure
+  vanished. An eye with nothing drawn is now left out (Godot and Python alike).
+- **Wardrobe files saved before phase 3** had a stubble item with only the stubble colour and a chinstrap with only
+  the hair colour; changing their length drew magenta. Reading such an item now gives it both roles, each following
+  the character (`@hair`, `@stubble`).
+- **Missing or unknown facial hair settings read three ways.** Now one: a setting an item does not have is its default
+  (every part on, stubble length), as the editor's switches show it, on both figures and in Python; an old style the
+  game does not know is kept in the file and draws nothing, with a warning (it used to become stubble, silently, and
+  be lost on the next save). With every part off, the voxel figure draws nothing too.
+- **Solo:** soloing an item hid the hair and the beard on the low-poly figure only. Now, as on the voxel figure, it
+  hides the other clothes and keeps the features.
+- **Eye sets:** an eye set the wardrobe does not have, or a wardrobe with none, now says so in the figure's warnings
+  instead of drawing a face without eyes in silence.
+- **Editor:** the Face & Hair status line listed the eyes, hair and facial hair twice on the voxel model; the Preview
+  summary named a short body by its id; a click on the eyes or mouth picked nothing (it now picks the head under
+  them); changing the shading made the old figure's mesh again before the new one was built.
+- **Documents:** SPEC still said facial hair settings were not in the game and that everything low-poly was Python
+  only; the README said the game had no mouths; `dress.py` still described core/ as voxel-only.
+
+Not fixed, for the owner: where three different amounts of bulk meet at one corner, the hems leave a small open
+triangle (`lowpoly/README.md`, known weak spots of the clothing). It is in the Python rules too, so it is a rule to
+change in both, not a slip in the port. Recommendation: close it with a triangle on the three lifted corners; difficulty
+low to medium, confidence medium (the order of the corners round a corner where four levels meet needs care).
+
+- **Tests:** 1743 Godot checks.
 
 ## 5. Still open, for the owner
 

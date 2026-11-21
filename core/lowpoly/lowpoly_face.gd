@@ -67,6 +67,8 @@ static func eyes(head: LowpolyLibrary.Head, eye_set: EyeSet, colours: Dictionary
 	role_colour[ROLE_BROW] = brow
 	var out: Array = []
 	for eye in [EyeSet.EYE_LEFT, EyeSet.EYE_RIGHT]:
+		if eye_set.eye_cells(eye).is_empty():
+			continue                         # nothing drawn for this eye: nothing to show (an eye erased in the grid)
 		var state: Array = [0, 0, 0, 0, 0] if lids == EyeLids.OFF else EyeLids.eye_state(lids, eye)
 		var pieces := drawn(shape_of(eye_set.eye_cells(eye)), state, eye, w, h)
 		if lids != EyeLids.OFF:

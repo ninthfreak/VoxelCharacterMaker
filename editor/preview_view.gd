@@ -121,11 +121,13 @@ func allow_picking(on: bool) -> void:
 
 
 ## Show a low-poly figure in place of the voxel one.
-func show_lowpoly(figure: LowpolyFigure) -> void:
+func show_lowpoly(figure: LowpolyFigure, flat: bool) -> void:
 	var first := not showing_lowpoly or lowpoly_rig.figure == null
 	showing_lowpoly = true
 	rig.visible = false
 	lowpoly_rig.visible = true
+	lowpoly_rig.figure = null           # so that the shading changes without making the old figure's mesh again
+	lowpoly_rig.flat_shading = flat
 	lowpoly_rig.build(figure)
 	lowpoly_rig.apply_pose(pose_name)
 	if first:
