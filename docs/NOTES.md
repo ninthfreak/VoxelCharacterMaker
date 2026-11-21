@@ -1199,6 +1199,35 @@ low to medium, confidence medium (the order of the corners round a corner where 
 
 - **Tests:** 1743 Godot checks.
 
+## 4x. The editor moves to low-poly: phase 4, straps, skirts and capes
+
+- **Straps, skirt and cape in GDScript** (`core/lowpoly/lowpoly_shapes.gd`; difficulty medium-high; confidence high).
+  As `lowpoly/specials.py` builds them, with every setting the voxel ones have, measured from the dressed figure. A
+  skirt's waistband covers the waist as a garment would.
+- **Hanging cloth in GDScript** (`core/lowpoly/lowpoly_cloth.gd`, `lowpoly_pose.gd`). Skirts and capes are kept on the
+  figure as columns of cloth and laid afresh whenever the pose changes, by the taut-line rule of `lowpoly/hang.py`,
+  over the figure posed in full precision. The rig draws them as a second mesh the skeleton does not move. A click on
+  hanging cloth picks nothing (it is not a region). Laying one skirt takes about 12 ms; building a dressed figure
+  about 50 ms.
+- **Full precision everywhere now** (`Vec64`): dressing, the dressed surface the shapes measure, and posing for cloth
+  all work in doubles; the figure keeps its corners as doubles (`points64`) beside the single-precision ones it draws.
+- **Found and fixed in the Python too: two ties the cloth rule left to rounding.** When a column has rows to spare it
+  halves its longest stretch, and next time round the two halves are exactly equal; when it has too many it drops
+  its slightest bend, and points in a straight run tie at nothing. Which one was taken depended on the last binary
+  digit, and Python and Godot round differently: their cloth differed by several units in ten of the poses. Now both
+  take the first of any that tie (to a billionth). The cloth looks the same; it no longer depends on rounding.
+- **Checked against the Python, piece by piece.** `lowpoly/expected.py` now dresses with every built shape: the
+  starter outfits on the feminine average (in all six test poses), the everyday clothes and the dress on the
+  masculine short, the overalls on the masculine heavy, and test items for the settings the starter ones do not use
+  (two panels, each opening on either side, slant, flare, knee length, no waistband or hem trim, narrow and wide
+  capes, wide straps) on the heavy, slim and short builds (standing, sitting, mid stride). Every polygon and every
+  laid piece of cloth matches within 0.001. Broken on purpose (the cloth's clearance 0.005 more, the straps 0.005
+  prouder), 39 of the checks fail.
+- **In the editor:** the tabs' notes say what the low-poly model still lacks: the hood and drawn shapes (the long
+  beard, the ponytail's tail). The status line counts the cloth. `tools/screenshot_editor.gd` takes `--view` (front,
+  back, ...).
+- **Tests:** 1789 Godot checks; the Python check passes with the tie rule.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

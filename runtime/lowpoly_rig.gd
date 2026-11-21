@@ -11,6 +11,9 @@ extends Node3D
 ##
 ## The rig's origin is at the figure's feet on the ground, as CharacterRig's is.
 ##
+## Hanging cloth (skirts, capes: LowpolyCloth) is not part of the skin. It is laid afresh over the posed figure every
+## time the pose changes, in full precision, and drawn as a second mesh that the skeleton does not move.
+##
 ## Shading: flat (every polygon one shade, the polygons show) or smooth (shade blended across them from corner to
 ## corner, the way 1990s 3D games lit their models). Which one the game uses is the owner's call (lowpoly/README.md,
 ## "Not decided yet"), so both are here. The light is the review sheets' even studio light, fixed to the camera, so
@@ -47,6 +50,10 @@ void fragment() {
 var figure: LowpolyFigure = null
 var skeleton: Skeleton3D = null
 var mesh_instance: MeshInstance3D = null
+## the hanging cloth as laid in the current pose (null when the figure has none)
+var cloth_instance: MeshInstance3D = null
+## that cloth: [[polygon (flat points, asset units, posed), colour], ...]
+var laid_cloth: Array = []
 var flat_shading := true: set = set_flat_shading
 
 var _material: ShaderMaterial = null
@@ -68,6 +75,7 @@ func set_flat_shading(on: bool) -> void:
 	flat_shading = on
 	if figure != null and mesh_instance != null:
 		mesh_instance.mesh = _make_mesh()
+		_show_cloth()
 
 
 func material() -> ShaderMaterial:
@@ -112,6 +120,8 @@ func _clear() -> void:
 		child.free()
 	skeleton = null
 	mesh_instance = null
+	cloth_instance = null
+	laid_cloth = []
 	_bone.clear()
 
 
@@ -131,6 +141,69 @@ func apply_pose_values(pose: Dictionary) -> void:
 		var i: int = _bone[part]
 		skeleton.set_bone_pose_position(i, _rest_local(part).origin)
 		skeleton.set_bone_pose_rotation(i, _turn(part, _pose).get_rotation_quaternion())
+	_lay_cloth()
+
+
+## Lay the figure's hanging cloth for the current pose and show it.
+func _lay_cloth() -> void:
+	laid_cloth = []
+	if figure != null:
+		for pair in LowpolyCloth.lay_all(figure, _pose):
+			var cloth: LowpolyCloth = pair[0]
+			for made in pair[1]:
+				laid_cloth.append([made[0], cloth.colours.get(String(made[1]), Color.MAGENTA)])
+	_show_cloth()
+
+
+## The laid cloth as a plain mesh in the rig's own space: flat shading gives each piece its own normal; smooth
+## shading shares a normal wherever pieces meet.
+func _show_cloth() -> void:
+	if laid_cloth.is_empty():
+		if cloth_instance != null:
+			cloth_instance.visible = false
+		return
+	if cloth_instance == null:
+		cloth_instance = MeshInstance3D.new()
+		cloth_instance.name = "Cloth"
+		cloth_instance.material_override = _material
+		add_child(cloth_instance)
+	cloth_instance.visible = true
+	var sums := {}
+	var own: Array = []
+	for piece in laid_cloth:
+		var pts: PackedFloat64Array = piece[0]
+		var n := PackedFloat64Array([0.0, 0.0, 0.0])
+		for i in pts.size() / 3:
+			n = Vec64.add(n, Vec64.cross(Vec64.at(pts, i), Vec64.at(pts, (i + 1) % (pts.size() / 3))))
+		own.append(n)
+		for i in pts.size() / 3:
+			var key := Vector3i(roundi(pts[3 * i] * 1e4), roundi(pts[3 * i + 1] * 1e4), roundi(pts[3 * i + 2] * 1e4))
+			sums[key] = Vec64.add(sums.get(key, PackedFloat64Array([0.0, 0.0, 0.0])), n)
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var colours := PackedColorArray()
+	var indices := PackedInt32Array()
+	for j in laid_cloth.size():
+		var pts: PackedFloat64Array = laid_cloth[j][0]
+		var base := verts.size()
+		var count := pts.size() / 3
+		for i in count:
+			var key := Vector3i(roundi(pts[3 * i] * 1e4), roundi(pts[3 * i + 1] * 1e4), roundi(pts[3 * i + 2] * 1e4))
+			var n: PackedFloat64Array = own[j] if flat_shading else sums[key]
+			verts.push_back(VoxelAxes.point_to_godot(Vec64.to_vector3(Vec64.at(pts, i))))
+			normals.push_back(VoxelAxes.direction_to_godot(Vec64.to_vector3(n)).normalized())
+			colours.push_back(laid_cloth[j][1])
+		for i in range(1, count - 1):                       # Godot's front faces are clockwise: each fan triangle reversed
+			indices.append_array(PackedInt32Array([base, base + i + 1, base + i]))
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_COLOR] = colours
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	cloth_instance.mesh = mesh
 
 
 func current_pose() -> Dictionary:
@@ -188,6 +261,15 @@ func pick(origin: Vector3, direction: Vector3) -> int:
 			if t > 0.0 and t < best:
 				best = t
 				hit = i
+	for piece in laid_cloth:                                 # hanging cloth in front of what was hit: nothing is picked
+		var pts: PackedFloat64Array = piece[0]
+		var c := PackedVector3Array()
+		for k in pts.size() / 3:
+			c.push_back(VoxelAxes.point_to_godot(Vec64.to_vector3(Vec64.at(pts, k))))
+		for j in range(1, c.size() - 1):
+			var t := _ray_triangle(origin, direction, c[0], c[j], c[j + 1])
+			if t > 0.0 and t < best:
+				return -1
 	return hit
 
 

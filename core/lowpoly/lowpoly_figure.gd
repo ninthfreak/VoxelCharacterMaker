@@ -14,6 +14,9 @@ var body_id := ""
 var head_shape := ""
 ## every corner, in the asset files' units
 var points := PackedVector3Array()
+## the same corners in full precision (x, y, z of each in turn): what dressing, special shapes and cloth work from,
+## so that they agree with lowpoly/ (Vec64). `points` is these rounded to single precision, for drawing.
+var points64 := PackedFloat64Array()
 ## per corner: {part: share}
 var weights: Array = []
 ## {corners: PackedInt32Array (into points), colour: Color, region: String, part: String, piece: String,
@@ -21,8 +24,11 @@ var weights: Array = []
 ##  "crown", "base" or "ear"; "" elsewhere)}; a hem also has hem: true. The face's polygons are piece "face",
 ##  with role (white, pupil, line, lid, brow or mouth) and unlit: true for those drawn in their own colour.
 var polygons: Array = []
-## part -> {"parent": String, "pivot": Vector3}, every part after its parent (LowpolyLibrary.PARTS)
+## part -> {"parent": String, "pivot": Vector3, "pivot64": PackedFloat64Array}, every part after its parent
+## (LowpolyLibrary.PARTS)
 var parts: Dictionary = {}
+## hanging cloth (skirts, capes): laid afresh for every pose (LowpolyCloth.lay_all), in draw order
+var cloths: Array = []
 var warnings: Array[String] = []
 
 
@@ -37,6 +43,7 @@ static func make(library: LowpolyLibrary, p_body_id: String, p_head_shape: Strin
 	f.head_shape = p_head_shape
 	f.parts = body.parts.duplicate(true)
 	f.points.append_array(body.points)
+	f.points64.append_array(body.points64)
 	for w in body.shares:
 		f.weights.append((w as Dictionary).duplicate())
 	for p in body.polygons:
@@ -45,10 +52,9 @@ static func make(library: LowpolyLibrary, p_body_id: String, p_head_shape: Strin
 			"part": poly["part"], "piece": poly["piece"], "hidden": poly["hidden"], "by": "", "at": ""})
 	# The head library's heads stand at the average body's heights; a short body's neck is lower.
 	var first := f.points.size()
-	var raise := Vector3(0.0, 0.0, body.head_raise)
-	for v in head.points:
-		f.points.push_back(v + raise)
-		f.weights.append({"head": 1.0})
+	for k in head.points.size():
+		f.add_point(Vec64.v(head.points64[3 * k], head.points64[3 * k + 1], head.points64[3 * k + 2] + body.head_raise),
+			{"head": 1.0})
 	for p in head.polygons:
 		var poly: Dictionary = p
 		var corners := PackedInt32Array()
@@ -58,6 +64,19 @@ static func make(library: LowpolyLibrary, p_body_id: String, p_head_shape: Strin
 		f.polygons.append({"corners": corners, "colour": skin, "region": poly["region"], "part": "head",
 			"piece": "head", "hidden": false, "by": "", "at": String(at[0]) if not at.is_empty() else ""})
 	return f
+
+
+## Add a corner (full precision) that follows these parts. Returns its number.
+func add_point(p: PackedFloat64Array, shares: Dictionary) -> int:
+	points.push_back(Vector3(p[0], p[1], p[2]))
+	points64.append_array(p)
+	weights.append(shares)
+	return points.size() - 1
+
+
+## A corner in full precision.
+func point64(k: int) -> PackedFloat64Array:
+	return Vec64.at(points64, k)
 
 
 func visible_polygons() -> int:

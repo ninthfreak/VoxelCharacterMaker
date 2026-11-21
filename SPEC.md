@@ -66,7 +66,7 @@ special shapes are rebuilt (straps, skirt, cape), so all seven starter outfits d
 rebuilt for the new face (four parts and one length); the hood, drawn shapes (the long beard among them) and hair are
 not. All of that is built in Python first; the Godot side is moving over in five phases (owner's go-ahead,
 2026-11): 1, bare bodies and heads in the game, bending, shown in the editor (done); 2, ordinary clothing (done); 3, faces
-and facial hair (done); 4, straps, skirts and capes; 5, the editor switched over and the voxel code removed. Until then
+and facial hair (done); 4, straps, skirts and capes (done); 5, the editor switched over and the voxel code removed. Until then
 the voxel system keeps working beside it. Since phase 3 the facial hair settings in the wardrobe file are the low-poly
 ones (four parts and a length); the voxel figure shows the nearest of its three old styles.
 

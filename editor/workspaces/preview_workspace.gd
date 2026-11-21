@@ -55,8 +55,8 @@ func _build() -> void:
 	note(side, "Put together anything made in the other tabs. Nothing is edited "
 		+ "here.")
 	model_controls(side, "Low-poly so far: bodies, heads, skin tones, the face (eyes, lids, brows and a mouth), "
-		+ "hair and clothing made of regions, and facial hair. Not yet: the special shapes (straps, skirts, capes, "
-		+ "the hood, drawn shapes such as the long beard): those show on the voxel model only.")
+		+ "hair and clothing made of regions, facial hair, straps, and skirts and capes hanging afresh in every pose. "
+		+ "Not yet: the hood and drawn shapes such as the long beard: those show on the voxel model only.")
 
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void: _choose("body_id", value))

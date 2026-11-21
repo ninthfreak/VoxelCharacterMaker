@@ -106,9 +106,10 @@ func _rebuild_lowpoly() -> void:
 ## Short description of a low-poly figure for the status line.
 func lowpoly_status_text(figure: LowpolyFigure) -> String:
 	var body := editor.lowpoly.body(figure.body_id)
-	return "%s - %s head   |   low-poly: %d polygons, %d triangles   |   %s shading%s" % [
+	var cloth := view.lowpoly_rig.laid_cloth.size() if view.lowpoly_rig.figure == figure else 0
+	return "%s - %s head   |   low-poly: %d polygons, %d triangles%s   |   %s shading%s" % [
 		body.display_name() if body != null else figure.body_id, figure.head_shape, figure.visible_polygons(),
-		figure.triangles(), shading, status_extra()]
+		figure.triangles(), " (and %d of hanging cloth)" % cloth if cloth > 0 else "", shading, status_extra()]
 
 
 ## Override: what a tab adds to its status line ("   |   ..."), for either model.

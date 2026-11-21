@@ -171,6 +171,11 @@ static func mirror_key(key: String) -> String:
 	return make_key(String(p["band"]), side, String(p["fb"]))
 
 
+## The band part of a region key ("upper_thigh" of "upper_thigh.L.F"); "" for no key.
+static func key_band(key: String) -> String:
+	return key.get_slice(".", 0)
+
+
 static func key_side(key: String) -> String:
 	return String(parse_key(key)["side"])
 

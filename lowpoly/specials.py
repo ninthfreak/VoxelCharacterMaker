@@ -2,7 +2,8 @@
 are still to come.)
 
 Each takes the settings its voxel generator takes (core/specials/*.gd), with the same names, options and defaults;
-check.py holds DEFAULTS below equal to the game's own table. Each is measured from the dressed figure, so it fits any
+check.py holds DEFAULTS below equal to the game's own table. The game builds them the same way
+(core/lowpoly/lowpoly_shapes.gd), checked against this corner by corner. Each is measured from the dressed figure, so it fits any
 body and stands clear of whatever is worn under it.
 
   straps   two bands lying on the chest: up the front from the bottom of the belly, over the top beside the neck,

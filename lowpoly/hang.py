@@ -13,6 +13,10 @@ sitting, the knee pushing the front out in a stride, and the heel pushing the ba
 
 "Down" is the figure's own down (the pelvis's), so cloth hangs the same way however the whole figure is turned.
 
+The game lays cloth the same way (core/lowpoly/lowpoly_cloth.gd), checked against this corner by corner. Where the
+rule meets an exact tie (two halves of a stretch it has just halved, points in a straight run), it takes the first:
+left to rounding, Python and Godot chose differently (TIE).
+
 A column's line lives in the upright plane it faces: `out` is how far out from its top, `drop` how far below.
 The cloth between two neighbouring columns is a flat-ish FACE. A corner of the dressed figure counts as "under" a
 column when it stands behind one of the column's faces, and it counts by how far the column must stand out for that
@@ -28,6 +32,7 @@ INNER = 5               # rows of points a column has between its top and its tr
                         # on the lap's edge while its neighbour hanging at the side spread its rows down its fall, and
                         # the cloth between them cut across the thick thigh
 TRIM = 1.0              # how much of a column's lower end is in the hem colour
+TIE = 1e-9              # lengths this close are equal: the first of them is taken (Godot rounds differently)
 
 
 def unit(v):
@@ -144,21 +149,24 @@ def rows(line, col, inner):
     keep.sort()
     while len(keep) > inner:                                        # too many bends: drop the slightest
         ends = [0.0] + [s for s, _ in keep] + [trim_at]
-        worst = None
+        offs = []
         for i, (s, is_fixed) in enumerate(keep):
             if is_fixed: continue
             a, p, b = _at(line, cum, ends[i]), _at(line, cum, s), _at(line, cum, ends[i + 2])
             ab = b - a; n = np.linalg.norm(ab)
-            off = abs(ab[0] * (p - a)[1] - ab[1] * (p - a)[0]) / n if n > 1e-9 else np.linalg.norm(p - a)
-            if worst is None or off < worst[0]: worst = (off, i)
-        del keep[worst[1]]
+            offs.append((abs(ab[0] * (p - a)[1] - ab[1] * (p - a)[0]) / n if n > 1e-9 else np.linalg.norm(p - a), i))
+        least = min(off for off, _ in offs)
+        del keep[next(i for off, i in offs if off <= least + TIE)]     # the first of the slightest: points in a
+                                                                        # straight run tie, and rounding must not choose
     for m in col.marks:                                             # rows to spare: first at the column's levels
         if len(keep) >= inner: break
         if 0.25 < m < trim_at - 0.25 and all(abs(m - s) > 0.25 for s, _ in keep):
             keep.append((m, False)); keep.sort()
     while len(keep) < inner:                                        # then halve the longest stretch
         ends = [0.0] + [s for s, _ in keep] + [trim_at]
-        i = int(np.argmax(np.diff(ends)))
+        gaps = np.diff(ends)
+        i = int(np.flatnonzero(gaps >= gaps.max() - TIE)[0])         # the first of the longest: a halved stretch's two
+                                                                        # halves tie, and rounding must not choose
         keep.insert(i, (0.5 * (ends[i] + ends[i + 1]), False))
     return [0.0] + [s for s, _ in keep] + [trim_at, total], cum
 

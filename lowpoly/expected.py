@@ -10,11 +10,14 @@ Posed: every body standing, with the round head; and every test pose on two bodi
 masculine short (the short one has its own heights and its head set lower). Each case lists the body file's
 corners, then the head file's, as they stand in that pose: x across, y depth, z up, in the files' units.
 
-Dressed (phase 2: ordinary clothing, no special shapes yet): five starter outfits on the feminine average with a
-short crop (between them every kind of item the starter wardrobe has, the one-shouldered top among them), the
-everyday outfit on the masculine short, and the overalls on the masculine heavy, bald. Corners to a thousandth. Each case
-lists every polygon dress.py makes, in its order: its corners, its colour, and the worn item that made it ("" for
-bare skin).
+Dressed (phases 2 and 4: ordinary clothing, straps, skirts and capes): the starter outfits on the feminine average
+with a short crop (between them every kind of item the starter wardrobe has), the everyday outfit and the dress on
+the masculine short, the overalls on the masculine heavy, bald; and test items for the settings the starter ones do not
+use (two panels, every opening on either side, slant, flare, knee length, no waistband or hem trim, narrow and wide
+capes, wide straps) on the other builds. Corners to a thousandth. Each case lists every polygon dress.py makes, in its
+order: its corners, its colour, and the worn item that made it ("" for bare skin); then, for each test pose it is
+looked at in, its hanging cloth as hang.py lays it: corners, colour, role (cloth or hem) and item. A test item is
+listed in full with its case, so that Godot can make the same item.
 
 Faces (phase 3: eyes, lids, brows, mouths, facial hair): six characters across the bodies, heads, lid states, mouths,
 skin tones and hair, with five kinds of facial hair (none, a full beard, an Amish beard grown long, a moustache and
@@ -66,8 +69,34 @@ def cases(tables):
 
 
 DRESSED = [("female_average", "round", outfit, [("short_crop", "black")])
-           for outfit in ("dress", "everyday", "overalls", "robe", "toga")] + \
-          [("male_short", "strong", "everyday", [("short_crop", "auburn")]), ("male_heavy", "boxy", "overalls", [])]
+           for outfit in ("dress", "everyday", "overalls", "robe", "toga", "travelling")] + \
+          [("male_short", "strong", "everyday", [("short_crop", "auburn")]), ("male_short", "strong", "dress", []),
+           ("male_heavy", "boxy", "overalls", []),
+           ("female_heavy", "oval", [("test_skirt_two", "default"), ("test_straps_wide", "default")], []),
+           ("male_slim", "heart", [("test_wrap_two", "default"), ("test_cape_wide", "default")], [("short_crop", "black")]),
+           ("female_short", "round", [("test_front_two", "default"), ("test_cape_narrow", "default")], [])]
+CLOTH_POSES_ALL = ("female_average",)        # every test pose; the others: standing, sitting and mid stride
+CLOTH_POSES = ("rest", "sitting", "mid_stride")
+
+
+def test_items(wardrobe):
+    """Items for the settings the starter wardrobe does not use, made from its own skirt, cloak and suspenders."""
+    import copy
+
+    def like(item_id, kind, **params):
+        it = copy.deepcopy(wardrobe.items[item_id])
+        it["specials"] = [dict(type=kind, params={**next(sp for sp in it["specials"] if sp["type"] == kind)["params"], **params})]
+        it["name"] = "test: " + ", ".join(f"{k} {v}" for k, v in params.items())
+        return it
+    return {
+        "test_skirt_two": like("skirt", "skirt", panels="two", opening="none", length="to_knee", flare=3, slant=3, side="right",
+                               waistband=False, hem_trim=False),
+        "test_wrap_two": like("skirt", "skirt", panels="two", opening="wrap", side="right", slant=2, length="to_shin"),
+        "test_front_two": like("skirt", "skirt", panels="two", opening="front", flare=0, length="to_knee"),
+        "test_cape_wide": like("cloak", "cape", width="wide", length="to_waist", flare=3, hem_trim=False),
+        "test_cape_narrow": like("cloak", "cape", width="narrow", length="to_ankle", flare=0),
+        "test_straps_wide": like("suspenders", "straps", width=2),
+    }
 
 
 def figure_from_files(body_id, head_name):
@@ -98,14 +127,30 @@ def figure_from_files(body_id, head_name):
                 info=dict(head=head_name, head_dz=data["head_raise"]))
 
 
-def dressed(wardrobe):
+def dressed(tables, wardrobe):
+    import pose as ps
+    poses = {name: v["parts"] for name, v in tables["poses"].items()}
+    extra = test_items(wardrobe)
+    wardrobe.items.update(extra)
+    rgb = lambda c: "#%02x%02x%02x" % tuple(int(x) for x in c)
     out = []
     for body_id, head_name, outfit, features in DRESSED:
-        look = ld.dress(figure_from_files(body_id, head_name), wardrobe, wardrobe.outfit(outfit), features=features, special_shapes=False)
-        polys = [{"points": [[round(float(x), 3) for x in v] for v in q["pts"]],
-                  "colour": "#%02x%02x%02x" % tuple(int(c) for c in q["rgb"]), "by": q["by"] or ""} for q in look.polys]
-        out.append({"body": body_id, "head": head_name, "outfit": outfit, "hair": features[0][0] if features else "",
-                    "hair_colourway": features[0][1] if features else "", "polygons": polys})
+        worn = wardrobe.outfit(outfit) if isinstance(outfit, str) else outfit
+        body = figure_from_files(body_id, head_name)
+        look = ld.dress(body, wardrobe, worn, features=features)
+        polys = [{"points": [[round(float(x), 3) for x in v] for v in q["pts"]], "colour": rgb(q["rgb"]), "by": q["by"] or ""}
+                 for q in look.polys]
+        cloths = {}
+        for pose_name in (sorted(poses) if body_id in CLOTH_POSES_ALL else CLOTH_POSES):
+            if not look.cloths:
+                break
+            _, laid = ps.laid(body, look, ps.from_game(poses[pose_name]))
+            cloths[pose_name] = [{"points": [[round(float(x), 3) for x in v] for v in pts], "colour": rgb(cloth.colours[role]),
+                                  "role": role, "by": cloth.name} for cloth, made in laid for pts, role in made]
+        out.append({"body": body_id, "head": head_name, "outfit": outfit if isinstance(outfit, str) else "",
+                    "worn": [[i, cw] for i, cw in worn], "items": {i: extra[i] for i, _ in worn if i in extra},
+                    "hair": features[0][0] if features else "", "hair_colourway": features[0][1] if features else "",
+                    "notes": look.notes, "polygons": polys, "cloths": cloths})
     return out
 
 
@@ -138,13 +183,13 @@ def faces(tables, wardrobe):
 
 
 def data(tables, wardrobe=None):
-    d = {"format": "lowpoly_expected", "version": 2, "tolerance": TOLERANCE,
+    d = {"format": "lowpoly_expected", "version": 3, "tolerance": TOLERANCE,
             "note": "Generated by lowpoly/expected.py from assets/lowpoly/ and the game's test poses; regenerate rather "
                     "than hand-edit. Each case: the body file's corners, then the head file's (raised onto the neck), "
                     "posed; x across, y depth, z up.",
             "cases": cases(tables)}
     if wardrobe is not None:
-        d["dressed"] = dressed(wardrobe)
+        d["dressed"] = dressed(tables, wardrobe)
         d["faces"] = faces(tables, wardrobe)
     return d
 

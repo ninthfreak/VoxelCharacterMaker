@@ -22,6 +22,7 @@ extends SceneTree
 ##                     outfit=overalls (wears that outfit), hair_id=short_crop, hair_colourway=auburn
 ##   --set K=V         set a choice on the tab shown, before the shot (repeatable), e.g. model=lowpoly,
 ##                     body_id=female_heavy, show_mode=worn
+##   --view NAME       the camera's view on the tab shown: front, three_quarter, left, right, back or top
 
 const SETTLE_FRAMES := 14
 const SIZE := Vector2i(1800, 1000)
@@ -38,6 +39,7 @@ var _select := ""
 var _scroll := 0
 var _preview: Dictionary = {}
 var _set: Dictionary = {}
+var _view := ""
 
 
 func _initialize() -> void:
@@ -65,6 +67,8 @@ func _initialize() -> void:
 			var kv2 := String(args[i + 1]).split("=", true, 1)
 			if kv2.size() == 2:
 				_set[kv2[0]] = kv2[1]
+		elif String(args[i]) == "--view" and i + 1 < args.size():
+			_view = String(args[i + 1])
 		elif String(args[i]) == "--preview" and i + 1 < args.size():
 			var kv := String(args[i + 1]).split("=", true, 1)
 			if kv.size() == 2:
@@ -128,6 +132,8 @@ func _process(_delta: float) -> bool:
 				(preview.get("view") as Object).call("set_flat_shading", String(_preview["shading"]) == "flat")
 			preview.call("refresh")
 			preview.call("rebuild")
+		if not _view.is_empty():
+			((ws.get("view") as Object).get("camera") as Object).call("set_view", _view)
 		return false
 	if _frames == 8 and _scroll > 0 and _editor != null:
 		var current: Object = _editor.call("_current")

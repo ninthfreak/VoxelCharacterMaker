@@ -31,6 +31,7 @@ static func run(t: TestReport, voxel_library: AssetLibrary) -> void:
 	var wardrobe := Wardrobe.create_default(voxel_library)
 	_dressed_against_python(t, library, wardrobe)
 	_dressing_rules(t, library, wardrobe)
+	_cloth_in_the_rig(t, library, wardrobe)
 
 	t.group("low-poly: faces and facial hair, as lowpoly/ draws them")
 	_faces_against_python(t, library, wardrobe)
@@ -170,46 +171,87 @@ static func _against_python(t: TestReport, library: LowpolyLibrary) -> void:
 
 
 ## Every dressed figure in tests/lowpoly_expected.json, polygon by polygon: the same polygons in the same order, each
-## with its corners where lowpoly/dress.py puts them, in its colour, made by the same worn item.
+## with its corners where lowpoly/dress.py puts them, in its colour, made by the same worn item (straps among them);
+## then its hanging cloth in each pose it was laid in, as lowpoly/hang.py lays it.
 static func _dressed_against_python(t: TestReport, library: LowpolyLibrary, wardrobe: Wardrobe) -> void:
 	var expected := JsonIO.read_dict(EXPECTED_PATH)
 	var cases: Array = expected.get("dressed", [])
 	if not t.check(not cases.is_empty(), "tests/lowpoly_expected.json has dressed figures", "run: python3 lowpoly/expected.py"):
 		return
 	var tolerance := float(expected.get("tolerance", 0.001))
+	var w := Wardrobe.from_json(wardrobe.to_json())
 	for c in cases:
 		var case_: Dictionary = c
+		var items: Dictionary = case_.get("items", {})
+		for id in items.keys():
+			if w.item(String(id)) == null:
+				w.add_item(GarmentItem.from_json(String(id), items[id]))
 		var req := CharacterAssembler.Request.new()
 		req.body_id = String(case_["body"])
 		req.head_shape = String(case_["head"])
-		req.wardrobe = wardrobe
-		req.worn = wardrobe.outfit(String(case_["outfit"]))
+		req.wardrobe = w
+		for pair in case_["worn"]:
+			req.worn.append({"item": String(pair[0]), "colourway": String(pair[1])})
 		if not String(case_["hair"]).is_empty():
 			req.features = [{"item": String(case_["hair"]), "colourway": String(case_["hair_colourway"])}]
 		var f := LowpolyAssembler.assemble(library, req)
 		var want: Array = case_["polygons"]
-		var label := "%s, %s, %s: %d polygons as lowpoly/ makes them" % [case_["body"], case_["outfit"],
+		var what := String(case_["outfit"]) if not String(case_["outfit"]).is_empty() else ", ".join(items.keys())
+		var label := "%s, %s, %s: %d polygons as lowpoly/ makes them" % [case_["body"], what,
 			"with %s" % case_["hair"] if not String(case_["hair"]).is_empty() else "bald", want.size()]
-		var mine := _polygons_of(f, ["skin", "head", "foot", "hand"], true)     # all but the face, drawn on top
+		var mine := _polygons_of(f, [], true)     # all but the face, drawn on top
 		if f == null or mine.size() != want.size():
 			t.check(false, label, "%d polygons" % (mine.size() if f != null else -1))
 			continue
 		var worst := 0.0
 		var wrong := ""
 		for i in want.size():
-			var w: Dictionary = want[i]
+			var e: Dictionary = want[i]
 			var got: Dictionary = mine[i]
 			var corners: PackedInt32Array = got["corners"]
-			var pts: Array = w["points"]
+			var pts: Array = e["points"]
 			var colour := "#" + (got["colour"] as Color).to_html(false)
-			if corners.size() != pts.size() or colour != String(w["colour"]) or String(got["by"]) != String(w["by"]):
+			if corners.size() != pts.size() or colour != String(e["colour"]) or String(got["by"]) != String(e["by"]):
 				wrong = "polygon %d: %d corners, %s by '%s'; expected %d, %s by '%s'" % [i, corners.size(), colour,
-					got["by"], pts.size(), w["colour"], w["by"]]
+					got["by"], pts.size(), e["colour"], e["by"]]
 				break
 			for k in pts.size():
-				worst = maxf(worst, f.points[corners[k]].distance_to(LowpolyLibrary._vec(pts[k])))
+				worst = maxf(worst, Vec64.norm(Vec64.sub(f.point64(corners[k]), _vec64(pts[k]))))
 		t.check(wrong.is_empty() and worst <= tolerance, label + " (colours, items, corners within %s)" % tolerance,
 			wrong if not wrong.is_empty() else "off by %f" % worst)
+		var cloths: Dictionary = case_.get("cloths", {})
+		for pose_name in cloths.keys():
+			var want_cloth: Array = cloths[pose_name]
+			var laid: Array = []
+			for pair in LowpolyCloth.lay_all(f, Poses.get_pose(String(pose_name))):
+				for made in pair[1]:
+					laid.append([made[0], made[1], (pair[0] as LowpolyCloth)])
+			var cloth_label := "%s, %s, %s: its hanging cloth, %d pieces, as lowpoly/hang.py lays it" % [case_["body"], what,
+				Poses.display_name(String(pose_name)), want_cloth.size()]
+			if laid.size() != want_cloth.size():
+				t.check(false, cloth_label, "%d pieces" % laid.size())
+				continue
+			var off := 0.0
+			var bad := ""
+			for i in want_cloth.size():
+				var e: Dictionary = want_cloth[i]
+				var pts: PackedFloat64Array = laid[i][0]
+				var cloth: LowpolyCloth = laid[i][2]
+				var colour := "#" + (cloth.colours.get(laid[i][1], Color.MAGENTA) as Color).to_html(false)
+				var expect_pts: Array = e["points"]
+				if pts.size() != 3 * expect_pts.size() or String(laid[i][1]) != String(e["role"]) or colour != String(e["colour"]) \
+						or cloth.by != String(e["by"]):
+					bad = "piece %d: %d corners, %s %s by %s; expected %d, %s %s by %s" % [i, pts.size() / 3, laid[i][1], colour,
+						cloth.by, expect_pts.size(), e["role"], e["colour"], e["by"]]
+					break
+				for k in expect_pts.size():
+					off = maxf(off, Vec64.norm(Vec64.sub(Vec64.at(pts, k), _vec64(expect_pts[k]))))
+			t.check(bad.is_empty() and off <= tolerance, cloth_label + " (within %s)" % tolerance,
+				bad if not bad.is_empty() else "off by %f" % off)
+
+
+static func _vec64(a: Array) -> PackedFloat64Array:
+	return PackedFloat64Array([float(a[0]), float(a[1]), float(a[2])])
 
 
 ## The rules themselves, on one figure: what the cross-check above cannot say by itself.
@@ -268,6 +310,41 @@ static func _dressing_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wa
 		others = others or (not String(p["by"]).is_empty() and String(p["by"]) not in ["boots", "short_crop"])
 		hair_kept = hair_kept or String(p["by"]) == "short_crop"
 	t.check(not others and hair_kept, "with one item soloed, only that item of the clothes is on the figure; hair stays, as on the voxel figure")
+
+
+## Hanging cloth as the game draws it: kept on the figure, laid afresh when the pose changes, in front of what it hides.
+static func _cloth_in_the_rig(t: TestReport, library: LowpolyLibrary, wardrobe: Wardrobe) -> void:
+	var req := CharacterAssembler.Request.new()
+	req.body_id = "female_average"
+	req.head_shape = "round"
+	req.wardrobe = wardrobe
+	req.worn = wardrobe.outfit("dress")
+	var f := LowpolyAssembler.assemble(library, req)
+	t.check(f.cloths.size() == 1 and (f.cloths[0] as LowpolyCloth).by == "skirt",
+		"the dress's skirt is hanging cloth on the figure, not part of its skin")
+	var rig := LowpolyRig.new()
+	rig.build(f)
+	var standing := rig.laid_cloth.duplicate()
+	t.check(rig.cloth_instance != null and rig.cloth_instance.visible and rig.cloth_instance.mesh != null
+		and not standing.is_empty(), "the rig draws the skirt (%d pieces) as a mesh of its own" % standing.size())
+	rig.apply_pose(Poses.SITTING)
+	var moved := false
+	for i in mini(standing.size(), rig.laid_cloth.size()):
+		moved = moved or Vec64.norm(Vec64.sub(Vec64.at(standing[i][0], 0), Vec64.at(rig.laid_cloth[i][0], 0))) > 0.5 \
+			or Vec64.norm(Vec64.sub(Vec64.at(standing[i][0], 2), Vec64.at(rig.laid_cloth[i][0], 2))) > 0.5
+	t.check(moved, "sitting, the skirt is laid again over the lap")
+	rig.apply_pose(Poses.REST)
+	# a ray at the front of the thigh, under the skirt: the cloth is in front, so nothing is picked
+	var hit := rig.pick(Vector3(0.12, 0.38, -3.0), Vector3(0, 0, 1))
+	t.check(hit == -1, "a click on the skirt picks nothing under it",
+		"picked %s" % (String(f.polygons[hit]["region"]) if hit >= 0 else "nothing"))
+	rig.free()
+	req.worn = wardrobe.outfit("everyday")
+	var plain := LowpolyRig.new()
+	plain.build(LowpolyAssembler.assemble(library, req))
+	t.check(plain.laid_cloth.is_empty() and (plain.cloth_instance == null or not plain.cloth_instance.visible),
+		"a figure with no hanging cloth draws none")
+	plain.free()
 
 
 ## A figure's polygons whose piece is one of `pieces` (or, with `all_but_face`, every polygon but the face's).
@@ -346,7 +423,7 @@ static func _faces_against_python(t: TestReport, library: LowpolyLibrary, wardro
 					e["colour"], e["by"], " unlit" if e["unlit"] else ""]
 				break
 			for k in pts.size():
-				worst = maxf(worst, f.points[corners[k]].distance_to(LowpolyLibrary._vec(pts[k])))
+				worst = maxf(worst, Vec64.norm(Vec64.sub(f.point64(corners[k]), _vec64(pts[k]))))
 		t.check(wrong.is_empty() and worst <= tolerance, label + " as lowpoly/ draws them (colours, items, corners within %s)" % tolerance,
 			wrong if not wrong.is_empty() else "off by %f" % worst)
 

@@ -35,15 +35,19 @@ class Body extends RefCounted:
 	var build := ""
 	## every corner, in the file's order
 	var points := PackedVector3Array()
+	## the same corners in full precision: x, y, z of each in turn (for dressing and cloth, as for the head)
+	var points64 := PackedFloat64Array()
 	## per corner: {part: share}, the parts it follows when the figure moves (at most four, adding up to one)
 	var shares: Array = []
 	## {corners: PackedInt32Array, region: String, part: String, piece: String, hidden: bool}; hidden polygons
 	## are ends buried inside a neighbouring piece and are never drawn
 	var polygons: Array = []
-	## part -> {"parent": String ("" for the pelvis), "pivot": Vector3}
+	## part -> {"parent": String ("" for the pelvis), "pivot": Vector3, "pivot64": the pivot in full precision}
 	var parts: Dictionary = {}
 	## band -> Vector2(bottom, top): where each band of the region table is on this body
 	var heights: Dictionary = {}
+	## band -> PackedFloat64Array([bottom, top]): the same in full precision
+	var heights64: Dictionary = {}
 	## how far the head from the head library is moved to sit on this body's neck (0 but on a short body)
 	var head_raise := 0.0
 
@@ -170,6 +174,14 @@ static func _corners(list: Variant, count: int) -> PackedInt32Array:
 	return out
 
 
+static func _points64(list: Array) -> PackedFloat64Array:
+	var out := PackedFloat64Array()
+	for v in list:
+		var a: Array = v
+		out.append_array(PackedFloat64Array([float(a[0]), float(a[1]), float(a[2])]))
+	return out
+
+
 static func _read_body(data: Dictionary, sex: String, build: String) -> Body:
 	if String(data.get("format", "")) != "lowpoly_body" or not data.has("vertices"):
 		return null
@@ -178,6 +190,7 @@ static func _read_body(data: Dictionary, sex: String, build: String) -> Body:
 	b.build = build
 	b.id = body_id(sex, build)
 	b.points = _points(data["vertices"])
+	b.points64 = _points64(data["vertices"])
 	for w in data.get("shares", []):
 		var shares := {}
 		for part in (w as Dictionary).keys():
@@ -199,11 +212,14 @@ static func _read_body(data: Dictionary, sex: String, build: String) -> Body:
 			return null
 		var entry: Dictionary = parts[part]
 		var parent: Variant = entry.get("parent", null)
-		b.parts[part] = {"parent": "" if parent == null else String(parent), "pivot": _vec(entry["pivot"])}
+		var pivot: Array = entry["pivot"]
+		b.parts[part] = {"parent": "" if parent == null else String(parent), "pivot": _vec(pivot),
+			"pivot64": PackedFloat64Array([float(pivot[0]), float(pivot[1]), float(pivot[2])])}
 	var heights: Dictionary = data.get("heights", {})
 	for band in heights.keys():
 		var h: Array = heights[band]
 		b.heights[String(band)] = Vector2(float(h[0]), float(h[1]))
+		b.heights64[String(band)] = PackedFloat64Array([float(h[0]), float(h[1])])
 	b.head_raise = float(data.get("head_raise", 0.0))
 	return b
 
@@ -214,9 +230,7 @@ static func _read_head(data: Dictionary, shape: String) -> Head:
 	var h := Head.new()
 	h.shape = shape
 	h.points = _points(data["vertices"])
-	for v in data["vertices"]:
-		var a: Array = v
-		h.points64.append_array(PackedFloat64Array([float(a[0]), float(a[1]), float(a[2])]))
+	h.points64 = _points64(data["vertices"])
 	for p in data.get("polygons", []):
 		var poly: Dictionary = p
 		var corners := _corners(poly.get("v", []), h.points.size())

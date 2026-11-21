@@ -46,8 +46,8 @@ func _build() -> void:
 
 	heading(side, "Clothes")
 	model_controls(side, "Low-poly so far: clothing and hair made of regions; click the figure to pick a region. "
-		+ "Special shapes (straps, skirts, capes, the hood, drawn shapes) show on the voxel model only. The face is "
-		+ "the first eye set's, with its eyelids at rest.")
+		+ "Straps, skirts and capes are built; skirts and capes hang afresh in every pose. Not yet: the hood and drawn "
+		+ "shapes, which show on the voxel model only. The face is the first eye set's, with its eyelids at rest.")
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void:
 			body_id = value
