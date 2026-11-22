@@ -82,13 +82,17 @@ func _add_starter_clothes() -> void:
 	# Skin-tight (bulk 0) is the norm for trousers (owner): slender legs, the
 	# classic sprite look, and a top's hem then reads as worn over them. Bulk
 	# is for legwear meant to look thick; rule 8 keeps the legs apart either way.
+	# The waist is theirs too (a waistband), so under a top that stops short
+	# (the shirt) no skin shows; a top that covers the waist stands over it.
+	# Knee and ankle are a trim role in the cloth's own colour: in a dark one
+	# they read as garters (owner's review); a colourway can still set them apart.
 	var trousers := GarmentItem.create("trousers", "Trousers", "bottom")
 	trousers.roles = ["cloth", "trim"]
 	trousers.colourways = {
-		"default": {"cloth": "slate", "trim": "ink"},
+		"default": {"cloth": "slate", "trim": "slate"},
 		"denim": {"cloth": "denim", "trim": "denim"},
 	}
-	for key in ["hips.L.F", "hips.L.B", "upper_thigh.L", "lower_thigh.L", "shin.L"]:
+	for key in ["waist.L.F", "waist.L.B", "hips.L.F", "hips.L.B", "upper_thigh.L", "lower_thigh.L", "shin.L"]:
 		trousers.set_region(key, "cloth", 0)
 	trousers.set_region("knee.L", "trim", 0)
 	trousers.set_region("ankle.L", "trim", 0)
@@ -150,7 +154,8 @@ func _add_starter_clothes() -> void:
 	add_item(bodice)
 
 	# A skirt item is the hips in cloth plus the skirt shape. Its waistband is
-	# on, so under a top that stops short (the shirt) no skin shows at the waist.
+	# on, so under a top that stops short (the shirt) no skin shows at the waist
+	# (the trousers' waist does the same).
 	var skirt := _skirt_item("skirt", "Skirt", {"length": "to_shin"})
 	skirt.colourways = {
 		"default": {"cloth": "plum", "hem": "ochre"},

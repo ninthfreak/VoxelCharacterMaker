@@ -644,7 +644,7 @@ are still to come (stubble, chinstrap and full beard followed in 4l).
 - **Found in the wardrobe, not changed.** The shirt stops above the waist row
   and the trousers start below it, so "shirt and suspenders" shows a strip of
   skin at the waist. The voxel figure has the same strip. A skirt hides it
-  with its waistband; trousers have none.
+  with its waistband; trousers have none. (Since 4ze the trousers have one.)
 
 ## 4k. Rounder heads (owner's request)
 
@@ -1463,11 +1463,18 @@ in one file overwrite each other; roles added for a shape start in fixed colour 
 wardrobe without them shows magenta, with a warning; an undo back to the saved state still marks the file unsaved;
 dragging a palette colour dresses the figure again at every step (smooth enough, not instant).
 
-**Design problems, for the owner (not changed):**
+**Design problems.** Fixed on the owner's go-ahead:
 
-- **Shirt with trousers leaves a band of bare waist**, front and back (the shirt stops at the belly, the trousers
-  start at the hips; the skirts have a waistband for exactly this, the trousers do not).
-- **The trousers' knee and ankle are their "trim" role, in ink**: dark bands that read as garters or boot tops.
+- **Shirt with trousers left a band of bare waist**, front and back (the shirt stops at the belly, the trousers
+  started at the hips). The trousers now cover the waist row too, skin-tight, in their cloth: a waistband, as the
+  skirts have. A top that covers the waist (the tunic's trim, the bodice's) stands over it; the suspenders now end
+  on it.
+- **The trousers' knee and ankle were their "trim" role, in ink**: dark bands that read as garters or boot tops.
+  The trim now takes the cloth's own colour (slate) in the default colourway; the role stays, so a colourway can
+  still set them apart.
+
+Left for the owner to judge:
+
 - **The lowered hood reads as a wide flat collar**, and the cape's hem shows as a thin stick beside the knees from
   the front.
 - **The long beard worn alone** starts with a straight edge along the jaw, like a bib.

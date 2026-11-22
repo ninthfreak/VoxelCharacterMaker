@@ -378,7 +378,7 @@ def sheet_regions():
              f"Every polygon is in exactly one region. Each body is {n[0]} polygons, and its head {nh}.",
              band(tl, lab, gap_after=(2,)))]
     looks = [
-        ("2. Tunic, trousers, boots (the 'everyday' outfit)", "the top stands one step off the body, with its collar and waist trims; the trousers are skin-tight with knee and ankle trims",
+        ("2. Tunic, trousers, boots (the 'everyday' outfit)", "the top stands one step off the body, with its collar and waist trims; the trousers are skin-tight, with a waistband, and knee and ankle trims in the cloth's own colour",
          [(e["item"], e["colourway"]) for e in w.outfits["everyday"]]),
         ("3. One-shoulder top, trousers, boots", "mirror off: the two sides of the top have their own regions",
          [("boots", "default"), ("trousers", "denim"), ("one_shoulder_top", "default")]),
@@ -694,7 +694,7 @@ def sheet_shapes():
     chest = dict(scale=20.0, width=17.0, z_range=(12.0, 27.5))
     tl = tiles(w.outfit("shirt and suspenders"), "female", three, full) + tiles(w.outfit("overalls"), "male", three, full)
     tl += tiles(w.outfit("shirt and suspenders"), "female", [(35, 15)], chest) + tiles(w.outfit("overalls"), "male", [(145, 15)], chest)
-    rows.append(("6. Straps: 'shirt and suspenders', and 'overalls'", "each strap is a flat band lying on the chest: over the shoulder beside the neck, then straight to the front of the waist. The skin at the waist is the wardrobe's: neither the shirt nor the trousers covers that row.",
+    rows.append(("6. Straps: 'shirt and suspenders', and 'overalls'", "each strap is a flat band lying on the chest: over the shoulder beside the neck, then straight to the front of the waist. The trousers' waistband covers the waist row the shirt leaves bare.",
                  band(tl, ["suspenders, female: front", "turned", "back", "overalls, male: front", "turned", "back", "close: turned", "close: from behind"], gap_after=(2, 5))))
 
     back = [(0, 12), (90, 12), (145, 15), (180, 12)]
