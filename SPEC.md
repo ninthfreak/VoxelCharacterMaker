@@ -541,7 +541,10 @@ Features (roughly in priority order):
   - Everything snaps to a quarter unit and 15 degrees; nothing finer is offered by hand. What a drag is doing is
     written by the pointer. One drag is one undo step; Escape gives it up.
   - The usual keys: Ctrl+C copies the chosen part, Ctrl+V pastes it (into the same item, beside the first, or into
-    another item), Ctrl+X cuts it, Delete removes it, Ctrl+Z undoes. The arrow keys nudge it.
+    another item), Ctrl+X cuts it, Delete removes it, Ctrl+Z undoes. The arrow keys move it a quarter unit a press,
+    the way they point on the screen, for careful placing.
+  - "Centre it on: x, y, z" above the view puts the chosen part on the item's middle along that axis (that place
+    becomes 0).
   - **Kept small on purpose** (owner): an item is a handful of parts and is small in the game, so detail finer than
     this is not worth controls. One way to do each thing; no control that does nothing.
   - Handles are told apart by shape and letter, never by red against green: squares size, a ring turns, a diamond is

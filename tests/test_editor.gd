@@ -665,6 +665,18 @@ static func _items_by_hand(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(it.parts[0]["position"] == [1.75, 0.0, 0.75] and ed.history._entries.size() == steps + 1,
 		"arrow keys nudge it a quarter unit, right and down on the screen: one undo step for the run",
 		str(it.parts[0]["position"]))
+	# centre
+	steps = ed.history._entries.size()
+	tab.centre_part(0)
+	t.check(it.parts[0]["position"] == [0.0, 0.0, 0.75] and ed.history._entries.size() == steps + 1,
+		"Centre it on x: the part is on the item's middle across, its height untouched, as one undo step")
+	tab.centre_part(0)
+	tab.centre_part(1)
+	t.check(ed.history._entries.size() == steps + 1, "centring a part already centred changes nothing")
+	ed.undo()
+	it = tab.held.item()
+	t.check(it.parts[0]["position"] == [1.75, 0.0, 0.75], "undo puts it back")
+
 	# copy, cut, paste: the keys every program uses
 	var ctrl := func(code: int) -> InputEventKey:
 		var k := InputEventKey.new()
@@ -672,12 +684,12 @@ static func _items_by_hand(t: TestReport, ed: CharacterEditor) -> void:
 		k.ctrl_pressed = true
 		k.pressed = true
 		return k
-	steps = ed.history._entries.size()
-	t.check(tab.handle_shortcut(ctrl.call(KEY_C)) and it.parts.size() == 2 and ed.history._entries.size() == steps,
+	steps = ed.history._at                             # where the history stands (an undo above left a step to redo)
+	t.check(tab.handle_shortcut(ctrl.call(KEY_C)) and it.parts.size() == 2 and ed.history._at == steps,
 		"Ctrl+C copies the chosen part: nothing changes yet")
 	t.check(tab.handle_shortcut(ctrl.call(KEY_V)) and it.parts.size() == 3 and tab.part == 1
 		and it.parts[1]["position"] == [2.75, 0.0, 0.75] and String(it.parts[1]["kind"]) == "box"
-		and ed.history._entries.size() == steps + 1,
+		and ed.history._at == steps + 1,
 		"Ctrl+V pastes it: a copy 1 unit beside the first (so that it is seen), chosen, as one undo step")
 	tab.handle_shortcut(ctrl.call(KEY_V))
 	t.check(it.parts.size() == 4 and it.parts[2]["position"] == [3.75, 0.0, 0.75], "pasted again: beside that one")

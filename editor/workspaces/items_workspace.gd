@@ -21,7 +21,11 @@ const SHOW_LEFT := "L"
 const HINT_PARTS := "Drag a part to move it.   Pull a square to size it.   Drag the ring to turn it.   " \
 	+ "Drag empty space to turn the view."
 const HINT_GRIP := "Drag the hand to move the grip.   Drag the ring to turn it.   Drag empty space to turn the view."
-const HINT_KEYS := "Ctrl+C copy   |   Ctrl+V paste   |   Ctrl+X cut   |   Delete   |   Ctrl+Z undo"
+const HINT_KEYS := "Arrow keys: move a quarter unit   |   Ctrl+C copy   |   Ctrl+V paste   |   Ctrl+X cut   |   " \
+	+ "Delete   |   Ctrl+Z undo"
+const CENTRE_TIPS: Array[String] = ["Put the chosen part on the item's middle, across (x 0)",
+	"Put the chosen part on the item's middle, front to back (y 0)",
+	"Put the chosen part at the item's own height 0 (z 0), where the grip starts"]
 
 var body_id: String = "male_average"
 var head_shape: String = "round"
@@ -101,7 +105,8 @@ func _build() -> void:
 	start_fresh()
 
 
-## Above the view: a button for each kind of part, and what the mouse and the keys do.
+## Above the view: a button for each kind of part, one to centre the chosen part on each axis, and what the mouse
+## and the keys do.
 func _build_toolbar() -> void:
 	var bar := VBoxContainer.new()
 	var row := HFlowContainer.new()
@@ -113,6 +118,16 @@ func _build_toolbar() -> void:
 		button.text = HeldItemShape.kind_name(kind)
 		button.tooltip_text = "Add a %s on top of the item" % HeldItemShape.kind_label(kind).to_lower()
 		button.pressed.connect(add_part.bind(kind))
+		row.add_child(button)
+	row.add_child(VSeparator.new())
+	var centre := Label.new()
+	centre.text = "Centre it on:"
+	row.add_child(centre)
+	for axis in 3:
+		var button := Button.new()
+		button.text = " %s " % ItemStage.AXES[axis]
+		button.tooltip_text = CENTRE_TIPS[axis]
+		button.pressed.connect(centre_part.bind(axis))
 		row.add_child(button)
 	bar.add_child(row)
 	_hint = Label.new()
@@ -187,6 +202,21 @@ func add_part(kind: String) -> void:
 	editor.commit("Add %s" % HeldItemShape.kind_name(kind).to_lower(), self)
 	edited.emit(self)
 	view.fit_view()                                    # the new part is on top: bring it into the view
+
+
+## Put the chosen part on the item's middle along one axis (0 x, 1 y, 2 z): that place becomes 0.
+func centre_part(axis: int) -> void:
+	var it := held.item()
+	if show_mode != SHOW_ITEM or it == null or part < 0 or part >= it.parts.size():
+		return
+	var p: Dictionary = it.parts[part]
+	if float(p["position"][axis]) == 0.0:
+		return
+	var place: Array = (p["position"] as Array).duplicate()
+	place[axis] = 0.0
+	p["position"] = place
+	editor.commit("Centre part %d on %s" % [part + 1, ItemStage.AXES[axis]], self)
+	edited.emit(self)
 
 
 ## Copy the chosen part (Ctrl+C), to paste into this item or another.

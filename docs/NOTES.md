@@ -1691,6 +1691,9 @@ Left for the owner to judge:
 - **Kept:** the seven kinds of part, sides, mirror, the drawing grid, the grip's ring, the arrow-key nudge, and the
   number boxes (the owner called those useful for fine tuning).
 - **Rule recorded** (`CLAUDE.md`): keep tools small; one way to do each thing; no control that does nothing yet.
+- **Asked for next, and added:** a way to centre a part on each axis ("Centre it on: x  y  z" above the view; the
+  place on that axis becomes 0, the item's middle). The arrow-key nudge was already there but had been cut from the
+  hint line with everything else, so the owner had to ask whether it existed: it is back on the keys line.
 
 ## 5. Still open, for the owner
 
