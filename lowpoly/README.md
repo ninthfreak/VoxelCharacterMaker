@@ -5,8 +5,8 @@ the bodies and heads, and the Python that makes, dresses, poses and checks them.
 five phases (owner's go-ahead, 2026-11; `docs/NOTES.md` 4t to 4y), all done: the game reads the bodies, heads and
 region table from `assets/lowpoly/`, dresses them in clothing and hair made of regions, straps, skirts and capes,
 grows facial hair on them and draws their faces (`core/lowpoly/`), and draws them bending, with their hanging cloth
-following cloth bones (`runtime/lowpoly_rig.gd`). The editor's three tabs (Face & Hair, Clothes, Preview) show
-them, and a click on the figure picks a region. The voxel system was removed in phase 5.
+following cloth bones (`runtime/lowpoly_rig.gd`). The editor's four tabs (Face & Hair, Clothes, Items, Preview)
+show them, and a click on the figure picks a region; the Items tab makes held items (`held.py`). The voxel system was removed in phase 5.
 
 Godot ignores this folder (`.gdignore`), so nothing here is imported into the project.
 
@@ -56,7 +56,7 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Faces: eyes, lids, lashes, eyebrows, skin tones | built: oval eyes from the wardrobe's eye sets and their colourways, the game's ten lid states, lids from the skin tone, a thin lash line, eyebrows from the hair, all six skin tones (`renders/faces.png`) |
 | The mouth | a first pass: a short line, straight or curved, or a small open oval (four: neutral, smile, frown, open). New here; the voxel faces have none. The game's table of them is `core/mouths.gd`, next to the lid states; which mouth goes with which lid state is open |
 | Held items: parts placed, turned and sized; held at the palm, riding the forearm | built in Python (`held.py`) and in the game (`core/held_item_shape.gd`), checked corner for corner; the editor's Items tab makes them |
-| Building polygons in Godot (assembler, editor, runtime) | done (all five phases): bodies and heads bending on a skeleton; clothing and hair made of regions (`LowpolyAssembler`); faces and facial hair (`LowpolyFace`, `LowpolyFacialHair`); straps, skirts and capes (`LowpolyShapes`), skirts and capes laid standing and following cloth bones (`LowpolyCloth`, `LowpolyPose`); all of it in full precision; the editor's three tabs, flat or smooth shading, picking regions on polygons, a mouth picker. Godot's posed corners, dressed polygons, faces and laid cloth are checked against the Python's. The voxel code is gone |
+| Building polygons in Godot (assembler, editor, runtime) | done (all five phases): bodies and heads bending on a skeleton; clothing and hair made of regions (`LowpolyAssembler`); faces and facial hair (`LowpolyFace`, `LowpolyFacialHair`); straps, skirts and capes (`LowpolyShapes`), skirts and capes laid standing and following cloth bones (`LowpolyCloth`, `LowpolyPose`); all of it in full precision; the editor's tabs, flat or smooth shading, picking regions on polygons, a mouth picker. Godot's posed corners, dressed polygons, faces and laid cloth are checked against the Python's. The voxel code is gone |
 
 ## How a body is made
 

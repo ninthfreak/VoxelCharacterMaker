@@ -118,6 +118,35 @@ func button_row(parent: Container, buttons: Array) -> HFlowContainer:
 	return row
 
 
+## Three numbers in a row (x, y, z, or the like), each with a short prefix; `on_change` gets all three, kept to a
+## ten-thousandth. Arrows step by `arrow`; a typed number is kept to `step`.
+func triple(parent: Container, text: String, prefixes: Array, lo: float, hi: float, step: float, arrow: float,
+		suffix: String, on_change: Callable) -> Array[SpinBox]:
+	var line := HBoxContainer.new()
+	var boxes: Array[SpinBox] = []
+	for i in 3:
+		var spin := SpinBox.new()
+		spin.min_value = lo
+		spin.max_value = hi
+		spin.step = step
+		spin.custom_arrow_step = arrow
+		spin.prefix = String(prefixes[i])
+		spin.suffix = suffix
+		spin.select_all_on_focus = true
+		spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		spin.value_changed.connect(func(_v: float) -> void:
+			if is_guarded():
+				return
+			var values: Array = []
+			for b in boxes:
+				values.append(snappedf(b.value, 0.0001))
+			on_change.call(values))
+		boxes.append(spin)
+		line.add_child(spin)
+	labelled(parent, text, line)
+	return boxes
+
+
 func make_list(parent: Container, height: int, multi: bool = false) -> ItemList:
 	var list := ItemList.new()
 	list.custom_minimum_size = Vector2(0, height)

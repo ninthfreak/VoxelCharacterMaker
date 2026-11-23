@@ -26,6 +26,10 @@ var facial_id: String = ""
 var facial_colourway: String = ""
 var accessory_id: String = ""
 var accessory_colourway: String = ""
+var right_hand_id: String = ""
+var right_hand_colourway: String = ""
+var left_hand_id: String = ""
+var left_hand_colourway: String = ""
 ## Clothing worn: Array of {"item": id, "colourway": name}
 var worn: Array = []
 ## The saved character last loaded or saved here ("" = none): what Update writes to.
@@ -50,6 +54,10 @@ var _facial_pick: OptionButton = null
 var _facial_way_pick: OptionButton = null
 var _accessory_pick: OptionButton = null
 var _accessory_way_pick: OptionButton = null
+var _right_pick: OptionButton = null
+var _right_way_pick: OptionButton = null
+var _left_pick: OptionButton = null
+var _left_way_pick: OptionButton = null
 var _outfit_pick: OptionButton = null
 var _clothes_rows: VBoxContainer = null
 var _summary: Label = null
@@ -64,8 +72,7 @@ func _build() -> void:
 	heading(side, "The whole character")
 	note(side, "Put together anything made in the other tabs, and save it as a character the game can build.")
 	add_panel(CharacterPanel.new(), null, side)
-	figure_controls(side, "Skirts and capes hang afresh in every pose. Not shown yet: edge style (its setting is "
-		+ "kept).")
+	figure_controls(side, "Skirts and capes follow the legs. Not shown yet: edge style (its setting is kept).")
 
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void: _choose("body_id", value))
@@ -119,6 +126,17 @@ func _build() -> void:
 	_accessory_way_pick = picker(side, "Colour", [], [], func(value: String) -> void:
 		_choose("accessory_colourway", value))
 
+	heading(side, "Held")
+	_right_pick = picker(side, "Right hand", [], [], func(value: String) -> void:
+		_choose("right_hand_id", value))
+	_right_way_pick = picker(side, "Colour", [], [], func(value: String) -> void:
+		_choose("right_hand_colourway", value))
+	_left_pick = picker(side, "Left hand", [], [], func(value: String) -> void:
+		_choose("left_hand_id", value))
+	_left_way_pick = picker(side, "Colour", [], [], func(value: String) -> void:
+		_choose("left_hand_colourway", value))
+	note(side, "Held items are made in the Items tab.")
+
 	heading(side, "Clothes")
 	_outfit_pick = picker(side, "Outfit", [], [], func(value: String) -> void:
 		if value.is_empty():
@@ -170,7 +188,11 @@ func _play(clip: String) -> void:
 
 ## Choices that change what another menu offers (an eye set's colours, a hair's or a beard's colourways): after these
 ## the menus are filled again; after any other, only the summary changes.
-const REFILLS: Array[String] = ["eye_set_id", "hair_id", "facial_id", "accessory_id"]
+const REFILLS: Array[String] = ["eye_set_id", "hair_id", "facial_id", "accessory_id", "right_hand_id", "left_hand_id"]
+## The choices a saved character keeps (CharacterDef), but what it wears.
+const KEPT: Array[String] = ["body_id", "head_shape", "skin_tone", "eye_set_id", "eye_colourway", "brow_hair", "lids",
+	"mouth", "hair_id", "hair_colourway", "facial_id", "facial_colourway", "accessory_id", "accessory_colourway",
+	"right_hand_id", "right_hand_colourway", "left_hand_id", "left_hand_colourway"]
 
 
 func _choose(field: String, value: String) -> void:
@@ -190,8 +212,7 @@ func _choose(field: String, value: String) -> void:
 func current_character() -> CharacterDef:
 	var loaded := editor.wardrobe.character(character_id) if not character_id.is_empty() else null
 	var who := CharacterDef.create(character_id, loaded.name if loaded != null else "")
-	for field in ["body_id", "head_shape", "skin_tone", "eye_set_id", "eye_colourway", "brow_hair", "lids", "mouth",
-			"hair_id", "hair_colourway", "facial_id", "facial_colourway", "accessory_id", "accessory_colourway"]:
+	for field in KEPT:
 		who.set(field, get(field))
 	who.worn = _live_worn()
 	return who
@@ -201,8 +222,7 @@ func current_character() -> CharacterDef:
 func load_character(who: CharacterDef) -> void:
 	if who == null:
 		return
-	for field in ["body_id", "head_shape", "skin_tone", "eye_set_id", "eye_colourway", "brow_hair", "lids", "mouth",
-			"hair_id", "hair_colourway", "facial_id", "facial_colourway", "accessory_id", "accessory_colourway"]:
+	for field in KEPT:
 		set(field, who.get(field))
 	worn = who.worn.duplicate(true)
 	character_id = who.id
@@ -272,6 +292,10 @@ func refresh() -> void:
 	facial_colourway = _fill_ways(_facial_way_pick, facial_id, facial_colourway)
 	accessory_id = _fill_slot(_accessory_pick, "face_accessory", accessory_id, "(none)")
 	accessory_colourway = _fill_ways(_accessory_way_pick, accessory_id, accessory_colourway)
+	right_hand_id = _fill_slot(_right_pick, GarmentItem.HELD, right_hand_id, "(nothing)")
+	right_hand_colourway = _fill_ways(_right_way_pick, right_hand_id, right_hand_colourway)
+	left_hand_id = _fill_slot(_left_pick, GarmentItem.HELD, left_hand_id, "(nothing)")
+	left_hand_colourway = _fill_ways(_left_way_pick, left_hand_id, left_hand_colourway)
 	if editor.wardrobe.character(character_id) == null:
 		character_id = ""
 
@@ -402,6 +426,10 @@ func _refresh_summary() -> void:
 	var accessory := w.item(accessory_id) if not accessory_id.is_empty() else null
 	if accessory != null:
 		lines.append("Face accessory: %s (%s)" % [accessory.name, accessory_colourway])
+	for hand in [["Right hand", right_hand_id, right_hand_colourway], ["Left hand", left_hand_id, left_hand_colourway]]:
+		var held := w.item(String(hand[1])) if not String(hand[1]).is_empty() else null
+		if held != null:
+			lines.append("%s: %s (%s)" % [hand[0], held.name, hand[2]])
 	var names: Array[String] = []
 	for entry in _live_worn():
 		var e: Dictionary = entry

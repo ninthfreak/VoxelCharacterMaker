@@ -10,10 +10,12 @@ extends SceneTree
 ##   xvfb-run -a godot --path . --rendering-driver opengl3 \
 ##       --script res://tools/screenshot_editor.gd -- --out docs/renders --tab Preview
 ##
-##   --tab NAME        the tab to bring forward (Face & Hair, Clothes, Preview)
+##   --open PATH       open this wardrobe file first
+##   --tab NAME        the tab to bring forward (Face & Hair, Clothes, Items, Preview)
 ##   --section NAME    a sub-tab within it (Eyes, Hair, Facial hair; Item, Colours...)
 ##   --name NAME       the file name, without .png
 ##   --select ID       select a wardrobe item (in its own section)
+##   --part N          on the Items tab, choose part N (from 0)
 ##   --scroll PIXELS   scroll the controls column down
 ##   --preview K=V     set one of the Preview tab's choices before the shot (repeatable), e.g.
 ##                     shading=smooth, body_id=female_short, head_shape=strong, pose=sitting, skin_tone=tan,
@@ -36,6 +38,8 @@ var _scroll := 0
 var _preview: Dictionary = {}
 var _set: Dictionary = {}
 var _view := ""
+var _open := ""
+var _part := -1
 
 
 func _initialize() -> void:
@@ -57,6 +61,10 @@ func _initialize() -> void:
 			var kv2 := String(args[i + 1]).split("=", true, 1)
 			if kv2.size() == 2:
 				_set[kv2[0]] = kv2[1]
+		elif String(args[i]) == "--open" and i + 1 < args.size():
+			_open = String(args[i + 1])
+		elif String(args[i]) == "--part" and i + 1 < args.size():
+			_part = int(args[i + 1])
 		elif String(args[i]) == "--view" and i + 1 < args.size():
 			_view = String(args[i + 1])
 		elif String(args[i]) == "--preview" and i + 1 < args.size():
@@ -79,6 +87,8 @@ func _process(_delta: float) -> bool:
 		root.add_child(_editor)
 		return false
 	if _frames == 3 and _editor != null:
+		if not _open.is_empty():
+			_editor.call("_do_open", _open)
 		if not _tab.is_empty():
 			_editor.call("show_tab", _tab)
 		var ws: Object = _editor.call("_current")
@@ -93,10 +103,14 @@ func _process(_delta: float) -> bool:
 					target = ws.get("hair")
 				elif slot == "facial_hair":
 					target = ws.get("facial_hair")
+				elif slot == "held":
+					target = ws.get("held")
 				else:
 					target = ws.get("clothes")
 				if target != null:
 					target.call("select", _select)
+		if _part >= 0 and ws.has_method("select_part"):
+			ws.call("select_part", _part)
 		if not _section.is_empty() and ws.has_method("show_section"):
 			ws.call("show_section", _section)
 		if not _set.is_empty():

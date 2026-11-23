@@ -2,12 +2,13 @@
 class_name CharacterEditor
 extends Control
 
-## The in-engine character editor (SPEC.md section 8), as three separate tabs:
+## The in-engine character editor (SPEC.md section 8), as four separate tabs:
 ##
 ##   Face & Hair   eye sets (the open eye), hair, facial hair: like clothes,
 ##                 but one of each per character, in their own area
 ##   Clothes       every clothing item with all its parameters and its special
 ##                 shapes, cycled through the eight bodies
+##   Items         held items (weapons, shields, tools, potions), built from simple parts
 ##   Preview       any combination of the above, as a whole character, posed
 ##
 ## The bodies and heads are made in Python (lowpoly/) and read from
@@ -38,6 +39,7 @@ var history := EditHistory.new()
 
 var face_hair: FaceHairWorkspace = null
 var clothes: ClothesWorkspace = null
+var items: ItemsWorkspace = null
 var preview: PreviewWorkspace = null
 var workspaces: Array = []
 
@@ -173,8 +175,9 @@ func _build_ui() -> void:
 
 	face_hair = FaceHairWorkspace.new()
 	clothes = ClothesWorkspace.new()
+	items = ItemsWorkspace.new()
 	preview = PreviewWorkspace.new()
-	workspaces = [face_hair, clothes, preview]
+	workspaces = [face_hair, clothes, items, preview]
 	for ws in workspaces:
 		var w: Workspace = ws
 		w.name = w.title()

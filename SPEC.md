@@ -527,6 +527,12 @@ reason for building the editor in-engine: two implementations of bulk generation
 
 Features (roughly in priority order):
 - **Preview:** any of 6 bodies × 5 heads × lid states; orbit/pan/zoom; front/back/side buttons; solo an item.
+- **Held items** (Items tab, section 7.5): a list of parts, each added by kind, duplicated or deleted, with its shape,
+  colour role, place, turn (15-degree steps by the arrows), size (quarter units), sides and mirror; a 16 by 16 grid to
+  draw an outline or a side view on (click to add a point, drag to move one, right-click to remove one); the grip and
+  a second grip. The view shows the item alone on a one-unit grid, the chosen part's edges in white over everything
+  and the grip as two arrows ("ahead", "up"), a double-click choosing a part; or held in a character's right or left
+  hand, in any pose. The Preview tab chooses what each hand holds.
 - **Saved characters** (Preview tab): save the whole character shown as a named character, pick one to see it,
   update it with changes, rename, delete; all undoable. The summary says whether what is shown is the character as
   saved.

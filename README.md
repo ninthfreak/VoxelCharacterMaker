@@ -30,7 +30,7 @@ against the Python corner by corner.
 | Straps, skirts and capes; skirts and capes laid standing, then following cloth bones the legs turn | done |
 | One-file wardrobe (v4: saved characters, held items) with exact round-trip | done; older files and the old facial hair styles still open |
 | Held items: built from simple parts, held in a hand, kept by saved characters | done (`core/held_item_shape.gd`) |
-| Editor: three tabs (Face & Hair, Clothes, Preview), flat or smooth shading, picking regions on the figure | done |
+| Editor: four tabs (Face & Hair, Clothes, Items, Preview), flat or smooth shading, picking regions on the figure | done |
 | Hood (raised or lowered) | done |
 | Shapes of their own: long beard, ponytail, bun, horns, pauldrons (replacing the voxel drawn shape) | done |
 | Edge style | kept in the wardrobe file, not on the figure yet |
@@ -47,7 +47,7 @@ Godot 4.7 or newer.
 godot --path .
 ```
 
-The editor is the project's main scene. It has three tabs:
+The editor is the project's main scene. It has four tabs:
 
 - **Face & Hair** -- eye sets (the open eye and eye colours), hair styles and
   facial hair. These work like clothes, but every character has exactly one of
@@ -55,8 +55,13 @@ The editor is the project's main scene. It has three tabs:
 - **Clothes** -- every clothing item with all its settings, including any
   special shapes. Cycle through the eight bodies to check an item on each.
   Click the figure to pick a region. Colours and outfits are here too.
+- **Items** -- held items (weapons, shields, tools, potions), built from simple
+  parts: boxes, wedges, cylinders, cones, spheres, and shapes drawn on a grid
+  (an outline given thickness, or half a side view spun round). Place, turn and
+  size each part; set the grip, where the hand closes. See the item alone, or
+  in a character's right or left hand.
 - **Preview** -- pick a body, head, skin tone, eyes, eyelids, brows, mouth,
-  hair, facial hair and clothes made in the other tabs, and see the whole
+  hair, facial hair, clothes and what each hand holds, made in the other tabs, and see the whole
   character, posed or animated (idle, walk). Save it as a character (the
   Saved characters list at the top: save as new, update, rename, delete); the
   game builds one by its name.
@@ -121,7 +126,7 @@ core/lowpoly/    the low-poly figure: library, assembler, face, facial hair,
 core/specials/   special shapes' settings (and facial hair's)
 runtime/         the rig the game uses, the test poses, a demo scene
 editor/          the in-engine editor, which calls the same core
-editor/workspaces/   its three tabs
+editor/workspaces/   its four tabs
 tests/           headless checks
 tools/           editor screenshots, and timings of the editor's actions
 assets/lowpoly/  generated bodies, heads and the region table

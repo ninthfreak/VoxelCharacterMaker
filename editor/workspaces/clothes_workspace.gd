@@ -45,7 +45,7 @@ func _build() -> void:
 	clothes.changed.connect(rebuild)
 
 	heading(side, "Clothes")
-	figure_controls(side, "Click the figure to pick a region. Skirts and capes hang afresh in every pose. Not shown "
+	figure_controls(side, "Click the figure to pick a region. Skirts and capes follow the legs. Not shown "
 		+ "yet: edge style (its setting is kept). The face is the first eye set's, eyelids at rest.")
 	_body_pick = cycler(side, "Body", editor.library.body_ids(), body_labels(),
 		func(value: String) -> void:

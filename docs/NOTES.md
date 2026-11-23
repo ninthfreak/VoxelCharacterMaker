@@ -1615,6 +1615,22 @@ Left for the owner to judge:
   capped; mirrored and turned parts; four test items held on three bodies in both hands match `held.py` corner for
   corner; file round trip and cleaning of nonsense values; holding, mirroring, upright bottles, moving with the
   forearm in a pose; saved characters and the game node.
+- **The Items tab** (`editor/workspaces/items_workspace.gd`, `PartsPanel`, `GripPanel`, `ShapeGrid`): the item list
+  (New makes one box in two roles, main and detail), the parts and the chosen part's fields, a drawing grid, the grip,
+  and the colours. Numbers step by a quarter unit and turns by 15 degrees with the arrows; anything can be typed.
+  A run of changes to one number is one undo step. The view shows the item standing on a grid of one-unit squares,
+  the chosen part's edges in white drawn over everything (so a part inside another still shows), and the grip as two
+  solid arrows, "ahead" in sky blue and "up" in orange (not red against green); a double-click on a part chooses it.
+  Show: in the right or left hand puts it in a character's hand (the everyday outfit), in any pose. The Preview tab
+  has Right hand and Left hand menus, and a saved character keeps them.
+- **Drawing grid:** a click adds a point after the last, or into a line already drawn when it lands on one; a drag
+  moves a point; a right-click removes one. Points are numbered in order, the first orange. An outline's closing
+  line is dashed; a spin's middle is a blue line down the left edge. The drawing is stretched to the part's size,
+  so the grid stays square and easy to click; the text above it says how it is stretched.
+- **Checked** (`tests/test_editor.gd`): New, adding a part, a run of size changes as one undo step, changing a
+  part's shape, drawing into a line and after it, undo, choosing a part from the view, the grip and second grip, the
+  item in a hand, deleting a part, the Preview's hand menus and saving a character holding it. Screenshots taken
+  under xvfb (`tools/screenshot_editor.gd`, now with `--open` and `--part`), looked at in full.
 
 ## 5. Still open, for the owner
 

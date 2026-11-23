@@ -30,16 +30,19 @@ static func cleanup() -> void:
 
 
 static func run(t: TestReport, ed: CharacterEditor) -> void:
-	t.group("editor: three separate tabs")
+	t.group("editor: four separate tabs")
 	var titles: Array[String] = []
 	for ws in ed.workspaces:
 		titles.append((ws as Workspace).title())
-	t.check_equal(titles, ["Face & Hair", "Clothes", "Preview"] as Array[String],
-		"the tabs are Face & Hair, Clothes, Preview")
+	t.check_equal(titles, ["Face & Hair", "Clothes", "Items", "Preview"] as Array[String],
+		"the tabs are Face & Hair, Clothes, Items, Preview")
 	t.check(not ed.get_tree().auto_accept_quit, "closing the window is routed through the editor, not accepted outright")
 	for ws2 in ed.workspaces:
 		var w: Workspace = ws2
 		ed.show_tab(w.title())
+		if w == ed.items:
+			t.check(w.view.showing_item, "Items shows the item alone (the starter wardrobe has none)")
+			continue
 		var f := w.view.lowpoly_rig.figure
 		t.check(f != null and f.visible_polygons() > 0, "%s shows a figure" % w.title())
 	t.check_equal(ed.library.body_ids().size(), 8, "eight bodies to choose from, a short one for each sex")
@@ -50,6 +53,7 @@ static func run(t: TestReport, ed: CharacterEditor) -> void:
 	_panels_together(t, ed)
 	_preview(t, ed)
 	_characters(t, ed)
+	_items(t, ed)
 	_animation(t, ed)
 	_undo_timeline(t, ed)
 	_unsaved_guard(t, ed)
@@ -452,6 +456,94 @@ static func _characters(t: TestReport, ed: CharacterEditor) -> void:
 	ed.undo()
 	t.check(ed.wardrobe.character("hero").name == "Hero" and ed.wardrobe.character("hero").skin_tone == "deep",
 		"and further undo goes back through the rename and the update")
+
+
+## The Items tab: a held item made from parts, drawn, gripped, shown alone and in a hand; and held in the Preview.
+static func _items(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: Items -- held items made from parts")
+	_fresh(ed)
+	ed.show_tab("Items")
+	var tab := ed.items
+	var list := _panel(tab, ItemListPanel) as ItemListPanel
+	var parts := _panel(tab, PartsPanel) as PartsPanel
+	var grip := _panel(tab, GripPanel) as GripPanel
+	t.check(list._ids.is_empty() and tab.view.showing_item and ed._status.text.contains("No held item"),
+		"no held items to start with: the view is empty and the status line says how to make one", ed._status.text)
+
+	var steps: int = ed.history._entries.size()
+	list._on_new()
+	var it := tab.held.item()
+	t.check(it != null and it.is_held() and it.parts.size() == 1 and ed.history._entries.size() == steps + 1
+		and list._ids == [it.id], "New makes a held item with one part (a box), as one undo step")
+	t.check(tab.view._item_polys.size() == 6 and list._category.get_parent().visible
+		and not list._draw_order.get_parent().visible, "the view shows its box; it has a category but no draw order")
+
+	parts._add_kind.select(HeldItemShape.KINDS.find("cylinder"))
+	parts._on_add()
+	t.check(it.parts.size() == 2 and tab.part == 1 and String(it.parts[1]["kind"]) == "cylinder"
+		and parts._sides_row.visible and not parts._drawing.visible,
+		"Add part: a cylinder, chosen, with its number of sides offered and no drawing")
+	steps = ed.history._entries.size()
+	parts._size[2].value = 8.0
+	parts._size[2].value = 9.0
+	t.check(it.parts[1]["size"] == [1.0, 1.0, 9.0] and ed.history._entries.size() == steps + 1,
+		"changing its height twice in a row: one undo step")
+	parts._place[2].value = 4.5
+	t.check(it.parts[1]["position"] == [0.0, 0.0, 4.5], "moving it up")
+
+	parts._kind.select(HeldItemShape.KINDS.find("outline"))
+	parts._kind.item_selected.emit(HeldItemShape.KINDS.find("outline"))
+	t.check(String(it.parts[1]["kind"]) == "outline" and (it.parts[1]["points"] as Array).size() == 4
+		and it.parts[1]["size"] == [1.0, 1.0, 9.0] and parts._drawing.visible and parts._grid.points.size() == 4,
+		"made an outline instead: it keeps its size and starts as a square drawing, shown on the grid")
+	parts._grid._add([8, 16])
+	t.check((it.parts[1]["points"] as Array) == [[0, 0], [16, 0], [16, 16], [8, 16], [0, 16]],
+		"a click on a line already drawn puts a point into it")
+	parts._grid._add([4, 4])
+	t.check((it.parts[1]["points"] as Array).size() == 6 and it.parts[1]["points"][-1] == [4, 4],
+		"a click anywhere else adds one at the end")
+	ed.undo()
+	t.check((tab.held.item().parts[1]["points"] as Array).size() == 5, "undo takes it away again")
+	it = tab.held.item()
+
+	tab.view.part_picked.emit(0)
+	t.check(tab.part == 0 and parts._list.is_selected(0), "a double-click on a part in the view chooses it")
+	grip._place[2].value = -1.5
+	t.check(it.grip["position"] == [0.0, 0.0, -1.5], "the grip moves")
+	grip._two_handed.button_pressed = true
+	t.check(not it.second_grip.is_empty() and grip._second_row.visible, "two-handed: a second grip, shown to place")
+
+	tab._show_pick.select(1)
+	tab._show_pick.item_selected.emit(1)
+	var f := tab.view.lowpoly_rig.figure
+	var in_hand := 0
+	for p in f.polygons:
+		in_hand += 1 if String(p["piece"]) == HeldItemShape.PIECE else 0
+	t.check(not tab.view.showing_item and in_hand == HeldItemShape.polygons(it, {}).size() and tab._figure_box.visible,
+		"Show: in the right hand -- a character holds it, and its body and pose can be chosen")
+	tab._show_pick.select(0)
+	tab._show_pick.item_selected.emit(0)
+	t.check(tab.view.showing_item, "and back to the item alone")
+
+	parts._on_delete()
+	t.check(it.parts.size() == 1 and tab.part == 0, "Delete part")
+
+	t.group("editor: Preview -- held items")
+	ed.show_tab("Preview")
+	var pv := ed.preview
+	t.check(pv._right_pick.item_count == 2 and pv._left_pick.item_count == 2,
+		"the Right hand and Left hand menus offer nothing or the item")
+	pv._choose("right_hand_id", it.id)
+	var held_polys := 0
+	for p in pv.view.lowpoly_rig.figure.polygons:
+		held_polys += 1 if String(p["piece"]) == HeldItemShape.PIECE else 0
+	t.check(held_polys > 0 and pv.current_character().right_hand_id == it.id and pv._summary.text.contains("Right hand"),
+		"choosing it for the right hand: the character holds it, and the summary says so")
+	var panel := _panel(pv, CharacterPanel) as CharacterPanel
+	panel._name.text = "Guard"
+	panel._on_save_new()
+	t.check(ed.wardrobe.character("guard") != null and ed.wardrobe.character("guard").right_hand_id == it.id,
+		"a character saved holding it keeps it")
 
 
 ## The Preview tab plays an animation; a pose stops it.

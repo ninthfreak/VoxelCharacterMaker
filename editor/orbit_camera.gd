@@ -13,7 +13,7 @@ extends Camera3D
 const ORBIT_SPEED := 0.6
 const PAN_SPEED := 0.0025
 const ZOOM_STEP := 1.12
-const MIN_DISTANCE := 0.35
+const MIN_DISTANCE := 0.15
 const MAX_DISTANCE := 12.0
 const PITCH_LIMIT := 89.0
 ## Room left around the figure when the view fits itself to it.
@@ -41,7 +41,7 @@ var _dragging_pan := false
 func _ready() -> void:
 	projection = PROJECTION_PERSPECTIVE
 	fov = 35.0
-	near = 0.05
+	near = 0.02
 	far = 50.0
 	_apply()
 

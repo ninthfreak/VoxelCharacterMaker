@@ -2,8 +2,8 @@
 class_name ItemListPanel
 extends EditorPanel
 
-## The items of one wardrobe section -- clothing, or a feature slot -- with the
-## basics of the selected one: name, category, draw order, colourway.
+## The items of one wardrobe section -- clothing, a feature slot, or held items -- with the
+## basics of the selected one: name, category, draw order (not for held items), colourway.
 ##
 ## For clothing, each item can be marked worn; the list says "worn" in words
 ## rather than relying on colour. A feature slot is always filled, so its list
@@ -27,7 +27,8 @@ var _details: VBoxContainer = null
 
 
 func _build() -> void:
-	var box := section(GarmentItem.slot_label(selection.slot) if selection != null else "Items")
+	var box := section("Items" if selection == null or selection.slot == GarmentItem.HELD
+		else GarmentItem.slot_label(selection.slot))
 	_list = make_list(box, 170)
 	_list.item_selected.connect(func(index: int) -> void:
 		if is_guarded() or index < 0 or index >= _ids.size():
@@ -90,8 +91,9 @@ func _build() -> void:
 		refresh())
 	_details.add_child(_worn)
 
-	hint(box, "Higher draws on top. Where two items claim the same region the one "
-		+ "reaching further from the body wins, and draw order breaks a tie.")
+	if selection == null or selection.slot != GarmentItem.HELD:
+		hint(box, "Higher draws on top. Where two items claim the same region the one "
+			+ "reaching further from the body wins, and draw order breaks a tie.")
 
 
 func refresh() -> void:
@@ -102,7 +104,8 @@ func refresh() -> void:
 
 	_ids.clear()
 	_list.clear()
-	if not show_worn:
+	var is_held := selection.slot == GarmentItem.HELD
+	if not show_worn and not is_held:
 		_ids.append(NONE_ID)
 		var none_text := "(none)"
 		if selection.slot == "hair":
@@ -116,9 +119,12 @@ func refresh() -> void:
 		_ids.append(id)
 		var it := editor.wardrobe.item(id)
 		var text := it.name
-		if not it.is_feature():
+		if not it.is_feature() or it.is_held():
 			text += "  -  %s" % it.category
-		text += "  (draws at %d)" % it.draw_order
+		if not it.is_held():
+			text += "  (draws at %d)" % it.draw_order
+		else:
+			text += "  (%d part%s)" % [it.parts.size(), "" if it.parts.size() == 1 else "s"]
 		if it.is_special():
 			var types: Array[String] = []
 			for type in it.special_types():
@@ -136,8 +142,9 @@ func refresh() -> void:
 	_details.visible = it2 != null
 	if it2 != null:
 		_name.text = it2.name
-		_category.get_parent().visible = not it2.is_feature()
-		fill_options(_category, GarmentItem.CATEGORIES, it2.category)
+		_category.get_parent().visible = not it2.is_feature() or it2.is_held()
+		fill_options(_category, GarmentItem.HELD_CATEGORIES if it2.is_held() else GarmentItem.CATEGORIES, it2.category)
+		_draw_order.get_parent().visible = not it2.is_held()
 		_draw_order.value = it2.draw_order
 		fill_options(_colourway, it2.colourway_names(), selection.colourway)
 		_worn.visible = show_worn
@@ -164,12 +171,17 @@ func _apply_name(text: String) -> void:
 
 func _on_new() -> void:
 	var w := editor.wardrobe
-	var label := "New %s" % GarmentItem.slot_label(selection.slot).to_lower() \
-		if selection.slot != GarmentItem.CLOTHES else "New item"
+	var label := "New item"
+	if selection.slot == GarmentItem.HELD:
+		label = "New held item"
+	elif selection.slot != GarmentItem.CLOTHES:
+		label = "New %s" % GarmentItem.slot_label(selection.slot).to_lower()
 	var id := w.unique_item_id(label)
 	var it: GarmentItem
 	if selection.slot == GarmentItem.CLOTHES:
 		it = GarmentItem.create(id, label, "top")
+	elif selection.slot == GarmentItem.HELD:
+		it = GarmentItem.create_held(id, label)
 	else:
 		it = GarmentItem.create_feature(id, label, selection.slot)
 		it.roles = ["hair"]
