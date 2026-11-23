@@ -96,7 +96,7 @@ static func anchor_description(type: String, params: Dictionary = {}) -> String:
 	match type:
 		"hood": return "Raised: over the head, the face left open, falling to a cowl on the shoulders. Down: a collar " \
 			+ "with the hood lying on the back."
-		"long_beard": return "Hangs from under the chin, clear of the chest."
+		"long_beard": return "Starts just under the lower lip and hangs straight down over the chest."
 		"ponytail": return "Tied at the back of the head, hanging clear of the back."
 		"bun": return "On the head: on top, at the back, or at the nape."
 		"horns": return "A pair, from the forehead."
@@ -172,8 +172,8 @@ static func param_spec(type: String) -> Array:
 			{"name": "width", "label": "Width", "type": "int", "default": 3, "min": 1, "max": 4},
 			{"name": "point", "label": "Point", "type": "int", "default": 2, "min": 0, "max": 3,
 				"hint": "0 is blunt, 3 comes to a point"},
-			{"name": "jut", "label": "Jut", "type": "int", "default": 1, "min": 0, "max": 3,
-				"hint": "How far forward it comes"},
+			{"name": "jut", "label": "Lean", "type": "int", "default": 0, "min": 0, "max": 3,
+				"hint": "0 hangs straight down; higher leans its tip forward"},
 		]
 		"ponytail": return [
 			{"name": "height", "label": "Height", "type": "int", "default": 1, "min": 0, "max": 3,

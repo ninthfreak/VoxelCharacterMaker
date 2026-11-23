@@ -366,9 +366,9 @@ rejected: goatee, moustache, moustache + goatee, a volumetric full beard, flat s
 - **Colours follow the character** through colour references: `@stubble` is always darker than the skin (the skin
   half a shade darker, leaning a third toward the hair, darkened further if the hair is lighter than the skin);
   `@hair` is the worn hair's colour (dark brown when bald). Any item role can use them.
-- **Face accessory** slot (optional, one at a time): the **long beard**, hung from under the chin. *On the voxel
-  figure a hand-drawn shape at the chin anchor; on the low-poly figure one of the shapes of their own (section 7.4:
-  length, width, point, jut).* Its colour is `@hair`.
+- **Face accessory** slot (optional, one at a time): the **long beard**. *On the voxel figure a hand-drawn shape at
+  the chin anchor; on the low-poly figure one of the shapes of their own (section 7.4: length, width, point, jut). It
+  starts on the face just under the lower lip and hangs straight down over the chest.* Its colour is `@hair`.
 
 ## 6. Shading and colour
 
@@ -464,7 +464,7 @@ laid afresh for every pose, not cloth panels (section 0). The hood: raised, a lo
 open, falling to a cowl on the shoulders; lowered, a collar with the empty hood lying on the back (settings raised,
 looseness, opening, lined, and for its shape peak, brim, fullness at the back and cowl length; the top is round
 unless peaked). The drawn shape is replaced by shapes of their own, each fixed at a place on the figure
-with a few settings (owner, 2026-11): long beard (under the chin: length, width, point, jut), ponytail (back of the
+with a few settings (owner, 2026-11): long beard (from under the lower lip, hanging straight: length, width, point, jut = how far its tip leans forward), ponytail (back of the
 head: height, length, thickness, tie), bun (top, back or nape; size), horns (a pair from the brow: length, curve,
 spread, thickness), pauldrons (a pair on the shoulders: size, drop). An old file's drawn shape under the chin becomes a
 long beard, one at the nape a ponytail; any other is kept in the file and not drawn.* **Straps** run up the chest, across the top beside the neck and straight down the back, one voxel proud, in a

@@ -25,7 +25,7 @@ DEFAULTS = {
               "waistband": True, "hem_trim": True},
     "cape": {"length": "to_knee", "width": "shoulders", "flare": 1, "hem_trim": True},
     "hood": {"raised": True, "depth": 1, "opening": 1, "lined": False, "brim": 1, "fullness": 1, "peak": 0, "cowl_length": 1},
-    "long_beard": {"length": 3, "width": 3, "point": 2, "jut": 1},
+    "long_beard": {"length": 3, "width": 3, "point": 2, "jut": 0},
     "ponytail": {"height": 1, "length": 3, "thickness": 2, "tie": True},
     "bun": {"position": "back", "size": 2},
     "horns": {"length": 2, "curve": 1, "spread": 1, "thickness": 2},

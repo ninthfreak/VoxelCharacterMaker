@@ -1336,13 +1336,14 @@ hood and on how drawn shapes are to be made (below).
 The owner chose fixed shape types with a few settings each (option C of 4za) over hand-set sections or the cell
 drawing, as best for the long term, and agreed the first set of five.
 
-- **The types** (`lowpoly/drawn.py`, `core/lowpoly/lowpoly_drawn.gd`): long beard (under the chin: length 1-5,
+- **The types** (`lowpoly/drawn.py`, `core/lowpoly/lowpoly_drawn.gd`): long beard (under the chin, since 4zf under
+  the lower lip: length 1-5,
   width 1-4, point 0-3, jut 0-3), ponytail (back of the head: height 0-3 from the nape to the crown, length 1-5,
   thickness 1-3, tie), bun (top, back or nape; size 1-3), horns (a pair from the brow: length, curve, spread,
   thickness), pauldrons (a pair on the shoulders: size, drop). Underneath each is the loft of 4za: its settings give a
   few oval sections, joined into one closed piece. Each has a fixed anchor, so there is no anchor or mirror control.
   A beard stands clear of the chest and a tail of the back and the hair; the jut is added after that, so it shows on
-  every chest. Sheet: `lowpoly/renders/shape_types.png` (every setting from one end to the other).
+  every chest. (4zf hangs the beard differently: a straight front, its back on the chest.) Sheet: `lowpoly/renders/shape_types.png` (every setting from one end to the other).
 - **Two fixes found while building the types:** an oval's width now follows a direction fixed per type (across, or
   front to back for a pauldron), because taken from the path it flipped half a turn where a path rises then falls,
   twisting the piece; a pauldron bends between the chest and its upper arm (0.2 to 0.85 with the arm from its inner
@@ -1480,6 +1481,25 @@ Left for the owner to judge:
 - **The long beard worn alone** starts with a straight edge along the jaw, like a bib.
 - Known and unchanged: the dark band across the front of the hips is the body turning under, in flat shading; the
   short crop stands off the head like a cap.
+
+## 4zf. The long beard from under the lip, hanging straight (owner's direction)
+
+- **Why.** The owner: every version jutted out from the chin before falling, curved in profile, and came out from
+  below where the chin would be, so it read as a neck beard. Measured: it started at the head's underside (26.6, on
+  the jaw's lowest ring), while the mouth's lowest point is at 29.25 on every head; the 3 units of face between are the
+  chin, though none is drawn. Its curve came from the old way of hanging it: about 4 units thick under the chin and
+  pushed forward until it cleared the chest, so its front jumped forward, then swung back as it thinned.
+- **Now.** Its top is on the face 0.45 under the mouth's lowest point (from the mouth's own height and thickness, so it
+  follows them), 0.55 proud of the face and about half its width (`TOP_SHARE`), widening to full width a quarter of the
+  way down. Its front is one straight line from there to the tip, as upright as lets every section keep a least
+  thickness (1) clear of the chest; its back goes into the face over the chin and lies on the chest below. The tip is
+  where it always was, so length still says how far down it hangs.
+- **Jut** now leans that straight line forward at the tip (0.45 a step); its default is 0, straight down. The
+  editor calls it Lean.
+- **A limit, stated.** These bodies' chests and bellies are about level with the face's front, so a beard lying on
+  them cannot hang quite upright: about 9 degrees on the average body, more on the heavy one. It stays straight.
+- The owner is not thrilled with any version and chose to move on; options shown on the way (narrow or full top, a
+  wedge back to the throat) are in this session's mock-ups, not kept.
 
 ## 5. Still open, for the owner
 

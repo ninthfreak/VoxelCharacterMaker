@@ -10,7 +10,8 @@ extends RefCounted
 ## thick), joined into one closed low-poly piece (a loft); a section with no width is a point. A section is placed in
 ## its anchor's own directions: a across (outward at a shoulder), b out from the anchor, c the third direction.
 ##
-##   long_beard  under the chin, hanging down, clear of the chest: length, width, point, jut
+##   long_beard  from under the lower lip, hanging straight down over the chin and the chest: length, width, point, jut
+##               (how far its tip leans forward)
 ##   ponytail    from the back of the head, clear of the back and the hair: height, length, thickness, tie
 ##   bun         on top, at the back or at the nape: position, size
 ##   horns       a pair, from the brow: length, curve, spread, thickness
@@ -22,7 +23,15 @@ const CLEAR := 0.35                  ## how far a beard or a tail stays off what
 const CX := 12.0
 const CY := 12.0
 const GREY := Color8(128, 128, 128)
-const BEARD_ROWS: Array[float] = [0.15, 0.4, 0.65, 0.88, 1.0]
+# The long beard starts on the face just under the lower lip, where a chin would be (the heads have none drawn): the
+# owner's choice, 2026-11, over one hung from under the jaw (it read as a neck beard, and jutted out before it fell).
+const CHIN_Z := 26.0                 ## the chin's anchor: the head's lowest ring (head heights)
+const BEARD_TOP := LowpolyFace.MOUTH_Z - 0.5 * LowpolyFace.MOUTH_THICK - 0.45   ## the top: under the mouth's lowest point
+const BEARD_ROWS: Array[float] = [0.1, 0.25, 0.45, 0.65, 0.85, 1.0]   ## its sections below the top, as shares of top to tip
+const TOP_SHARE := 0.45              ## its width at the top, against its full width (which it has a quarter of the way down)
+const PROUD := 0.55                  ## how far its top stands in front of the face
+const FILL := 1.8                    ## over the chin, how far into the face its back goes
+const LEAST := 1.0                   ## the least a section is thick, front to back
 
 static var X := PackedFloat64Array([1.0, 0.0, 0.0])
 static var Y := PackedFloat64Array([0.0, 1.0, 0.0])
@@ -35,29 +44,67 @@ static func _sec(a: float, b: float, c: float, w: float, t: float, role: String)
 
 # ------------------------------------------------------------------------------------------------- types ---
 
-## Sections, in the chin's directions (b down, c forward). Its jut is added once it stands clear of the chest.
+## Sections, in the chin's directions (b down, c forward), from the top under the lip to the tip: where each is, how
+## wide, and how thick at most. Where each is front to back is hang_beard's to say.
 static func long_beard(p: Dictionary) -> Array:
-	var length := 2.0 + 2.0 * clampi(LowpolyShapes._whole(p["length"], 3), 1, 5)
+	var length := 2.0 + 2.0 * clampi(LowpolyShapes._whole(p["length"], 3), 1, 5)    # the tip, below the chin's anchor
 	var width := 5.0 + 1.5 * clampi(LowpolyShapes._whole(p["width"], 3), 1, 4)
 	var point := clampi(LowpolyShapes._whole(p["point"], 2), 0, 3)
-	var end := 0.55 * (1.0 - point / 3.0)                # the bottom's width, against the top's
-	var out: Array = [_sec(0.0, -0.6, -0.8, width, 5.6, "hair")]
-	for f in BEARD_ROWS:
-		var w := width * (1.0 - (1.0 - end) * pow(f, 1.2))
+	var end := 0.55 * (1.0 - point / 3.0)                # the bottom's width, against the full width
+	var top := CHIN_Z - BEARD_TOP                         # above the anchor: b is negative
+	var shares: Array[float] = [0.0]
+	shares.append_array(BEARD_ROWS)
+	var out: Array = []
+	for f in shares:
+		var g := TOP_SHARE + (1.0 - TOP_SHARE) * pow(f / 0.25, 0.7) if f <= 0.25 \
+			else 1.0 - (1.0 - end) * pow((f - 0.25) / 0.75, 1.2)
+		var w := width * g
 		var t := maxf(1.2, 4.4 * (1.0 - 0.55 * f))
 		if f == 1.0 and point == 3:
 			w = 0.0
 			t = 0.0
-		out.append(_sec(0.0, length * f, -0.8 + 0.8 * (1.0 - pow(1.0 - f, 2)), w, t, "hair"))
+		out.append(_sec(0.0, top + (length - top) * f, 0.0, w, t, "hair"))
 	return out
 
 
-## Bring the beard forward by its jut, most at the bottom.
-static func jut_beard(sections: Array, p: Dictionary) -> Array:
-	var jut := clampi(LowpolyShapes._whole(p["jut"], 1), 0, 3)
-	for i in BEARD_ROWS.size():
-		var f := BEARD_ROWS[i]
-		sections[i + 1]["c"] = float(sections[i + 1]["c"]) + 0.6 * jut * (1.0 - pow(1.0 - f, 2))
+## Place the beard front to back. Its front is one straight line from its top, PROUD in front of the face, to its tip:
+## as upright as lets every section keep LEAST thickness clear of the chest, then leaned forward by its jut. Each
+## section is as thick as the room behind that line (into the face over the chin, to CLEAR off the chest below it), up
+## to its most. P: the dressed figure's corners (flat), the head's left out.
+static func hang_beard(sections: Array, frame: Array, m: LowpolyHood.Measure, P: PackedFloat64Array, p: Dictionary) -> Array:
+	var origin: PackedFloat64Array = frame[0]
+	var zs: Array[float] = []
+	var backs: Array[float] = []
+	for s in sections:
+		var level: Dictionary = (s as Dictionary).duplicate()
+		level["c"] = 0.0
+		var ctr := _centre(frame, level)
+		var z := ctr[2]
+		var back := 0.0
+		if z > origin[2]:                                 # over the chin: its back is in the face
+			back = CY - m.head(0.0, z - m.dz) + FILL
+		else:
+			var half := maxf(0.5 * float(s["w"]), 0.6)
+			var nearest := INF
+			for j in P.size() / 3:
+				if absf(P[3 * j + 2] - z) <= 1.0 and absf(P[3 * j] - ctr[0]) <= half:
+					nearest = minf(nearest, P[3 * j + 1])
+			back = (nearest if nearest < INF else origin[1]) - CLEAR
+		zs.append(z)
+		backs.append(back)
+	var z0 := zs[0]
+	var y0 := CY - m.head(0.0, z0 - m.dz) - PROUD       # the top's front (smaller y is further forward)
+	var slope := 0.0
+	for i in range(1, sections.size()):
+		var least := LEAST if float(sections[i]["w"]) > 0.0 else 0.0
+		slope = maxf(slope, (y0 - (backs[i] - least)) / (z0 - zs[i]))
+	slope += 0.45 * clampi(LowpolyShapes._whole(p["jut"], 0), 0, 3) / (z0 - zs[zs.size() - 1])
+	for i in sections.size():
+		var s: Dictionary = sections[i]
+		var front := y0 - slope * (z0 - zs[i])
+		var t := minf(maxf(backs[i] - front, LEAST), maxf(float(s["t"]), LEAST)) if float(s["w"]) > 0.0 else 0.0
+		s["t"] = t
+		s["c"] = origin[1] - (front + 0.5 * t)
 	return sections
 
 
@@ -294,8 +341,7 @@ static func build(fit: LowpolyShapes.Fit, kind: String, params: Dictionary, colo
 	match kind:
 		"long_beard":
 			var frame := _chin(m)
-			stand_clear(sections, frame, m.corners(-INF, false), "c", 1)      # in front of the chest: the jaw is its own
-			return [loft(jut_beard(sections, p), frame, colours, head), []]
+			return [loft(hang_beard(sections, frame, m, m.corners(-INF, false), p), frame, colours, head), []]
 		"ponytail":
 			var frame := _head_back(m, 29.0 + 2.5 * clampi(LowpolyShapes._whole(p["height"], 1), 0, 3))
 			stand_clear(sections, frame, m.corners(-INF, true), "b", 3)       # behind the back and the hair

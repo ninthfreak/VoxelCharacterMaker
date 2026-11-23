@@ -825,8 +825,8 @@ def sheet_types():
         rows.append((title, sub, band(tl, lab, gap_after=tuple(gaps[:-1]))))
 
     kind_of = ["long_beard"]
-    row("1. Long beard (under the chin), worn with a short full beard",
-        "length 1 to 5, width 1 to 4, point 0 (blunt) to 3 (a point), jut 0 to 3 (how far forward). It stands clear of the chest. Defaults: length 3, width 3, point 2, jut 1.",
+    row("1. Long beard (from under the lower lip), worn with a short full beard",
+        "length 1 to 5, width 1 to 4, point 0 (blunt) to 3 (a point), jut 0 to 3 (how far its tip leans forward). Its front is straight, its back on the chest. Defaults: length 3, width 3, point 2, jut 0.",
         [("default: front, side", {}, [front, side]), ("length 1", dict(length=1), [side]), ("length 5", dict(length=5), [side]),
          ("width 1", dict(width=1), [front]), ("width 4", dict(width=4), [front]), ("point 0", dict(point=0), [front]),
          ("point 3", dict(point=3), [front]), ("jut 0", dict(jut=0), [side]), ("jut 3", dict(jut=3), [side])], tall, whiskers=True)

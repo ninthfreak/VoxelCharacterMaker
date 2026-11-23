@@ -13,14 +13,16 @@ point, a tip. Where a section is, is given in its anchor's own directions:
   c   the anchor's third direction (forward under the chin, up at the back of the head and the brow, back at the crown,
       forward at a shoulder)
 
-  long_beard  under the chin, hanging down: length, width, point (blunt to pointed), jut (how far forward it comes)
+  long_beard  from under the lower lip, hanging straight down over the chin and the chest: length, width, point (blunt
+              to pointed), jut (how far its tip leans forward)
   ponytail    from the back of the head: height (from the nape up to the crown), length, thickness, and a tie in its own
               colour
   bun         on the head: position (top, back or nape), size
   horns       a pair, from the brow: length, curve (straight up to swept back), spread, thickness
   pauldrons   a pair, on the shoulders: size, drop (how far down the arm)
 
-A beard and a ponytail's tail stand clear of what they hang over (the chest, the back, the hair). A beard, a tail and
+A beard's front is one straight line, and its back lies on the chest; a ponytail's tail stands clear of what it hangs
+over (the back, the hair). A beard, a tail and
 a bun follow the head; horns the head; a pauldron bends between the chest and its upper arm (an arm is one rigid piece
 at the shoulder, so a pauldron following it alone turns under the armpit when the arm goes overhead).
 
@@ -30,6 +32,7 @@ import numpy as np
 import body as lb
 import heads
 import hood as hd
+import faces
 
 CX, CY = lb.CX, lb.CY
 SIDES = 8                       # points round every section
@@ -80,29 +83,57 @@ def _sec(a, b, c, w, t, role):
     return dict(a=float(a), b=float(b), c=float(c), w=max(0.0, float(w)), t=max(0.0, float(t)), role=role)
 
 
-BEARD_ROWS = (0.15, 0.4, 0.65, 0.88, 1.0)  # where the beard's sections are, as shares of its length
+# The long beard starts on the face just under the lower lip, where a chin would be (the heads have none drawn): the
+# owner's choice, 2026-11, over one hung from under the jaw (it read as a neck beard, and jutted out before it fell).
+CHIN_Z = 26.0                   # the chin's anchor: the head's lowest ring (head heights)
+BEARD_TOP = faces.MOUTH_Z - 0.5 * faces.MOUTH_THICK - 0.45   # the beard's top: under the mouth's lowest point
+BEARD_ROWS = (0.1, 0.25, 0.45, 0.65, 0.85, 1.0)  # where its sections are below the top, as shares of top to tip
+TOP_SHARE = 0.45                # its width at the top, against its full width (which it has a quarter of the way down)
+PROUD = 0.55                    # how far its top stands in front of the face
+FILL = 1.8                      # over the chin, how far into the face its back goes
+LEAST = 1.0                     # the least a section is thick, front to back
 
 
 def long_beard(p):
-    """Sections, in the chin's directions (b down, c forward). Its jut is added once it stands clear of the chest
-    (jut_beard), so that it shows on every chest."""
-    length = 2.0 + 2.0 * int(np.clip(int(p["length"]), 1, 5))
+    """Sections, in the chin's directions (b down, c forward), from the top under the lip to the tip: where each is,
+    how wide, and how thick at most. Where each is front to back is hang_beard's to say."""
+    length = 2.0 + 2.0 * int(np.clip(int(p["length"]), 1, 5))     # the tip, below the chin's anchor
     width = 5.0 + 1.5 * int(np.clip(int(p["width"]), 1, 4))
     point = int(np.clip(int(p["point"]), 0, 3))
-    end = 0.55 * (1.0 - point / 3.0)                                 # the bottom's width, against the top's
-    out = [_sec(0, -0.6, -0.8, width, 5.6, "hair")]
-    for f in BEARD_ROWS:
-        w = width * (1.0 - (1.0 - end) * f ** 1.2); t = max(1.2, 4.4 * (1.0 - 0.55 * f))
+    end = 0.55 * (1.0 - point / 3.0)                                 # the bottom's width, against the full width
+    top = CHIN_Z - BEARD_TOP                                         # above the anchor: b is negative
+    out = []
+    for f in (0.0,) + BEARD_ROWS:
+        g = TOP_SHARE + (1.0 - TOP_SHARE) * (f / 0.25) ** 0.7 if f <= 0.25 else 1.0 - (1.0 - end) * ((f - 0.25) / 0.75) ** 1.2
+        w = width * g; t = max(1.2, 4.4 * (1.0 - 0.55 * f))
         if f == 1.0 and point == 3: w = t = 0.0
-        out.append(_sec(0, length * f, -0.8 + 0.8 * (1.0 - (1.0 - f) ** 2), w, t, "hair"))
+        out.append(_sec(0, top + (length - top) * f, 0.0, w, t, "hair"))
     return out
 
 
-def jut_beard(sections, p):
-    """Bring the beard forward by its jut, most at the bottom."""
-    jut = int(np.clip(int(p["jut"]), 0, 3))
-    for s, f in zip(sections[1:], BEARD_ROWS):
-        s["c"] += 0.6 * jut * (1.0 - (1.0 - f) ** 2)
+def hang_beard(sections, frame, m, P, p):
+    """Place the beard front to back. Its front is one straight line from its top, PROUD in front of the face, to its
+    tip: as upright as lets every section keep LEAST thickness clear of the chest, then leaned forward by its jut. Each
+    section is as thick as the room behind that line (into the face over the chin, to CLEAR off the chest below it),
+    up to its most. P: the dressed figure's corners, the head's left out."""
+    origin = frame[0]
+    rows = []
+    for s in sections:
+        ctr = _centre(frame, dict(s, c=0.0)); z = float(ctr[2])
+        if z > origin[2]:                                            # over the chin: its back is in the face
+            back = hd.CY - m.head(0.0, z - m.dz) + FILL
+        else:
+            near = P[(np.abs(P[:, 2] - z) <= 1.0) & (np.abs(P[:, 0] - ctr[0]) <= max(0.5 * s["w"], 0.6))]
+            back = (float(near[:, 1].min()) if len(near) else float(origin[1])) - CLEAR
+        rows.append((s, z, back))
+    z0 = rows[0][1]
+    y0 = hd.CY - m.head(0.0, z0 - m.dz) - PROUD                     # the top's front (smaller y is further forward)
+    slope = max([0.0] + [(y0 - (back - (LEAST if s["w"] > 0.0 else 0.0))) / (z0 - z) for s, z, back in rows[1:]])
+    slope += 0.45 * int(np.clip(int(p["jut"]), 0, 3)) / (z0 - rows[-1][1])
+    for s, z, back in rows:
+        front = y0 - slope * (z0 - z)
+        t = min(max(back - front, LEAST), max(s["t"], LEAST)) if s["w"] > 0.0 else 0.0
+        s["t"] = t; s["c"] = float(origin[1]) - (front + 0.5 * t)
     return sections
 
 
@@ -239,8 +270,7 @@ def build(fit, kind, params, colours, name=None):
     head = [{"head": 1.0}] * len(sections)
     if kind == "long_beard":
         frame = _chin(m)
-        stand_clear(sections, frame, corners(False), "c", 1)        # in front of the chest: the jaw is its own
-        return loft(jut_beard(sections, p), frame, colours, head), []
+        return loft(hang_beard(sections, frame, m, corners(False), p), frame, colours, head), []
     if kind == "ponytail":
         frame = _head_back(m, 29.0 + 2.5 * int(np.clip(int(p["height"]), 0, 3)))
         stand_clear(sections, frame, corners(True), "b", 3)         # behind the back and the hair: the tie is in the hair
