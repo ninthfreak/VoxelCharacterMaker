@@ -1534,3 +1534,9 @@ Carried from `SPEC.md` section 13, plus what building raised:
    not read as a hood. The owner chose: generate a looser hood, then
    hand-tune it. Done: the looser hood (4za, 4zb), and the hand-tuning as
    four shape settings (4zc).
+8. **Deferred design picks (4ze), left for later by the owner (2026-11):**
+   the lowered hood's collar (now a wide flat collar; mock-ups: snug roll,
+   V front, open throat) and the cloak's colours (its near-black cape
+   vanishes on a dark backdrop, leaving its lighter hem as a floating line;
+   mock-ups: hem in the cape's colour, or a blue cloak colourway). Neither
+   is built; the mock-ups were scratch renders.
