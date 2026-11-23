@@ -6,8 +6,8 @@ extends EditorPanel
 ## size, sides, mirror and, for a drawn part, its drawing. The Items tab says which part is chosen (ItemsWorkspace.part);
 ## a click on a part in the view chooses it too.
 ##
-## The numbers here are for fine work and exact places: parts are moved, sized and turned by hand in the view
-## (ItemStage), and these follow. They step by a quarter unit (a turn by 15 degrees) with the arrows; any value can be
+## The numbers here are for fine work and exact places: parts are added, moved, sized and turned by hand in the view
+## (ItemStage and the buttons above it), and these follow. They step by a quarter unit (a turn by 15 degrees) with the arrows; any value can be
 ## typed.
 
 const STEP := 0.001                 ## what a typed number is kept to (ItemStage.PLACES)
@@ -15,7 +15,6 @@ const ARROW := 0.25                 ## what an arrow click adds
 const TURN_ARROW := 15.0
 
 var _list: ItemList = null
-var _add_kind: OptionButton = null
 var _details: VBoxContainer = null
 var _kind: OptionButton = null
 var _role: OptionButton = null
@@ -41,24 +40,9 @@ func _build() -> void:
 		if not is_guarded():
 			items_tab().select_part(index))
 
-	var add_row := HBoxContainer.new()
-	var add_label := Label.new()
-	add_label.text = "Add a"
-	add_label.custom_minimum_size = Vector2(104, 0)
-	add_row.add_child(add_label)
-	_add_kind = OptionButton.new()
-	_add_kind.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for i in HeldItemShape.KINDS.size():
-		_add_kind.add_item(HeldItemShape.kind_label(HeldItemShape.KINDS[i]), i)
-		_add_kind.set_item_metadata(i, HeldItemShape.KINDS[i])
-	add_row.add_child(_add_kind)
-	var add := Button.new()
-	add.text = "Add part"
-	add.pressed.connect(_on_add)
-	add_row.add_child(add)
-	box.add_child(add_row)
 	button_row(box, [
-		{"text": "Duplicate part", "action": _on_duplicate},
+		{"text": "Copy part", "action": func() -> void: items_tab().copy_part()},
+		{"text": "Paste part", "action": func() -> void: items_tab().paste_part()},
 		{"text": "Delete part", "action": _on_delete},
 	])
 
@@ -193,25 +177,6 @@ static func _num(v: float) -> String:
 
 
 # ------------------------------------------------------------------ actions --
-
-func _on_add() -> void:
-	var it := item()
-	if it == null:
-		return
-	items_tab().add_part(option_value(_add_kind))
-
-
-func _on_duplicate() -> void:
-	var it := item()
-	var part: Variant = _part()
-	if it == null or part == null:
-		return
-	var copy: Dictionary = (part as Dictionary).duplicate(true)
-	copy["position"][0] = float(copy["position"][0]) + 1.0       # beside the first, so that it is seen to be there
-	it.parts.insert(items_tab().part + 1, copy)
-	commit("Duplicate part")
-	items_tab().select_part(items_tab().part + 1)
-
 
 func _on_delete() -> void:
 	var it := item()

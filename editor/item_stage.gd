@@ -15,9 +15,11 @@ extends Node3D
 ##           not seen end on (w, d, h: pull one and that side moves, the opposite side stays), a ring to turn it, and
 ##           two lines through its middle that say which way a drag goes (x, y, z).
 ##   GRIP    the forearm and hand that will hold the item are shown at its grip: drag the hand (or the diamond at the
-##           grip) to move the grip, the ring to turn it; the diamond at a second grip moves that.
+##           grip) to move the grip, the ring to turn it.
 ##
-## Snap: a quarter unit and 15 degrees; with Ctrl held, a twentieth and 1 degree. Escape gives up a drag.
+## Everything snaps to a quarter unit and 15 degrees: items are a handful of parts and small in the game, so nothing
+## finer is offered by hand (the panels' numbers take any value). Escape gives up a drag; Delete removes the chosen
+## part; the arrow keys nudge it. Copy, cut and paste are the tab's (Ctrl+C, Ctrl+X, Ctrl+V).
 ## Told apart by shape and a letter, never by red against green: squares resize, the ring turns, a diamond is a grip.
 ##
 ## The stage changes the item itself while a drag goes on (`edited`: the panels follow) and says when the drag is
@@ -27,16 +29,13 @@ signal part_chosen(part: int)
 signal edited
 signal edit_finished(label: String, merge: bool)
 signal delete_requested
-signal duplicate_requested
 
 enum Mode { PARTS, GRIP }
-enum Grab { NONE, PART, SIZE, TURN, GRIP, GRIP_TURN, SECOND }
+enum Grab { NONE, PART, SIZE, TURN, GRIP, GRIP_TURN }
 
 const GRID := 12                    ## the grid reaches this many units each way from the middle
 const SNAP := 0.25
-const FREE := 0.05
 const TURN_SNAP := 15.0
-const TURN_FREE := 1.0
 const PLACES := 0.001               ## what a place or a size is kept to (the panels' number boxes show as much)
 const HANDLE_PX := 10.0             ## half a square handle, in pixels
 const HANDLE_OUT_PX := 20.0         ## how far off the part's side a handle sits
@@ -59,7 +58,6 @@ var item: GarmentItem = null
 var colours: Dictionary = {}
 var selected: int = -1
 var mode: int = Mode.PARTS
-var show_hand := true
 ## The forearm and hand that hold the item, in the hand's own frame (the palm at 0; HeldItemShape.RIGHT_HAND undone):
 ## Array of [corners (PackedVector3Array), whether it is of the hand itself (not the forearm above it)]. hand_of()
 ## makes it. With parts being edited only the hand is shown, for size; with the grip being edited, the forearm too,
@@ -356,7 +354,7 @@ func _add_label(text: String, at: Vector3, colour: Color) -> void:
 
 ## The forearm and hand at the grip, see-through: what will hold the item, and how big a hand is.
 func _draw_hand() -> void:
-	if hand.is_empty() or not (show_hand or mode == Mode.GRIP):
+	if hand.is_empty():
 		return
 	var turn := HeldItemShape.turn(item.grip["rotation"])
 	var g := _vec(item.grip["position"])
@@ -389,7 +387,7 @@ func _draw_hand() -> void:
 	_add_mesh(verts, normals, shades, indices, m)
 
 
-## The grip's two arrows -- the way the fist points and the way its thumb does -- and a second grip's cross.
+## The grip's two arrows: the way the fist points and the way its thumb does.
 func _draw_grip_marks() -> void:
 	var turn := HeldItemShape.turn(item.grip["rotation"])
 	var g := _vec(item.grip["position"])
@@ -397,13 +395,6 @@ func _draw_grip_marks() -> void:
 	var up := Vec64.to_vector3(Vec64.apply(turn, Vec64.v(-1, 0, 0)))
 	_add_arrow(to_view(g), to_view(g + ahead * ARROW_AHEAD), Palette.UI_SKY, "ahead")
 	_add_arrow(to_view(g), to_view(g + up * ARROW_UP), Palette.UI_ORANGE, "up")
-	if not item.second_grip.is_empty():
-		var g2 := _vec(item.second_grip["position"])
-		var cross := PackedVector3Array()
-		for axis in [Vector3.RIGHT, Vector3.FORWARD, Vector3.UP]:
-			cross.push_back(to_view(g2 - axis * 0.75))
-			cross.push_back(to_view(g2 + axis * 0.75))
-		_add_lines(cross, _material(Palette.UI_SKY, 9))
 
 
 ## A solid arrow (a thin square shaft and a pointed head), drawn over everything, with a word at its tip.
@@ -461,7 +452,7 @@ func facing() -> int:
 
 
 ## The handles of what is chosen, sized for the camera as it stands: squares, ring and guide lines for a part; the
-## diamonds and ring of the grip.
+## diamond and ring of the grip.
 func _layout() -> void:
 	var mesh := _gizmo.mesh as ImmediateMesh
 	mesh.clear_surfaces()
@@ -480,7 +471,6 @@ func _layout() -> void:
 	var white := PackedVector3Array()
 	var hot := PackedVector3Array()
 	var orange := PackedVector3Array()
-	var sky := PackedVector3Array()
 	var guides := PackedVector3Array()
 	var letter := 0
 	var axis := int(_press["axis"]) if _press.has("axis") else facing()
@@ -548,19 +538,11 @@ func _layout() -> void:
 		_quad(hot if _is(over, Grab.GRIP) else white, at, HANDLE_PX * px, right, up, true)
 		letter = _letter(letter, "grip", at - up * 24.0 * px, Color.WHITE)
 		_knobs.append({"grab": Grab.GRIP, "view": at})
-		if not item.second_grip.is_empty():
-			var at2 := to_view(_vec(item.second_grip["position"]))
-			var px2 := _per_pixel(at2)
-			_quad(dark, at2, 1.3 * HANDLE_PX * px2, right, up, true)
-			_quad(hot if _is(over, Grab.SECOND) else sky, at2, HANDLE_PX * px2, right, up, true)
-			letter = _letter(letter, "2nd hand", at2 - up * 24.0 * px2, Palette.UI_SKY)
-			_knobs.append({"grab": Grab.SECOND, "view": at2})
 
 	_surface(mesh, Mesh.PRIMITIVE_LINES, guides, _material(Palette.UI_SKY, 9))
 	_surface(mesh, Mesh.PRIMITIVE_TRIANGLES, dark, _material(Color8(16, 18, 26), 10))
 	_surface(mesh, Mesh.PRIMITIVE_TRIANGLES, white, _material(Color.WHITE, 11))
 	_surface(mesh, Mesh.PRIMITIVE_TRIANGLES, orange, _material(Palette.UI_ORANGE, 11))
-	_surface(mesh, Mesh.PRIMITIVE_TRIANGLES, sky, _material(Palette.UI_SKY, 11))
 	_surface(mesh, Mesh.PRIMITIVE_TRIANGLES, hot, _material(Palette.UI_YELLOW, 11))
 
 
@@ -742,7 +724,7 @@ func handle_input(event: InputEvent) -> bool:
 		if not _dragging and mm.position.distance_to(_press["from"]) < DRAG_PX:
 			return true
 		_dragging = true
-		_drag_to(mm.position, mm.ctrl_pressed or mm.meta_pressed)
+		_drag_to(mm.position)
 		return true
 	if event is InputEventKey:
 		return _key(event as InputEventKey)
@@ -753,7 +735,7 @@ func _point_at(hit: Dictionary) -> void:
 	match int(hit["grab"]):
 		Grab.NONE: cursor = Control.CURSOR_ARROW
 		Grab.PART: cursor = Control.CURSOR_MOVE if int(hit["part"]) == selected else Control.CURSOR_POINTING_HAND
-		Grab.GRIP, Grab.SECOND: cursor = Control.CURSOR_MOVE
+		Grab.GRIP: cursor = Control.CURSOR_MOVE
 		_: cursor = Control.CURSOR_DRAG
 	var slim := hit.duplicate()
 	slim.erase("at")
@@ -795,9 +777,6 @@ func _begin(hit: Dictionary, from: Vector2) -> void:
 			_press["start"] = item.grip.duplicate(true)
 			_press["centre"] = _vec(item.grip["position"])
 			_press["angle0"] = _angle(from, _press["centre"], int(_press["axis"]))
-		Grab.SECOND:
-			_press["start"] = item.second_grip.duplicate(true)
-			_press["grabbed"] = _vec(item.second_grip["position"])
 	_layout()
 
 
@@ -811,7 +790,7 @@ func _angle(at: Vector2, centre: Vector3, axis: int) -> float:
 
 
 ## Slide a place [x, y, z] in the plane across `axis` by how far the pointer has gone from where it took hold.
-func _slid(at: Vector2, start: Array, grabbed: Vector3, axis: int, free: bool, flip_x: bool = false) -> Variant:
+func _slid(at: Vector2, start: Array, grabbed: Vector3, axis: int, flip_x: bool = false) -> Variant:
 	var on: Variant = _on_plane(at, grabbed, axis)
 	if on == null:
 		return null
@@ -821,16 +800,16 @@ func _slid(at: Vector2, start: Array, grabbed: Vector3, axis: int, free: bool, f
 	var out: Array = start.duplicate()
 	for j in 3:
 		if j != axis:
-			out[j] = _clean(float(start[j]) + d[j], FREE if free else SNAP)
+			out[j] = _clean(float(start[j]) + d[j], SNAP)
 	return out
 
 
-func _drag_to(at: Vector2, free: bool) -> void:
+func _drag_to(at: Vector2) -> void:
 	var axis := int(_press["axis"])
 	var start: Dictionary = _press["start"]
 	match int(_press["grab"]):
 		Grab.PART:
-			var to: Variant = _slid(at, start["position"], _press["grabbed"], axis, free, bool(_press["mirrored"]))
+			var to: Variant = _slid(at, start["position"], _press["grabbed"], axis, bool(_press["mirrored"]))
 			if to == null:
 				return
 			_change(_part(), "position", to)
@@ -841,7 +820,7 @@ func _drag_to(at: Vector2, free: bool) -> void:
 				return
 			var i := int(_press["side"])
 			var was := float(start["size"][i])
-			var now := maxf(HeldItemShape.MIN_SIZE, _clean(was + t - float(_press["t0"]), FREE if free else SNAP))
+			var now := maxf(HeldItemShape.MIN_SIZE, _clean(was + t - float(_press["t0"]), SNAP))
 			var size: Array = (start["size"] as Array).duplicate()
 			size[i] = now
 			var way: Vector3 = _press["way"]
@@ -856,22 +835,16 @@ func _drag_to(at: Vector2, free: bool) -> void:
 			var angle := _angle(at, _press["centre"], axis)
 			if is_nan(angle) or is_nan(float(_press["angle0"])):
 				return
-			var by := snappedf(wrapf(angle - float(_press["angle0"]), -180.0, 180.0), TURN_FREE if free else TURN_SNAP)
+			var by := snappedf(wrapf(angle - float(_press["angle0"]), -180.0, 180.0), TURN_SNAP)
 			var target: Dictionary = _part() if _is(_press, Grab.TURN) else item.grip
 			_change(target, "rotation", turned(start["rotation"], axis, by))
 			readout = "turned %s degrees" % _number(by)
 		Grab.GRIP:
-			var to2: Variant = _slid(at, start["position"], _press["grabbed"], axis, free)
+			var to2: Variant = _slid(at, start["position"], _press["grabbed"], axis)
 			if to2 == null:
 				return
 			_change(item.grip, "position", to2)
 			readout = "grip   " + _place_text(to2, axis)
-		Grab.SECOND:
-			var to3: Variant = _slid(at, start["position"], _press["grabbed"], axis, free)
-			if to3 == null:
-				return
-			_change(item.second_grip, "position", to3)
-			readout = "2nd hand   " + _place_text(to3, axis)
 	if _changed:
 		redraw()
 		edited.emit()
@@ -903,7 +876,6 @@ func _label_for(grab: int) -> String:
 		Grab.TURN: return "Turn part %d" % (selected + 1)
 		Grab.GRIP: return "Move grip"
 		Grab.GRIP_TURN: return "Turn grip"
-		Grab.SECOND: return "Move second grip"
 	return "Edit"
 
 
@@ -925,7 +897,6 @@ func _differs() -> bool:
 	match int(_press["grab"]):
 		Grab.PART, Grab.SIZE, Grab.TURN: return _part() != start
 		Grab.GRIP, Grab.GRIP_TURN: return item.grip != start
-		Grab.SECOND: return item.second_grip != start
 	return false
 
 
@@ -940,8 +911,6 @@ func cancel() -> void:
 				item.parts[selected] = start.duplicate(true)
 		Grab.GRIP, Grab.GRIP_TURN:
 			item.grip = start.duplicate(true)
-		Grab.SECOND:
-			item.second_grip = start.duplicate(true)
 	var was_changed := _changed
 	_press = {}
 	_dragging = false
@@ -966,10 +935,6 @@ func _key(key: InputEventKey) -> bool:
 			if not key.echo:
 				delete_requested.emit()
 			return true
-		KEY_D:
-			if (key.ctrl_pressed or key.meta_pressed) and not key.echo:
-				duplicate_requested.emit()
-				return true
 		KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN:
 			nudge(int(key.keycode == KEY_RIGHT) - int(key.keycode == KEY_LEFT),
 				int(key.keycode == KEY_UP) - int(key.keycode == KEY_DOWN))

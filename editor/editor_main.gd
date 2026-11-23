@@ -611,6 +611,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			KEY_Y:
 				redo()
 				accept_event()
+			_:
+				# anything else is the tab's: copy, cut and paste where it has something to copy. A text box that
+				# has the keyboard takes these before they get here.
+				var tab := _current()
+				if tab != null and tab.handle_shortcut(key):
+					accept_event()
 		return
 	# Number keys pick the camera views of whichever tab is showing.
 	var ws := _current()

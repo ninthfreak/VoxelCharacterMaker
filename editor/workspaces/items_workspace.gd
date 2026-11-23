@@ -8,17 +8,20 @@ extends Workspace
 ## The item is put together by hand in the view (ItemStage): click a part to choose it, drag it to move it, pull the
 ## squares on its sides to size it, the ring to turn it; the shape buttons above the view add a part. The panels'
 ## numbers follow, and are there for fine work. On the Grip sub-tab the view moves and turns the grip instead.
+## Copy, cut and paste a part with Ctrl+C, Ctrl+X, Ctrl+V, in one item or from one to another.
+##
+## Kept small on purpose (owner): an item is a handful of parts and is small in the game, so there is one snap, one
+## way to do each thing, and nothing for detail finer than a quarter unit.
 ##
 ## Show: the item alone, or in a character's right or left hand, in any pose.
 
 const SHOW_ITEM := "item"
 const SHOW_RIGHT := "R"
 const SHOW_LEFT := "L"
-const HINT_PARTS := "Click a part: choose it   |   drag it: move   |   squares: size   |   ring: turn   |   " \
-	+ "drag empty space: turn the view   |   Ctrl: no snap   |   arrow keys: nudge   |   Delete: remove   |   " \
-	+ "Esc: give up a drag"
-const HINT_GRIP := "Drag the hand: move the grip   |   ring: turn it   |   drag empty space: turn the view   |   " \
-	+ "Ctrl: no snap"
+const HINT_PARTS := "Drag a part to move it.   Pull a square to size it.   Drag the ring to turn it.   " \
+	+ "Drag empty space to turn the view."
+const HINT_GRIP := "Drag the hand to move the grip.   Drag the ring to turn it.   Drag empty space to turn the view."
+const HINT_KEYS := "Ctrl+C copy   |   Ctrl+V paste   |   Ctrl+X cut   |   Delete   |   Ctrl+Z undo"
 
 var body_id: String = "male_average"
 var head_shape: String = "round"
@@ -37,7 +40,9 @@ var _list: ItemListPanel = null
 var _parts: PartsPanel = null
 var _grip: GripPanel = null
 var _hint: Label = null
-var _hand_check: CheckBox = null
+var _keys: Label = null
+## The part copied or cut (Ctrl+C, Ctrl+X): pasted into this item or another.
+var _clipboard: Dictionary = {}
 var _hand_body := ""
 var _shown_id := ""
 
@@ -58,7 +63,6 @@ func _build() -> void:
 		editor.commit(label, self, merge)
 		edited.emit(self))
 	stage.delete_requested.connect(func() -> void: _parts._on_delete())
-	stage.duplicate_requested.connect(func() -> void: _parts._on_duplicate())
 	_build_toolbar()
 
 	heading(side, "Held items")
@@ -97,7 +101,7 @@ func _build() -> void:
 	start_fresh()
 
 
-## Above the view: a button for each kind of part, the hand for scale, and what the mouse does.
+## Above the view: a button for each kind of part, and what the mouse and the keys do.
 func _build_toolbar() -> void:
 	var bar := VBoxContainer.new()
 	var row := HFlowContainer.new()
@@ -110,19 +114,15 @@ func _build_toolbar() -> void:
 		button.tooltip_text = "Add a %s on top of the item" % HeldItemShape.kind_label(kind).to_lower()
 		button.pressed.connect(add_part.bind(kind))
 		row.add_child(button)
-	_hand_check = CheckBox.new()
-	_hand_check.text = "Show a hand, for size"
-	_hand_check.button_pressed = true
-	_hand_check.toggled.connect(func(on: bool) -> void:
-		view.item_stage.show_hand = on
-		view.item_stage.redraw())
-	row.add_child(_hand_check)
 	bar.add_child(row)
 	_hint = Label.new()
 	_hint.text = HINT_PARTS
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint.add_theme_color_override("font_color", Color8(160, 168, 184))
 	bar.add_child(_hint)
+	_keys = Label.new()
+	_keys.text = HINT_KEYS
+	_keys.add_theme_color_override("font_color", Color8(160, 168, 184))
+	bar.add_child(_keys)
 	view.add_item_toolbar(bar)
 
 
@@ -189,6 +189,59 @@ func add_part(kind: String) -> void:
 	view.fit_view()                                    # the new part is on top: bring it into the view
 
 
+## Copy the chosen part (Ctrl+C), to paste into this item or another.
+func copy_part() -> bool:
+	var it := held.item()
+	if it == null or part < 0 or part >= it.parts.size():
+		return false
+	_clipboard = (it.parts[part] as Dictionary).duplicate(true)
+	editor.set_status_hint("Copied part %d. Ctrl+V pastes it." % (part + 1))
+	return true
+
+
+## Cut the chosen part (Ctrl+X): copied, then removed.
+func cut_part() -> bool:
+	if not copy_part():
+		return false
+	_parts._on_delete()
+	return true
+
+
+## Paste the part copied (Ctrl+V), chosen. Where a part already is exactly where it would go (its own original, most
+## often) it is put 1 unit to the side, so that it is seen to be there.
+func paste_part() -> bool:
+	var it := held.item()
+	if it == null or _clipboard.is_empty():
+		return false
+	var fresh := HeldItemShape.clean_part(_clipboard, it.roles[0] if not it.roles.is_empty() else GarmentItem.DEFAULT_ROLE)
+	if not it.roles.is_empty() and not it.roles.has(String(fresh["role"])):
+		fresh["role"] = it.roles[0]
+	var taken := true
+	while taken:
+		taken = false
+		for p in it.parts:
+			if (p as Dictionary)["position"] == fresh["position"]:
+				fresh["position"][0] = float(fresh["position"][0]) + 1.0
+				taken = true
+	var at := clampi(part + 1, 0, it.parts.size())
+	it.parts.insert(at, fresh)
+	part = at
+	editor.commit("Paste part", self)
+	edited.emit(self)
+	editor.set_status_hint("Pasted as part %d." % (at + 1))
+	return true
+
+
+func handle_shortcut(key: InputEventKey) -> bool:
+	if show_mode != SHOW_ITEM:
+		return false
+	match key.keycode:
+		KEY_C: return copy_part()
+		KEY_X: return cut_part()
+		KEY_V: return paste_part()
+	return false
+
+
 ## A part is being dragged in the view: the numbers follow (no undo step until it is let go).
 func _on_dragging() -> void:
 	_parts.refresh()
@@ -228,6 +281,7 @@ func rebuild() -> void:
 		_hand_body = body_id
 	var mode := stage_mode()
 	_hint.text = HINT_GRIP if mode == ItemStage.Mode.GRIP else HINT_PARTS
+	_keys.visible = mode == ItemStage.Mode.PARTS
 	var it := held.item()
 	if it == null:
 		_shown_id = ""

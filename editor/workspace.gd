@@ -114,6 +114,12 @@ func lowpoly_status_text(figure: LowpolyFigure) -> String:
 		figure.triangles(), ", and %d pieces of hanging cloth" % cloth if cloth > 0 else "", shading, status_extra()]
 
 
+## Override: a Ctrl (or Cmd) key the editor does not use itself, for the tab showing: copy, cut, paste. Returns
+## whether it was used.
+func handle_shortcut(_key: InputEventKey) -> bool:
+	return false
+
+
 ## Override: what a tab adds to its status line ("   |   ...").
 func status_extra() -> String:
 	return ""

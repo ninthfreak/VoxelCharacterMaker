@@ -479,8 +479,7 @@ static func _items(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(tab.view.item_stage.polygon_count() == 6 and list._category.get_parent().visible
 		and not list._draw_order.get_parent().visible, "the view shows its box; it has a category but no draw order")
 
-	parts._add_kind.select(HeldItemShape.KINDS.find("cylinder"))
-	parts._on_add()
+	tab.add_part("cylinder")
 	t.check(it.parts.size() == 2 and tab.part == 1 and String(it.parts[1]["kind"]) == "cylinder"
 		and parts._sides_row.visible and not parts._drawing.visible,
 		"Add part: a cylinder, chosen, with its number of sides offered and no drawing")
@@ -511,8 +510,6 @@ static func _items(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(tab.part == 0 and parts._list.is_selected(0), "a part chosen in the view is chosen in the list")
 	grip._place[2].value = -1.5
 	t.check(it.grip["position"] == [0.0, 0.0, -1.5], "the grip moves")
-	grip._two_handed.button_pressed = true
-	t.check(not it.second_grip.is_empty() and grip._second_row.visible, "two-handed: a second grip, shown to place")
 
 	tab._show_pick.select(1)
 	tab._show_pick.item_selected.emit(1)
@@ -619,19 +616,16 @@ static func _items_by_hand(t: TestReport, ed: CharacterEditor) -> void:
 	var grabbed := box_face + Vector3(1.0, 0.0, 0.5)
 	_drag(stage, on.call(grabbed), on.call(grabbed + Vector3(0.62, 0.0, 0.0)))
 	t.check(it.parts[0]["position"] == [1.5, 0.0, 0.5], "a drag snaps to a quarter unit", str(it.parts[0]["position"]))
-	grabbed += Vector3(0.5, 0.0, 0.0)
-	_drag(stage, on.call(grabbed), on.call(grabbed + Vector3(0.31, 0.0, 0.0)), true)
-	t.check(it.parts[0]["position"] == [1.8, 0.0, 0.5], "with Ctrl held, to a twentieth", str(it.parts[0]["position"]))
 
 	# give up
 	steps = ed.history._entries.size()
-	grabbed += Vector3(0.3, 0.0, 0.0)
+	grabbed += Vector3(0.5, 0.0, 0.0)
 	_mouse(stage, on.call(grabbed), true)
 	_mouse_to(stage, on.call(grabbed + Vector3(2.0, 0.0, 2.0)))
 	var mid: Array = it.parts[0]["position"].duplicate()
 	stage.cancel()
 	_mouse(stage, on.call(grabbed + Vector3(2.0, 0.0, 2.0)), false)
-	t.check(mid == [3.75, 0.0, 2.5] and it.parts[0]["position"] == [1.8, 0.0, 0.5] and ed.history._entries.size() == steps,
+	t.check(mid == [3.5, 0.0, 2.5] and it.parts[0]["position"] == [1.5, 0.0, 0.5] and ed.history._entries.size() == steps,
 		"Escape gives a drag up: the part is back where it was, with no undo step", "mid-drag %s" % [mid])
 
 	# size
@@ -641,7 +635,7 @@ static func _items_by_hand(t: TestReport, ed: CharacterEditor) -> void:
 			top = h
 	var top_at: Vector3 = ItemStage.to_item(top["view"])
 	_drag(stage, on.call(top_at), on.call(top_at + Vector3(0.0, 0.0, 1.0)))
-	t.check(it.parts[0]["size"] == [2.0, 2.0, 3.0] and it.parts[0]["position"] == [1.8, 0.0, 1.0],
+	t.check(it.parts[0]["size"] == [2.0, 2.0, 3.0] and it.parts[0]["position"] == [1.5, 0.0, 1.0],
 		"the top square pulled up by 1: the part is 1 taller and its bottom has not moved",
 		"%s at %s" % [it.parts[0]["size"], it.parts[0]["position"]])
 	_drag(stage, on.call(top_at + Vector3(0.0, 0.0, 1.0)), on.call(top_at + Vector3(0.0, 0.0, -40.0)))
@@ -668,14 +662,40 @@ static func _items_by_hand(t: TestReport, ed: CharacterEditor) -> void:
 	steps = ed.history._entries.size()
 	stage.nudge(1, 0)
 	stage.nudge(0, -1)
-	t.check(it.parts[0]["position"] == [2.05, 0.0, 0.75] and ed.history._entries.size() == steps + 1,
+	t.check(it.parts[0]["position"] == [1.75, 0.0, 0.75] and ed.history._entries.size() == steps + 1,
 		"arrow keys nudge it a quarter unit, right and down on the screen: one undo step for the run",
 		str(it.parts[0]["position"]))
-	stage.duplicate_requested.emit()
-	t.check(it.parts.size() == 3 and tab.part == 1 and it.parts[1]["position"] == [3.05, 0.0, 0.75],
-		"Ctrl+D: a copy beside it, chosen")
+	# copy, cut, paste: the keys every program uses
+	var ctrl := func(code: int) -> InputEventKey:
+		var k := InputEventKey.new()
+		k.keycode = code
+		k.ctrl_pressed = true
+		k.pressed = true
+		return k
+	steps = ed.history._entries.size()
+	t.check(tab.handle_shortcut(ctrl.call(KEY_C)) and it.parts.size() == 2 and ed.history._entries.size() == steps,
+		"Ctrl+C copies the chosen part: nothing changes yet")
+	t.check(tab.handle_shortcut(ctrl.call(KEY_V)) and it.parts.size() == 3 and tab.part == 1
+		and it.parts[1]["position"] == [2.75, 0.0, 0.75] and String(it.parts[1]["kind"]) == "box"
+		and ed.history._entries.size() == steps + 1,
+		"Ctrl+V pastes it: a copy 1 unit beside the first (so that it is seen), chosen, as one undo step")
+	tab.handle_shortcut(ctrl.call(KEY_V))
+	t.check(it.parts.size() == 4 and it.parts[2]["position"] == [3.75, 0.0, 0.75], "pasted again: beside that one")
+	t.check(tab.handle_shortcut(ctrl.call(KEY_X)) and it.parts.size() == 3, "Ctrl+X cuts the chosen part")
+	tab.select_part(1)                                  # the first copy
 	stage.delete_requested.emit()
-	t.check(it.parts.size() == 2 and String(it.parts[1]["kind"]) == "cylinder", "Delete: gone")
+	t.check(it.parts.size() == 2 and String(it.parts[1]["kind"]) == "cylinder", "Delete removes the chosen part")
+	tab.held.select("")
+	(_panel(tab, ItemListPanel) as ItemListPanel)._on_new()
+	var other := tab.held.item()
+	other.roles = ["steel"]
+	other.colourways = {"default": {"steel": "slate"}}
+	other.parts[0]["role"] = "steel"
+	t.check(tab.handle_shortcut(ctrl.call(KEY_V)) and other.parts.size() == 2 and String(other.parts[1]["role"]) == "steel"
+		and other.parts[1]["position"] == [3.75, 0.0, 0.75],
+		"a part cut from one item pastes into another, where it was, in a colour role that item has")
+	tab.held.select(it.id)
+	tab.select_part(0)
 
 	# a part turned beforehand is sized along its own sides
 	it.parts[0]["rotation"] = [0.0, 0.0, 90.0]
@@ -694,8 +714,9 @@ static func _items_by_hand(t: TestReport, ed: CharacterEditor) -> void:
 
 	# the grip
 	tab.show_section("Grip")
-	t.check(stage.mode == ItemStage.Mode.GRIP and stage._handles.is_empty() and stage._knobs.size() == 1,
-		"on the Grip sub-tab the view edits the grip: a diamond at it, no squares")
+	t.check(stage.mode == ItemStage.Mode.GRIP and stage._handles.is_empty() and stage._knobs.size() == 1
+		and (_panel(tab, GripPanel) as GripPanel).find_children("*", "CheckBox", true, false).is_empty(),
+		"on the Grip sub-tab the view edits the grip: a diamond at it, no squares (and no control for a second hand)")
 	steps = ed.history._entries.size()
 	_drag(stage, on.call(Vector3.ZERO), on.call(Vector3(0.0, 0.0, -1.0)))
 	t.check(it.grip["position"] == [0.0, 0.0, -1.0] and ed.history._entries.size() == steps + 1

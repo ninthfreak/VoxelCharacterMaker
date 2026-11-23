@@ -507,14 +507,14 @@ and nothing is cut away (no holes: a hole would be a gap between parts). Turns a
 sideways (about y), then round (about z).
 
 **Holding.** The item's **grip** is where the hand closes, with a turn for how the item sits in it; a two-handed item
-also has a **second grip** (kept; not used yet). Unturned, an item made standing up and facing the front is held as a
-sword is, in the right hand with the arm hanging: its top points ahead, out of the thumb's side of the fist, its front
-faces outward and its left side down. So a sword or an axe made standing up needs no turn; a bottle held upright is
-turned 90 degrees sideways. **The left hand holds the mirror image.** The grip goes at the palm (the middle of the box
-round the hand) and the item rides the forearm, as one rigid piece: there is no hand bone and the hand does not close
-round it (section 13). Held items are drawn after the face, so changing what is held does not dress the figure again.
-A saved character keeps one item per hand; the game's `GameCharacter.hold(item, hand)` and `release(hand)` change it
-for that character only.
+also has a **second grip** (kept in the file if there; nothing uses it and the editor has no control for it yet).
+Unturned, an item made standing up and facing the front is held as a sword is, in the right hand with the arm hanging:
+its top points ahead, out of the thumb's side of the fist, its front faces outward and its left side down. So a sword
+or an axe made standing up needs no turn; a bottle held upright is turned 90 degrees sideways. **The left hand holds
+the mirror image.** The grip goes at the palm (the middle of the box round the hand) and the item rides the forearm,
+as one rigid piece: there is no hand bone and the hand does not close round it (section 13). Held items are drawn
+after the face, so changing what is held does not dress the figure again. A saved character keeps one item per hand;
+the game's `GameCharacter.hold(item, hand)` and `release(hand)` change it for that character only.
 
 ---
 
@@ -538,9 +538,12 @@ Features (roughly in priority order):
     the size of things.
   - On the Grip sub-tab the view edits the grip instead: the forearm and hand that will hold the item are shown; drag
     the hand to move the grip, the ring to turn it.
-  - Snap: a quarter unit and 15 degrees; Ctrl held, a twentieth and 1 degree. What a drag is doing is written by the
-    pointer. One drag is one undo step; Escape gives it up. Delete removes the chosen part, Ctrl+D copies it, the
-    arrow keys nudge it.
+  - Everything snaps to a quarter unit and 15 degrees; nothing finer is offered by hand. What a drag is doing is
+    written by the pointer. One drag is one undo step; Escape gives it up.
+  - The usual keys: Ctrl+C copies the chosen part, Ctrl+V pastes it (into the same item, beside the first, or into
+    another item), Ctrl+X cuts it, Delete removes it, Ctrl+Z undoes. The arrow keys nudge it.
+  - **Kept small on purpose** (owner): an item is a handful of parts and is small in the game, so detail finer than
+    this is not worth controls. One way to do each thing; no control that does nothing.
   - Handles are told apart by shape and letter, never by red against green: squares size, a ring turns, a diamond is
     a grip.
   - The panel keeps the list of parts and the numbers (shape, colour role, place, turn, size, sides, mirror), which

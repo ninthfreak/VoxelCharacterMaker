@@ -1649,11 +1649,11 @@ Left for the owner to judge:
     (`ItemStage.euler_of`), choosing the reading with the smaller forward and round angles, so 120 degrees sideways
     reads 0, 120, 0.
   - Buttons above the view add each kind of part, on top of the item, chosen; with no item yet they make one.
-  - A see-through hand at the grip, for size (a switch turns it off). On the Grip sub-tab the forearm shows too and
-    the view edits the grip: drag the hand or the diamond, turn the ring.
-  - Snap a quarter unit and 15 degrees; Ctrl: a twentieth and 1 degree. A read-out by the pointer says what a drag is
-    doing ("x 3.25  z 4", "width 7.25", "turned 30 degrees"). One drag, one undo step; Escape gives it up. Delete,
-    Ctrl+D (the copy is put 1 unit to the side, so that it is seen), arrow keys nudge.
+  - A see-through hand at the grip, for size. On the Grip sub-tab the forearm shows too and the view edits the
+    grip: drag the hand or the diamond, turn the ring.
+  - Snap a quarter unit and 15 degrees. A read-out by the pointer says what a drag is doing ("x 3.25  z 4",
+    "width 7.25", "turned 30 degrees"). One drag, one undo step; Escape gives it up. Delete removes the chosen part,
+    the arrow keys nudge it. (Copying, a finer snap and a hand switch as first built: see 4zl.)
   - The item no longer re-centres itself as it changes: its own middle stays over the grid's middle lines and only
     the grid moves, under its lowest point, once a drag is over. A part re-centring under the pointer mid-drag would
     have been unusable.
@@ -1670,6 +1670,27 @@ Left for the owner to judge:
   with exact numbers (snap, the opposite side staying put, a turned part sized along its own sides, one undo step a
   drag); `tests/test_held_items.gd` holds twelve turns to the same turn when read back as angles. **What a script
   cannot check is how it feels in the hand**: expect a round of tuning once the owner has used it.
+
+## 4zl. Smaller, and the usual keys (owner)
+
+- **The owner's two points:** do not over-complicate this (an item is a handful of parts, and small in the game,
+  so small detail is worth little); and copying a part was on Ctrl+D, when every program has keys for that already.
+- **Copy, cut, paste:** Ctrl+C, Ctrl+X, Ctrl+V, through the editor's own key handling (a text box that has the
+  keyboard still gets them first), and three buttons in the panel (Copy part, Paste part, Delete part). A pasted
+  part goes where the original was, or 1 unit beside whatever is already exactly there, so that it is seen; it can be
+  pasted into another item, in a colour role that item has. Ctrl+D is gone. It had been taken from a CAD tool's
+  "duplicate"; the wrong instinct, and now a rule in `CLAUDE.md`.
+- **Taken out, as not worth their controls:**
+  - the finer snap with Ctrl held (a twentieth of a unit, 1 degree): a quarter unit is about a centimetre already;
+    the number boxes still take any value;
+  - the "Two-handed" switch and second grip's place, which did nothing yet (a second grip in a file is still read
+    and kept);
+  - the "Show a hand" switch: the hand is always shown, see-through, and cannot be clicked;
+  - the panel's own "Add a ... / Add part" row, which doubled the buttons above the view;
+  - the hint line's list of nine things: now one line for the mouse and one for the keys.
+- **Kept:** the seven kinds of part, sides, mirror, the drawing grid, the grip's ring, the arrow-key nudge, and the
+  number boxes (the owner called those useful for fine tuning).
+- **Rule recorded** (`CLAUDE.md`): keep tools small; one way to do each thing; no control that does nothing yet.
 
 ## 5. Still open, for the owner
 

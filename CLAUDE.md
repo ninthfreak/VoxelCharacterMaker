@@ -19,6 +19,10 @@ than silently changing course.
 - Show visual results (screenshots/renders) for anything that changes how characters look.
 - Anything the owner edits must be edited by hand: click, drag, handles in the view. Number boxes are for fine work
   and exact places only, never the main way in (owner, on the first Items tab: "I'm not a machine like you").
+- Use the conventions every program uses before borrowing one tool's own: Ctrl+C / Ctrl+V / Ctrl+X, Ctrl+Z, Delete.
+  (Ctrl+D for "duplicate", taken from a CAD tool, was rightly thrown out.)
+- Keep tools small. Items are a handful of parts and small in the game; fine detail is not worth controls. One way
+  to do each thing, no modes or options for precision nobody will see, and no control that does nothing yet.
 
 ## Conventions
 - Engine: current stable Godot 4.x, GDScript. The character assembly code (body + head + face + worn items -> a
