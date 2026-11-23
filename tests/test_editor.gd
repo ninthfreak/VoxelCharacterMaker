@@ -49,6 +49,7 @@ static func run(t: TestReport, ed: CharacterEditor) -> void:
 	_shape_colours(t, ed)
 	_panels_together(t, ed)
 	_preview(t, ed)
+	_characters(t, ed)
 	_undo_timeline(t, ed)
 	_unsaved_guard(t, ed)
 	_hint(t, ed)
@@ -368,6 +369,88 @@ static func _panels_together(t: TestReport, ed: CharacterEditor) -> void:
 	ed.preview.worn = []
 	_fresh(ed)
 	t.check(not cl.worn.is_empty() and not ed.preview.worn.is_empty(), "a new wardrobe puts the everyday outfit on again")
+
+
+## Two requests ask for the same character: the same dressing, eyes and expression.
+static func _same_request(a: CharacterRequest, b: CharacterRequest) -> bool:
+	return LowpolyAssembler.dress_key(a) == LowpolyAssembler.dress_key(b) and a.lids == b.lids and a.mouth == b.mouth \
+		and a.eye_set_id == b.eye_set_id and a.eye_colourway == b.eye_colourway \
+		and a.brow_colour.is_equal_approx(b.brow_colour)
+
+
+## The Preview tab's saved characters: save, load, update, rename, delete, undo.
+static func _characters(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: Preview -- saved characters")
+	_fresh(ed)
+	ed.show_tab("Preview")
+	var pv := ed.preview
+	var panel := _panel(pv, CharacterPanel) as CharacterPanel
+	t.check(panel != null and panel._ids.size() == 4, "the Characters list shows the four starter characters")
+
+	pv._choose("body_id", "female_heavy")
+	pv._choose("head_shape", "boxy")
+	pv._choose("skin_tone", "deep")
+	pv._choose("lids", "angry")
+	pv._choose("hair_id", "short_crop")
+	pv._choose("hair_colourway", "black")
+	pv._choose("facial_id", "stubble")
+	pv.worn = ed.wardrobe.outfit("toga")
+	pv.refresh()
+	var steps: int = ed.history._entries.size()
+	panel._name.text = ""
+	panel._on_save_new()
+	t.check(ed.wardrobe.characters.size() == 4 and ed.history._entries.size() == steps,
+		"Save as new with no name is refused, with no undo step", ed.status_hint())
+	panel._name.text = "Hero"
+	panel._on_save_new()
+	var hero := ed.wardrobe.character("hero")
+	t.check(hero != null and pv.character_id == "hero" and ed.history._entries.size() == steps + 1,
+		"Save as new keeps the Preview's choices as a character, as one undo step")
+	t.check(hero != null and _same_request(hero.make_request(ed.wardrobe), pv.make_request()),
+		"and the saved character asks for exactly what the Preview shows")
+	t.check(pv._summary.text.contains("Hero, as saved"), "the summary says it is saved", pv._summary.text)
+
+	pv._choose("skin_tone", "pale")
+	t.check(not pv.matches_saved() and pv._summary.text.contains("changed since saved"),
+		"a change after saving is called out in the summary")
+
+	var farmer_at := panel._ids.find("farmer")
+	panel._list.select(farmer_at)
+	panel._list.item_selected.emit(farmer_at)
+	var farmer := ed.wardrobe.character("farmer")
+	t.check(pv.character_id == "farmer" and pv.body_id == "male_heavy" and pv.facial_id == "full_beard"
+		and _same_request(farmer.make_request(ed.wardrobe), pv.make_request()),
+		"picking a character in the list shows it, whole")
+	t.check(ed.history._entries.size() == steps + 1, "and picking one is not an edit")
+	t.check(pv.matches_saved() and pv._summary.text.contains("Farmer, as saved"),
+		"a starter character just picked reads as saved (its blank colourways are the ones shown)", pv._summary.text)
+
+	var hero_at := panel._ids.find("hero")
+	panel._list.select(hero_at)
+	panel._list.item_selected.emit(hero_at)
+	t.check(pv.skin_tone == "deep" and pv.matches_saved(), "back to Hero: as saved, the unsaved change gone")
+	pv._choose("skin_tone", "pale")
+	panel._on_update()
+	t.check(ed.wardrobe.character("hero").skin_tone == "pale" and pv.matches_saved(), "Update keeps the change")
+	var after_update: int = ed.history._entries.size()
+	panel._on_update()
+	t.check_equal(ed.history._entries.size(), after_update, "Update with nothing changed makes no undo step")
+
+	panel._name.text = "Heroine"
+	panel._on_rename()
+	t.check(ed.wardrobe.character("hero").name == "Heroine" and panel._list.get_item_text(panel._ids.find("hero")) == "Heroine",
+		"Rename: the new name, in the list too (the id stays)")
+
+	panel._on_delete()
+	t.check(ed.wardrobe.character("hero") == null and pv.character_id == "" and pv._summary.text.contains("not saved"),
+		"Delete: gone, and the Preview shows a character not saved")
+	ed.undo()
+	t.check(ed.wardrobe.character("hero") != null and ed.wardrobe.character("hero").name == "Heroine",
+		"undo brings it back")
+	ed.undo()
+	ed.undo()
+	t.check(ed.wardrobe.character("hero").name == "Hero" and ed.wardrobe.character("hero").skin_tone == "deep",
+		"and further undo goes back through the rename and the update")
 
 
 # ----------------------------------------------------------------- preview --

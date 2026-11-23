@@ -26,7 +26,7 @@ extends RefCounted
 ## The file's format name, from when the characters were voxels; kept so that every wardrobe file saved since still
 ## opens (lowpoly/ checks it too).
 const FORMAT := "voxel_wardrobe"
-const VERSION := 2
+const VERSION := 3                  ## 3: saved characters (2: features and eye sets)
 const DEFAULT_EXTENSION := "vxwardrobe.json"
 
 signal changed
@@ -44,6 +44,9 @@ var eye_sets: Dictionary = {}
 ## outfit name -> Array of {"item": id, "colourway": name}
 var outfits: Dictionary = {}
 
+## character id -> CharacterDef: saved characters, made in the Preview tab and built by the game (GameCharacter)
+var characters: Dictionary = {}
+
 var path: String = ""
 var dirty: bool = false
 
@@ -56,6 +59,7 @@ static func create_default() -> Wardrobe:
 	w._add_starter_features()
 	var standard := EyeSet.standard()
 	w.eye_sets[standard.id] = standard
+	w._add_starter_characters()
 	w.dirty = false
 	return w
 
@@ -332,6 +336,8 @@ func remove_item(item_id: String) -> void:
 		for i in range(worn.size() - 1, -1, -1):
 			if String((worn[i] as Dictionary)["item"]) == item_id:
 				worn.remove_at(i)
+	for character_id in characters.keys():
+		(characters[character_id] as CharacterDef).drop_item(item_id)
 	mark_dirty()
 
 
@@ -451,6 +457,10 @@ func colour_users(palette_key: String) -> Array[String]:
 		for way in eyes.colourways.keys():
 			if (eyes.colourways[way] as Dictionary).values().has(palette_key):
 				out.append("eye set %s (%s)" % [eyes.name, way])
+	for id in characters.keys():
+		var who: CharacterDef = characters[id]
+		if who.brow_hair == palette_key:
+			out.append("character %s (brows)" % who.name)
 	out.sort()
 	return out
 
@@ -522,6 +532,74 @@ func remove_outfit(name: String) -> void:
 	mark_dirty()
 
 
+# --------------------------------------------------------------- characters --
+
+func add_character(who: CharacterDef) -> void:
+	characters[who.id] = who
+	mark_dirty()
+
+
+func remove_character(character_id: String) -> void:
+	characters.erase(character_id)
+	mark_dirty()
+
+
+func character(character_id: String) -> CharacterDef:
+	return characters.get(character_id, null) as CharacterDef
+
+
+## Ids of the saved characters, by name.
+func character_ids() -> Array[String]:
+	var out: Array[String] = []
+	for k in characters.keys():
+		out.append(String(k))
+	out.sort_custom(func(a: String, b: String) -> bool:
+		return (characters[a] as CharacterDef).name.naturalnocasecmp_to((characters[b] as CharacterDef).name) < 0)
+	return out
+
+
+func unique_character_id(base: String) -> String:
+	return _unique(base, characters, "character")
+
+
+## A few characters to start from, one in each starter outfit that makes a whole look: examples of what a saved
+## character holds, and something for the game to build by id from the first run.
+func _add_starter_characters() -> void:
+	var traveller := CharacterDef.create("traveller", "Traveller")
+	traveller.body_id = "female_average"
+	traveller.head_shape = "oval"
+	traveller.skin_tone = "tan"
+	traveller.hair_id = "ponytail"
+	traveller.worn = outfit("travelling")
+	add_character(traveller)
+
+	var farmer := CharacterDef.create("farmer", "Farmer")
+	farmer.body_id = "male_heavy"
+	farmer.head_shape = "round"
+	farmer.skin_tone = "light"
+	farmer.hair_id = "short_crop"
+	farmer.facial_id = "full_beard"
+	farmer.worn = outfit("overalls")
+	add_character(farmer)
+
+	var elder := CharacterDef.create("elder", "Elder")
+	elder.body_id = "male_short"
+	elder.head_shape = "strong"
+	elder.skin_tone = "brown"
+	elder.accessory_id = "long_beard"
+	elder.worn = outfit("robe")
+	add_character(elder)
+
+	var villager := CharacterDef.create("villager", "Villager")
+	villager.body_id = "female_slim"
+	villager.head_shape = "heart"
+	villager.skin_tone = "pale"
+	villager.hair_id = "short_crop"
+	villager.hair_colourway = "auburn"
+	villager.worn = outfit("dress")
+	add_character(villager)
+
+
 # --------------------------------------------------------------- JSON I/O ---
 
 func to_json() -> Dictionary:
@@ -554,6 +632,10 @@ func to_json() -> Dictionary:
 			worn.append({"item": String(e["item"]), "colourway": String(e["colourway"])})
 		outfits_out[String(name)] = worn
 
+	var characters_out := {}
+	for character_id in characters.keys():
+		characters_out[String(character_id)] = (characters[character_id] as CharacterDef).to_json()
+
 	return {
 		"format": FORMAT,
 		"version": VERSION,
@@ -562,6 +644,7 @@ func to_json() -> Dictionary:
 		"features": features_out,
 		"eye_sets": eyes_out,
 		"outfits": outfits_out,
+		"characters": characters_out,
 	}
 
 
@@ -610,6 +693,13 @@ static func from_json(data: Dictionary) -> Wardrobe:
 				"colourway": String(e.get("colourway", GarmentItem.DEFAULT_COLOURWAY)),
 			})
 		w.outfits[String(name)] = worn
+
+	var raw_characters: Variant = data.get("characters", {})       # version 3
+	if raw_characters is Dictionary:
+		for character_id in (raw_characters as Dictionary).keys():
+			var raw_one: Variant = raw_characters[character_id]
+			if raw_one is Dictionary:
+				w.characters[String(character_id)] = CharacterDef.from_json(String(character_id), raw_one)
 
 	w.dirty = false
 	return w

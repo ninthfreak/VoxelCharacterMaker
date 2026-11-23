@@ -40,6 +40,7 @@ func _initialize() -> void:
 	TestWardrobe.run(_report)
 	TestModel.run(_report, _library)
 	TestLowpoly.run(_report)
+	TestCharacters.run(_report, _library)
 
 
 func _process(_delta: float) -> bool:

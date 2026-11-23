@@ -1501,6 +1501,28 @@ Left for the owner to judge:
 - The owner is not thrilled with any version and chose to move on; options shown on the way (narrow or full top, a
   wedge back to the throat) are in this session's mock-ups, not kept.
 
+## 4zg. Saved characters (owner's go-ahead)
+
+- **What.** A character is now something the wardrobe file keeps (`characters`, file version 3; version 2 files
+  still open, with none): body, head, skin tone, eye set and colourway, brows, resting eyelids and mouth, hair,
+  facial hair and face accessory with their colourways, and the clothes worn (`CharacterDef`). It makes the request
+  the assembler builds from; the Preview tab builds its figure through it too, so a saved character is exactly what
+  was shown.
+- **Editor.** The Preview tab's Saved characters list: pick one to see it (not an edit), Save as new, Update, Rename,
+  Delete (edits, undoable). The summary says "as saved", "changed since saved" or "not saved". The face accessory got
+  a colourway choice, as hair and facial hair have.
+- **Game.** `GameCharacter` builds a saved character by its id; expression changes re-face without re-dressing;
+  poses; other clothes for that node only. The library and wardrobes are read once and shared. The demo scene shows
+  every saved character in a row.
+- **Kept whole.** Deleting an item takes it off every character; a missing colourway or eye set falls back to the
+  first, so a character always builds. Characters are compared as they resolve against the wardrobe, so a blank
+  colourway and the one it stands for count as the same.
+- **Found on the way:** the Preview's colour menus picked the alphabetically first colourway when none was set
+  ("auburn"), while the figure would be drawn in the item's first ("default"); they now agree.
+- **Starter characters** (examples, `Wardrobe._add_starter_characters`): Elder (short, robe, long beard), Farmer
+  (heavy, overalls, short crop and full beard), Traveller (cape and hood, ponytail), Villager (slim, dress).
+- **Not in a character (on purpose):** the pose, the camera, the shading.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

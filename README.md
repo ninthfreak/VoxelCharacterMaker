@@ -56,11 +56,12 @@ The editor is the project's main scene. It has three tabs:
   Click the figure to pick a region. Colours and outfits are here too.
 - **Preview** -- pick a body, head, skin tone, eyes, eyelids, brows, mouth,
   hair, facial hair and clothes made in the other tabs, and see the whole
-  character, posed. Nothing is edited there.
+  character, posed. Save it as a character (the Saved characters list at the
+  top: save as new, update, rename, delete); the game builds one by its name.
 
 The bodies and heads are made in Python (`lowpoly/`), not edited in the game.
-`runtime/character_demo.tscn` shows a character built the way the game does it,
-with no editor involved.
+`runtime/character_demo.tscn` shows the saved characters built the way the game
+does it (`GameCharacter`), with no editor involved.
 
 ## Tests
 

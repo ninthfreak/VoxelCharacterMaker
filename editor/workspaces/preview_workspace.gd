@@ -4,9 +4,11 @@ extends Workspace
 
 ## The Preview tab: put together anything made in the other tabs -- a body, a
 ## head, eyes in a colour, hair, facial hair, and clothes -- and see the whole
-## character, posed.
+## character, posed; and save it as a character (CharacterDef) the game can
+## build by name.
 ##
-## Nothing is edited here, so nothing here can be lost. It is a place to look.
+## The choices here are not themselves edits: trying things changes nothing.
+## Saving, updating, renaming or deleting a character is (CharacterPanel).
 
 var body_id: String = "male_average"
 var head_shape: String = "round"
@@ -23,8 +25,11 @@ var hair_colourway: String = ""
 var facial_id: String = ""
 var facial_colourway: String = ""
 var accessory_id: String = ""
+var accessory_colourway: String = ""
 ## Clothing worn: Array of {"item": id, "colourway": name}
 var worn: Array = []
+## The saved character last loaded or saved here ("" = none): what Update writes to.
+var character_id: String = ""
 
 var _body_pick: OptionButton = null
 var _head_pick: OptionButton = null
@@ -40,6 +45,7 @@ var _hair_way_pick: OptionButton = null
 var _facial_pick: OptionButton = null
 var _facial_way_pick: OptionButton = null
 var _accessory_pick: OptionButton = null
+var _accessory_way_pick: OptionButton = null
 var _outfit_pick: OptionButton = null
 var _clothes_rows: VBoxContainer = null
 var _summary: Label = null
@@ -52,8 +58,8 @@ func title() -> String:
 
 func _build() -> void:
 	heading(side, "The whole character")
-	note(side, "Put together anything made in the other tabs. Nothing is edited "
-		+ "here.")
+	note(side, "Put together anything made in the other tabs, and save it as a character the game can build.")
+	add_panel(CharacterPanel.new(), null, side)
 	figure_controls(side, "Skirts and capes hang afresh in every pose. Not shown yet: edge style (its setting is "
 		+ "kept).")
 
@@ -100,6 +106,8 @@ func _build() -> void:
 		_choose("facial_colourway", value))
 	_accessory_pick = picker(side, "Face accessory", [], [], func(value: String) -> void:
 		_choose("accessory_id", value))
+	_accessory_way_pick = picker(side, "Colour", [], [], func(value: String) -> void:
+		_choose("accessory_colourway", value))
 
 	heading(side, "Clothes")
 	_outfit_pick = picker(side, "Outfit", [], [], func(value: String) -> void:
@@ -122,6 +130,7 @@ func _build() -> void:
 
 ## A new or opened wardrobe: its first eye set and hair, and its "everyday" outfit, as at start-up.
 func start_fresh() -> void:
+	character_id = ""
 	eye_set_id = editor.wardrobe.first_eye_set_id()
 	var hair_ids := editor.wardrobe.feature_ids("hair")
 	hair_id = hair_ids[0] if not hair_ids.is_empty() else ""
@@ -130,7 +139,7 @@ func start_fresh() -> void:
 
 ## Choices that change what another menu offers (an eye set's colours, a hair's or a beard's colourways): after these
 ## the menus are filled again; after any other, only the summary changes.
-const REFILLS: Array[String] = ["eye_set_id", "hair_id", "facial_id"]
+const REFILLS: Array[String] = ["eye_set_id", "hair_id", "facial_id", "accessory_id"]
 
 
 func _choose(field: String, value: String) -> void:
@@ -145,27 +154,39 @@ func _choose(field: String, value: String) -> void:
 
 
 
+## The character the choices here make, as it would be saved: under the loaded character's id and name, if one was
+## loaded. The figure shown is built from it, so a saved character is what was shown.
+func current_character() -> CharacterDef:
+	var loaded := editor.wardrobe.character(character_id) if not character_id.is_empty() else null
+	var who := CharacterDef.create(character_id, loaded.name if loaded != null else "")
+	for field in ["body_id", "head_shape", "skin_tone", "eye_set_id", "eye_colourway", "brow_hair", "lids", "mouth",
+			"hair_id", "hair_colourway", "facial_id", "facial_colourway", "accessory_id", "accessory_colourway"]:
+		who.set(field, get(field))
+	who.worn = _live_worn()
+	return who
+
+
+## Take up a saved character's choices (its pose and shading are not part of it: they stay).
+func load_character(who: CharacterDef) -> void:
+	if who == null:
+		return
+	for field in ["body_id", "head_shape", "skin_tone", "eye_set_id", "eye_colourway", "brow_hair", "lids", "mouth",
+			"hair_id", "hair_colourway", "facial_id", "facial_colourway", "accessory_id", "accessory_colourway"]:
+		set(field, who.get(field))
+	worn = who.worn.duplicate(true)
+	character_id = who.id
+	refresh()
+	rebuild()
+
+
+## Whether the choices here are the loaded character as saved.
+func matches_saved() -> bool:
+	var loaded := editor.wardrobe.character(character_id) if not character_id.is_empty() else null
+	return loaded != null and current_character().looks_like(loaded, editor.wardrobe)
+
+
 func make_request() -> CharacterRequest:
-	var request := CharacterRequest.make(body_id, head_shape)
-	request.wardrobe = editor.wardrobe
-	request.eye_set_id = eye_set_id
-	request.eye_colourway = eye_colourway
-	request.lids = lids
-	request.mouth = mouth
-	request.skin_tone = skin_tone
-	if not brow_hair.is_empty() and editor.wardrobe.palette.has(brow_hair):
-		request.brow_colour = Palette.brow_from_hair(editor.wardrobe.colour(brow_hair))
-	request.worn = _live_worn()
-	var features: Array = []
-	for pair in [[hair_id, hair_colourway], [facial_id, facial_colourway], [accessory_id, ""]]:
-		var it := editor.wardrobe.item(String(pair[0])) if not String(pair[0]).is_empty() \
-			else null
-		if it != null:
-			var way := String(pair[1])
-			features.append({"item": it.id,
-				"colourway": way if it.has_colourway(way) else it.first_colourway()})
-	request.features = features
-	return request
+	return current_character().make_request(editor.wardrobe)
 
 
 func refresh() -> void:
@@ -207,6 +228,8 @@ func refresh() -> void:
 	if eyes != null:
 		for way in eyes.colourway_names():
 			ways.append(way)
+	if eyes != null and not eyes.colourways.has(eye_colourway):
+		eye_colourway = eyes.first_colourway()                # as the assembler would draw it, not the first by name
 	refill(_eye_way_pick, ways, [], eye_colourway)
 	eye_colourway = option_value(_eye_way_pick)
 
@@ -216,6 +239,9 @@ func refresh() -> void:
 	facial_id = _fill_slot(_facial_pick, "facial_hair", facial_id, "(none - clean-shaven)")
 	facial_colourway = _fill_ways(_facial_way_pick, facial_id, facial_colourway)
 	accessory_id = _fill_slot(_accessory_pick, "face_accessory", accessory_id, "(none)")
+	accessory_colourway = _fill_ways(_accessory_way_pick, accessory_id, accessory_colourway)
+	if editor.wardrobe.character(character_id) == null:
+		character_id = ""
 
 	# Clothes.
 	var outfit_values: Array = [""]
@@ -248,6 +274,8 @@ func _fill_ways(option: OptionButton, item_id: String, current: String) -> Strin
 	if it != null:
 		for way in it.colourway_names():
 			ways.append(way)
+		if not it.has_colourway(current):
+			current = it.first_colourway()                    # as the assembler would draw it, not the first by name
 	refill(option, ways, [], current)
 	option.disabled = it == null
 	return option_value(option)
@@ -317,6 +345,13 @@ func _refresh_summary() -> void:
 	var w := editor.wardrobe
 	var eyes := w.eye_set(eye_set_id)
 	var lines: Array[String] = []
+	var loaded := w.character(character_id) if not character_id.is_empty() else null
+	if loaded == null:
+		lines.append("Character: not saved")
+	elif matches_saved():
+		lines.append("Character: %s, as saved" % loaded.name)
+	else:
+		lines.append("Character: %s, changed since saved (Update keeps the changes)" % loaded.name)
 	var body_name := body_id
 	if editor.library.body(body_id) != null:
 		body_name = editor.library.body(body_id).display_name()
@@ -334,7 +369,7 @@ func _refresh_summary() -> void:
 		if facial != null else "none"))
 	var accessory := w.item(accessory_id) if not accessory_id.is_empty() else null
 	if accessory != null:
-		lines.append("Face accessory: %s" % accessory.name)
+		lines.append("Face accessory: %s (%s)" % [accessory.name, accessory_colourway])
 	var names: Array[String] = []
 	for entry in _live_worn():
 		var e: Dictionary = entry
@@ -345,3 +380,8 @@ func _refresh_summary() -> void:
 
 func status_extra() -> String:
 	return "   |   %d worn   |   %s" % [_live_worn().size(), Poses.display_name(pose)]
+
+
+## The summary again, after a character was saved, updated, renamed or deleted.
+func refresh_summary() -> void:
+	_refresh_summary()

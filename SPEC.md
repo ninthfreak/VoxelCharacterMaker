@@ -398,8 +398,14 @@ smooth, which is still the owner's call (section 0); the skin tones, garment ton
 
 ### 7.1 One file
 
-Everything lives in **one wardrobe file** (JSON): palette, every item with its roles and colourways, and saved
-outfits. Bodies, heads and faces are separate library files.
+Everything lives in **one wardrobe file** (JSON): palette, every item with its roles and colourways, saved
+outfits, eye sets, and **saved characters** (version 3). Bodies, heads and faces are separate library files.
+
+A **saved character** (`core/character_def.gd`) is who someone is: body, head, skin tone, eye set and its colourway,
+brows, resting eyelids and mouth, hair, facial hair and face accessory (each with its colourway), and the clothes worn.
+It names items, eye sets and colours by id; deleting an item takes it off every character, and anything else missing
+falls back (a colourway to the item's first, an eye set to the first), so a character always builds. It makes the
+request the assembler builds from, for the editor and the game alike.
 
 ### 7.2 Items
 
@@ -486,6 +492,9 @@ reason for building the editor in-engine: two implementations of bulk generation
 
 Features (roughly in priority order):
 - **Preview:** any of 6 bodies × 5 heads × lid states; orbit/pan/zoom; front/back/side buttons; solo an item.
+- **Saved characters** (Preview tab): save the whole character shown as a named character, pick one to see it,
+  update it with changes, rename, delete; all undoable. The summary says whether what is shown is the character as
+  saved.
 - **Wardrobe panel:** items list (worn toggles, category, draw order), roles and colourways, outfits (wear, save,
   update), palette editing.
 - **Garment editing:** pick regions on the figure or from a list; set role + bulk per region; mirror flag; edge style.
@@ -507,6 +516,12 @@ Features (roughly in priority order):
 
 *The game now draws one skinned mesh that bends at its joints, plus its hanging cloth laid for each pose
 (`runtime/lowpoly_rig.gd`; section 0). The voxel runtime below was removed in phase 5.*
+
+**`GameCharacter`** (`runtime/game_character.gd`) is the node the game uses: it builds a saved character by its id
+from a wardrobe, through the same assembler as the editor, and shows it with a LowpolyRig. It changes the expression
+(eyelids, mouth) without dressing the figure again, a pose, or the clothes worn (for that node only: the wardrobe is
+not changed). The library of bodies and heads, and a wardrobe read from a file, are read once and shared.
+`runtime/character_demo.tscn` stands the saved characters in a row and takes them through the test poses.
 
 - Each part is a mesh under a Node3D at its pivot, parented per §3.1; animation rotates the pivots (AnimationPlayer).
   No skinning.
