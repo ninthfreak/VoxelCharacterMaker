@@ -1632,6 +1632,45 @@ Left for the owner to judge:
   item in a hand, deleting a part, the Preview's hand menus and saving a character holding it. Screenshots taken
   under xvfb (`tools/screenshot_editor.gd`, now with `--open` and `--part`), looked at in full.
 
+## 4zk. Items are put together by hand (owner: "editing only by altering numbers isn't intuitive")
+
+- **What happened:** the first Items tab (4zj) placed, sized and turned parts through number boxes alone. The owner
+  turned that down: numbers are fine for fine work and exact places, not as the way in. Recorded in `CLAUDE.md` as a
+  rule for every editing tool from here on.
+- **What was built** (`editor/item_stage.gd`, an `ItemStage` in the tab's view; SPEC 8):
+  - Click a part: chosen. Drag it: it moves. Drag empty space: the view turns (as before).
+  - One rule: a drag moves flat to the view faced. The item's axis the camera looks along most is left alone; from
+    the front that is depth, so a drag goes across and up. Two thin lines through the chosen part, lettered, say
+    which two ways a drag will go, and change as the view turns.
+  - Squares on four sides of the chosen part (w, d, h): pull one and that side moves; the opposite side stays put.
+    The two sides seen most end on have none: their squares would sit on top of the part, and a pull along the line
+    of sight goes nowhere. Six at once were tried first and overlapped in most views.
+  - A ring turns the part about the way the view faces. The turn is kept as the part's three angles
+    (`ItemStage.euler_of`), choosing the reading with the smaller forward and round angles, so 120 degrees sideways
+    reads 0, 120, 0.
+  - Buttons above the view add each kind of part, on top of the item, chosen; with no item yet they make one.
+  - A see-through hand at the grip, for size (a switch turns it off). On the Grip sub-tab the forearm shows too and
+    the view edits the grip: drag the hand or the diamond, turn the ring.
+  - Snap a quarter unit and 15 degrees; Ctrl: a twentieth and 1 degree. A read-out by the pointer says what a drag is
+    doing ("x 3.25  z 4", "width 7.25", "turned 30 degrees"). One drag, one undo step; Escape gives it up. Delete,
+    Ctrl+D (the copy is put 1 unit to the side, so that it is seen), arrow keys nudge.
+  - The item no longer re-centres itself as it changes: its own middle stays over the grid's middle lines and only
+    the grid moves, under its lowest point, once a drag is over. A part re-centring under the pointer mid-drag would
+    have been unusable.
+- **Colour:** white squares with a dark letter, an orange ring, sky-blue guide lines, yellow for what the pointer is
+  on. No red against green anywhere; each kind of handle is also its own shape.
+- **Known edges:**
+  - The ring and the squares are grabbed before the part under them, so a click on another part right where the
+    ring crosses it takes the ring. What is under the pointer turns yellow first, and the cursor changes.
+  - The hand does not close round the item (no hand bone), and a second grip is still only a mark.
+  - Outline points are still drawn on the panel's grid, not dragged in the view.
+- **Checked:** driven through Godot's real input path under xvfb (a scratch script pushing mouse and key events at
+  the window, with pictures mid-drag): choosing, moving, sizing, turning, nudging, copying, deleting, Escape, the
+  view turning from empty space, the grip moved and turned. 25 checks in `tests/test_editor.gd` do the same headless
+  with exact numbers (snap, the opposite side staying put, a turned part sized along its own sides, one undo step a
+  drag); `tests/test_held_items.gd` holds twelve turns to the same turn when read back as angles. **What a script
+  cannot check is how it feels in the hand**: expect a round of tuning once the owner has used it.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

@@ -527,12 +527,27 @@ reason for building the editor in-engine: two implementations of bulk generation
 
 Features (roughly in priority order):
 - **Preview:** any of 6 bodies × 5 heads × lid states; orbit/pan/zoom; front/back/side buttons; solo an item.
-- **Held items** (Items tab, section 7.5): a list of parts, each added by kind, duplicated or deleted, with its shape,
-  colour role, place, turn (15-degree steps by the arrows), size (quarter units), sides and mirror; a 16 by 16 grid to
-  draw an outline or a side view on (click to add a point, drag to move one, right-click to remove one); the grip and
-  a second grip. The view shows the item alone on a one-unit grid, the chosen part's edges in white over everything
-  and the grip as two arrows ("ahead", "up"), a double-click choosing a part; or held in a character's right or left
-  hand, in any pose. The Preview tab chooses what each hand holds.
+- **Held items** (Items tab, section 7.5) **are put together by hand in the view** (owner, 2026-11: editing by
+  numbers alone is not workable; numbers are for fine work and exact places). One rule for every drag: it moves flat
+  to the view being faced (from the front: across and up; from above: across and depth; from a side: depth and up;
+  an angled view uses whichever of those it faces most, and two lines through the part say which, by letter).
+  - Click a part to choose it; drag it to move it. Drag empty space to turn the view.
+  - The chosen part has a square on four of its sides (w, d, h; not the two seen end on): pull one and that side
+    moves, the opposite side stays. A ring turns it, about the way the view faces.
+  - Buttons above the view add a part of each kind, on top of the item, chosen. A see-through hand at the grip gives
+    the size of things.
+  - On the Grip sub-tab the view edits the grip instead: the forearm and hand that will hold the item are shown; drag
+    the hand to move the grip, the ring to turn it.
+  - Snap: a quarter unit and 15 degrees; Ctrl held, a twentieth and 1 degree. What a drag is doing is written by the
+    pointer. One drag is one undo step; Escape gives it up. Delete removes the chosen part, Ctrl+D copies it, the
+    arrow keys nudge it.
+  - Handles are told apart by shape and letter, never by red against green: squares size, a ring turns, a diamond is
+    a grip.
+  - The panel keeps the list of parts and the numbers (shape, colour role, place, turn, size, sides, mirror), which
+    follow the view, and a 16 by 16 grid to draw an outline or a side view on (click to add a point, drag to move
+    one, right-click to remove one).
+  - Show: the item alone (where it is edited), or held in a character's right or left hand, in any pose. The Preview
+    tab chooses what each hand holds.
 - **Saved characters** (Preview tab): save the whole character shown as a named character, pick one to see it,
   update it with changes, rename, delete; all undoable. The summary says whether what is shown is the character as
   saved.

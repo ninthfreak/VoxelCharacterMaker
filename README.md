@@ -57,9 +57,12 @@ The editor is the project's main scene. It has four tabs:
   Click the figure to pick a region. Colours and outfits are here too.
 - **Items** -- held items (weapons, shields, tools, potions), built from simple
   parts: boxes, wedges, cylinders, cones, spheres, and shapes drawn on a grid
-  (an outline given thickness, or half a side view spun round). Place, turn and
-  size each part; set the grip, where the hand closes. See the item alone, or
-  in a character's right or left hand.
+  (an outline given thickness, or half a side view spun round). Put together by
+  hand in the view: click a part to choose it, drag it to move it, pull the
+  squares on its sides to size it, the ring to turn it; the buttons above the
+  view add parts. The numbers in the panel follow, for fine work. On the Grip
+  sub-tab, drag the hand to say where and how the item is held. See the item
+  alone, or in a character's right or left hand.
 - **Preview** -- pick a body, head, skin tone, eyes, eyelids, brows, mouth,
   hair, facial hair, clothes and what each hand holds, made in the other tabs, and see the whole
   character, posed or animated (idle, walk). Save it as a character (the

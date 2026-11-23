@@ -17,6 +17,8 @@ than silently changing course.
 - They are red/green colour blind, dyslexic and have ADHD: no red-vs-green-only signals in UI or debug views, short
   clear labels, readable text, summaries before detail.
 - Show visual results (screenshots/renders) for anything that changes how characters look.
+- Anything the owner edits must be edited by hand: click, drag, handles in the view. Number boxes are for fine work
+  and exact places only, never the main way in (owner, on the first Items tab: "I'm not a machine like you").
 
 ## Conventions
 - Engine: current stable Godot 4.x, GDScript. The character assembly code (body + head + face + worn items -> a

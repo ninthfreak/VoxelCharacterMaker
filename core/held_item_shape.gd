@@ -50,6 +50,11 @@ static func kind_label(kind: String) -> String:
 	return kind
 
 
+## A kind's name in a word or two, for a button or a list.
+static func kind_name(kind: String) -> String:
+	return kind_label(kind).get_slice(",", 0)
+
+
 ## A part of this kind at the item's middle, in a role.
 static func new_part(kind: String, role: String) -> Dictionary:
 	var part := {"kind": kind, "role": role, "position": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0],

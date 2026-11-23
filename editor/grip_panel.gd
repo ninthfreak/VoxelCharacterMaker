@@ -21,12 +21,12 @@ func _build() -> void:
 	var box := section("Grip: where the hand closes")
 	_place = triple(box, "Place", ["x ", "y ", "z "], -96.0, 96.0, PartsPanel.STEP, PartsPanel.ARROW, "",
 		func(values: Array) -> void: _set_grip("position", values, "Move grip"))
-	_turn = triple(box, "Turn", ["fwd ", "side ", "round "], -180.0, 180.0, 1.0, PartsPanel.TURN_ARROW, " deg",
+	_turn = triple(box, "Turn", ["fwd ", "side ", "round "], -180.0, 180.0, 0.01, PartsPanel.TURN_ARROW, "°",
 		func(values: Array) -> void: _set_grip("rotation", values, "Turn grip"))
 	button_row(box, [{"text": "Put the grip at the chosen part's middle", "action": _on_to_part}])
 	hint(box, "Unturned, the item's top points ahead out of the fist, its front faces outward and its left side "
 		+ "down: a sword or an axe made standing up needs no turn. A bottle held upright: turn it sideways 90. The "
-		+ "left hand holds the mirror image. To see it, choose Show: in the right hand.")
+		+ "left hand holds the mirror image. In the view: drag the hand to move the grip, the ring to turn it.")
 
 	var two := section("Second hand")
 	_two_handed = CheckBox.new()

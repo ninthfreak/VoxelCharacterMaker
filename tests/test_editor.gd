@@ -54,6 +54,7 @@ static func run(t: TestReport, ed: CharacterEditor) -> void:
 	_preview(t, ed)
 	_characters(t, ed)
 	_items(t, ed)
+	_items_by_hand(t, ed)
 	_animation(t, ed)
 	_undo_timeline(t, ed)
 	_unsaved_guard(t, ed)
@@ -475,7 +476,7 @@ static func _items(t: TestReport, ed: CharacterEditor) -> void:
 	var it := tab.held.item()
 	t.check(it != null and it.is_held() and it.parts.size() == 1 and ed.history._entries.size() == steps + 1
 		and list._ids == [it.id], "New makes a held item with one part (a box), as one undo step")
-	t.check(tab.view._item_polys.size() == 6 and list._category.get_parent().visible
+	t.check(tab.view.item_stage.polygon_count() == 6 and list._category.get_parent().visible
 		and not list._draw_order.get_parent().visible, "the view shows its box; it has a category but no draw order")
 
 	parts._add_kind.select(HeldItemShape.KINDS.find("cylinder"))
@@ -506,8 +507,8 @@ static func _items(t: TestReport, ed: CharacterEditor) -> void:
 	t.check((tab.held.item().parts[1]["points"] as Array).size() == 5, "undo takes it away again")
 	it = tab.held.item()
 
-	tab.view.part_picked.emit(0)
-	t.check(tab.part == 0 and parts._list.is_selected(0), "a double-click on a part in the view chooses it")
+	tab.view.item_stage.part_chosen.emit(0)
+	t.check(tab.part == 0 and parts._list.is_selected(0), "a part chosen in the view is chosen in the list")
 	grip._place[2].value = -1.5
 	t.check(it.grip["position"] == [0.0, 0.0, -1.5], "the grip moves")
 	grip._two_handed.button_pressed = true
@@ -544,6 +545,165 @@ static func _items(t: TestReport, ed: CharacterEditor) -> void:
 	panel._on_save_new()
 	t.check(ed.wardrobe.character("guard") != null and ed.wardrobe.character("guard").right_hand_id == it.id,
 		"a character saved holding it keeps it")
+
+
+static func _mouse(stage: ItemStage, at: Vector2, pressed: bool) -> bool:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = pressed
+	ev.position = at
+	return stage.handle_input(ev)
+
+
+static func _mouse_to(stage: ItemStage, at: Vector2, ctrl: bool = false) -> bool:
+	var ev := InputEventMouseMotion.new()
+	ev.position = at
+	ev.button_mask = MOUSE_BUTTON_MASK_LEFT
+	ev.ctrl_pressed = ctrl
+	return stage.handle_input(ev)
+
+
+## Press at one place of the item's space, drag to another, let go.
+static func _drag(stage: ItemStage, from: Vector2, to: Vector2, ctrl: bool = false) -> void:
+	_mouse(stage, from, true)
+	_mouse_to(stage, from.lerp(to, 0.5), ctrl)
+	_mouse_to(stage, to, ctrl)
+	_mouse(stage, to, false)
+
+
+## The Items tab's view: parts chosen, moved, sized and turned by hand, the grip dragged, and the keys.
+static func _items_by_hand(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: Items -- put together by hand in the view")
+	_fresh(ed)
+	ed.show_tab("Items")
+	var tab := ed.items
+	var stage := tab.view.item_stage
+	var camera := tab.view.camera
+	var on := func(p: Vector3) -> Vector2:
+		return camera.unproject_position(ItemStage.to_view(p))
+	tab.add_part("box")
+	var it := tab.held.item()
+	t.check(it != null and it.parts.size() == 1 and String(it.parts[0]["kind"]) == "box" and tab.part == 0,
+		"an Add a part button with no item yet makes an item of that part")
+	tab.add_part("cylinder")
+	t.check(it.parts.size() == 2 and it.parts[1]["position"] == [0.0, 0.0, 3.0] and tab.part == 1,
+		"the next part is put on top of the item (a 4-tall cylinder on a 2-tall box: its middle at 3), and chosen")
+	t.check(not stage.hand.is_empty() and not stage._hand_polys.is_empty(), "a hand is shown at the grip, for size")
+	camera.set_view("front")
+	tab.view.fit_view()
+	stage.redraw()
+	t.check(stage.facing() == 1 and stage._handles.size() == 4,
+		"from the front the view faces the item's depth: the chosen part has four squares (w, w, h, h)")
+
+	# choose by a click
+	var steps: int = ed.history._entries.size()
+	var box_face := Vector3(-0.8, -1.0, -0.8)
+	var hit: Dictionary = stage._hit(on.call(box_face))
+	t.check(int(hit["grab"]) == ItemStage.Grab.PART and int(hit["part"]) == 0, "the pointer on the box is on part 1")
+	_mouse(stage, on.call(box_face), true)
+	_mouse(stage, on.call(box_face), false)
+	t.check(tab.part == 0 and stage.selected == 0 and ed.history._entries.size() == steps
+		and (_panel(tab, PartsPanel) as PartsPanel)._list.is_selected(0),
+		"a click on it chooses it, here and in the list, and is not an edit")
+	t.check(not _mouse(stage, Vector2(5, 5), true), "a press on empty space is left to the camera (it turns the view)")
+	_mouse(stage, Vector2(5, 5), false)
+
+	# move
+	_drag(stage, on.call(box_face), on.call(box_face + Vector3(1.0, 0.0, 0.5)))
+	t.check(it.parts[0]["position"] == [1.0, 0.0, 0.5] and ed.history._entries.size() == steps + 1,
+		"dragged 1 across and half up, it is there, flat to the view (its depth unchanged): one undo step",
+		str(it.parts[0]["position"]))
+	var parts := _panel(tab, PartsPanel) as PartsPanel
+	t.check(is_equal_approx(parts._place[0].value, 1.0) and is_equal_approx(parts._place[2].value, 0.5),
+		"the number boxes follow")
+	var grabbed := box_face + Vector3(1.0, 0.0, 0.5)
+	_drag(stage, on.call(grabbed), on.call(grabbed + Vector3(0.62, 0.0, 0.0)))
+	t.check(it.parts[0]["position"] == [1.5, 0.0, 0.5], "a drag snaps to a quarter unit", str(it.parts[0]["position"]))
+	grabbed += Vector3(0.5, 0.0, 0.0)
+	_drag(stage, on.call(grabbed), on.call(grabbed + Vector3(0.31, 0.0, 0.0)), true)
+	t.check(it.parts[0]["position"] == [1.8, 0.0, 0.5], "with Ctrl held, to a twentieth", str(it.parts[0]["position"]))
+
+	# give up
+	steps = ed.history._entries.size()
+	grabbed += Vector3(0.3, 0.0, 0.0)
+	_mouse(stage, on.call(grabbed), true)
+	_mouse_to(stage, on.call(grabbed + Vector3(2.0, 0.0, 2.0)))
+	var mid: Array = it.parts[0]["position"].duplicate()
+	stage.cancel()
+	_mouse(stage, on.call(grabbed + Vector3(2.0, 0.0, 2.0)), false)
+	t.check(mid == [3.75, 0.0, 2.5] and it.parts[0]["position"] == [1.8, 0.0, 0.5] and ed.history._entries.size() == steps,
+		"Escape gives a drag up: the part is back where it was, with no undo step", "mid-drag %s" % [mid])
+
+	# size
+	var top := {}
+	for h in stage._handles:
+		if int(h["axis"]) == 2 and float(h["sign"]) > 0.0:
+			top = h
+	var top_at: Vector3 = ItemStage.to_item(top["view"])
+	_drag(stage, on.call(top_at), on.call(top_at + Vector3(0.0, 0.0, 1.0)))
+	t.check(it.parts[0]["size"] == [2.0, 2.0, 3.0] and it.parts[0]["position"] == [1.8, 0.0, 1.0],
+		"the top square pulled up by 1: the part is 1 taller and its bottom has not moved",
+		"%s at %s" % [it.parts[0]["size"], it.parts[0]["position"]])
+	_drag(stage, on.call(top_at + Vector3(0.0, 0.0, 1.0)), on.call(top_at + Vector3(0.0, 0.0, -40.0)))
+	t.check(float(it.parts[0]["size"][2]) == HeldItemShape.MIN_SIZE, "pushed right through, it stops at the smallest size")
+	ed.undo()
+	it = tab.held.item()
+	t.check(it.parts[0]["size"] == [2.0, 2.0, 3.0], "undo: as it was before that drag")
+
+	# turn
+	stage.redraw()
+	var ring: Dictionary = stage._ring
+	var ring_at := func(degrees: float) -> Vector2:
+		var a := deg_to_rad(degrees)
+		var way := (ItemStage.to_view(Vector3(0, 0, 1)) * cos(a) + ItemStage.to_view(Vector3(1, 0, 0)) * sin(a)) / FigureAxes.UNIT
+		return camera.unproject_position((ring["centre"] as Vector3) + way * float(ring["radius"]))
+	_drag(stage, ring_at.call(10.0), ring_at.call(47.0))
+	t.check(it.parts[0]["rotation"] == [0.0, 30.0, 0.0],
+		"the ring dragged 37 degrees round: turned 30 (15-degree steps) sideways, the way the view faces",
+		str(it.parts[0]["rotation"]))
+	_drag(stage, ring_at.call(0.0), ring_at.call(-30.0))
+	t.check(it.parts[0]["rotation"] == [0.0, 0.0, 0.0], "and back", str(it.parts[0]["rotation"]))
+
+	# keys
+	steps = ed.history._entries.size()
+	stage.nudge(1, 0)
+	stage.nudge(0, -1)
+	t.check(it.parts[0]["position"] == [2.05, 0.0, 0.75] and ed.history._entries.size() == steps + 1,
+		"arrow keys nudge it a quarter unit, right and down on the screen: one undo step for the run",
+		str(it.parts[0]["position"]))
+	stage.duplicate_requested.emit()
+	t.check(it.parts.size() == 3 and tab.part == 1 and it.parts[1]["position"] == [3.05, 0.0, 0.75],
+		"Ctrl+D: a copy beside it, chosen")
+	stage.delete_requested.emit()
+	t.check(it.parts.size() == 2 and String(it.parts[1]["kind"]) == "cylinder", "Delete: gone")
+
+	# a part turned beforehand is sized along its own sides
+	it.parts[0]["rotation"] = [0.0, 0.0, 90.0]
+	it.parts[0]["position"] = [0.0, 0.0, 0.0]
+	it.parts[0]["size"] = [2.0, 1.0, 1.0]
+	tab.select_part(0)
+	var side := {}
+	for h in stage._handles:
+		if int(h["axis"]) == 2 and float(h["sign"]) < 0.0:
+			side = h
+	var side_at: Vector3 = ItemStage.to_item(side["view"])
+	_drag(stage, on.call(side_at), on.call(side_at + Vector3(0.0, 0.0, -0.5)))
+	t.check(it.parts[0]["size"] == [2.0, 1.0, 1.5] and it.parts[0]["position"] == [0.0, 0.0, -0.25],
+		"the bottom square pulled down by a half: taller by a half, the top where it was",
+		"%s at %s" % [it.parts[0]["size"], it.parts[0]["position"]])
+
+	# the grip
+	tab.show_section("Grip")
+	t.check(stage.mode == ItemStage.Mode.GRIP and stage._handles.is_empty() and stage._knobs.size() == 1,
+		"on the Grip sub-tab the view edits the grip: a diamond at it, no squares")
+	steps = ed.history._entries.size()
+	_drag(stage, on.call(Vector3.ZERO), on.call(Vector3(0.0, 0.0, -1.0)))
+	t.check(it.grip["position"] == [0.0, 0.0, -1.0] and ed.history._entries.size() == steps + 1
+		and ed.history.undo_label() == "Move grip", "the diamond dragged down by 1: the grip is there, as one undo step")
+	var grip := _panel(tab, GripPanel) as GripPanel
+	t.check(is_equal_approx(grip._place[2].value, -1.0), "and its number box follows")
+	tab.show_section("Item")
+	t.check(stage.mode == ItemStage.Mode.PARTS, "back on the Item sub-tab the view edits parts again")
 
 
 ## The Preview tab plays an animation; a pose stops it.

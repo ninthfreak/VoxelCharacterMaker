@@ -10,6 +10,7 @@ const EXPECTED_PATH := "res://tests/lowpoly_expected.json"
 
 static func run(t: TestReport, library: LowpolyLibrary) -> void:
 	_shapes(t)
+	_turns(t)
 	_against_python(t, library)
 	_file(t)
 	_holding(t, library)
@@ -152,6 +153,27 @@ static func _against_python(t: TestReport, library: LowpolyLibrary) -> void:
 		t.check(worst <= tolerance, "%s in the %s hand of the %s: %d polygons, every corner within %s units" % [
 			item.name, "left" if case_["side"] == "L" else "right", case_["body"], want.size(), tolerance],
 			"off by %f at %s" % [worst, where])
+
+
+## A turn made by hand in the editor (ItemStage) is kept as the three angles a part has: they must make the same turn.
+static func _turns(t: TestReport) -> void:
+	t.group("held items: a turn as three angles")
+	var worst := 0.0
+	var cases: Array = [[0, 0, 0], [30, 0, 0], [0, 45, 0], [0, 0, -60], [0, 120, 0], [15, 30, 45], [-75, 60, 150],
+		[0, 90, 0], [30, 90, 45], [10, -90, 20], [180, 0, 90], [90, 45, -90]]
+	for e in cases:
+		var want := HeldItemShape.turn(e)
+		var got := HeldItemShape.turn(ItemStage.euler_of(want))
+		for i in 9:
+			worst = maxf(worst, absf(want[i] - got[i]))
+	t.check(worst < 5e-4, "twelve turns, the upright ones among them, read back as angles (to a hundredth of a degree) "
+		+ "make the same turn", "%.6f off" % worst)
+	t.check(ItemStage.euler_of(HeldItemShape.turn([0, 120, 0])) == [0.0, 120.0, 0.0],
+		"120 degrees sideways reads as 0, 120, 0 (not 180, 60, 180)", str(ItemStage.euler_of(HeldItemShape.turn([0, 120, 0]))))
+	t.check(ItemStage.turned([0.0, 0.0, 0.0], 2, 45.0) == [0.0, 0.0, 45.0]
+		and ItemStage.turned([0.0, 0.0, 45.0], 2, -45.0) == [0.0, 0.0, 0.0]
+		and ItemStage.turned([30.0, 0.0, 0.0], 0, 15.0) == [45.0, 0.0, 0.0],
+		"a turn about one of the item's axes adds to that angle")
 
 
 static func _file(t: TestReport) -> void:

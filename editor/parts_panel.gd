@@ -4,11 +4,13 @@ extends EditorPanel
 
 ## The parts of a held item (HeldItemShape): a list of them, and the chosen one's shape, colour role, place, turn,
 ## size, sides, mirror and, for a drawn part, its drawing. The Items tab says which part is chosen (ItemsWorkspace.part);
-## a double-click on a part in the view chooses it too.
+## a click on a part in the view chooses it too.
 ##
-## Numbers step by a quarter unit (a turn by 15 degrees) with the arrows; any value can be typed.
+## The numbers here are for fine work and exact places: parts are moved, sized and turned by hand in the view
+## (ItemStage), and these follow. They step by a quarter unit (a turn by 15 degrees) with the arrows; any value can be
+## typed.
 
-const STEP := 0.05                  ## what a typed number is kept to
+const STEP := 0.001                 ## what a typed number is kept to (ItemStage.PLACES)
 const ARROW := 0.25                 ## what an arrow click adds
 const TURN_ARROW := 15.0
 
@@ -73,11 +75,11 @@ func _build() -> void:
 		_set_field("role", option_value(_role), "Set part colour role"))
 
 	_place = triple(_details, "Place", ["x ", "y ", "z "], -96.0, 96.0, STEP, ARROW, "",
-		func(values: Array) -> void: _set_field("position", values, "Move part", true))
-	_turn = triple(_details, "Turn", ["fwd ", "side ", "round "], -180.0, 180.0, 1.0, TURN_ARROW, " deg",
-		func(values: Array) -> void: _set_field("rotation", values, "Turn part", true))
+		func(values: Array) -> void: _set_field("position", values, "Move part %d" % (items_tab().part + 1), true))
+	_turn = triple(_details, "Turn", ["fwd ", "side ", "round "], -180.0, 180.0, 0.01, TURN_ARROW, "°",
+		func(values: Array) -> void: _set_field("rotation", values, "Turn part %d" % (items_tab().part + 1), true))
 	_size = triple(_details, "Size", ["w ", "d ", "h "], HeldItemShape.MIN_SIZE, 96.0, STEP, ARROW, "",
-		func(values: Array) -> void: _set_field("size", values, "Resize part", true))
+		func(values: Array) -> void: _set_field("size", values, "Resize part %d" % (items_tab().part + 1), true))
 	hint(_details, "x across (+ is the item's left, your right as you face it), y depth (the front is -), z up. "
 		+ "Turns: tip forward, lean sideways, spin round. Units: 24 to a metre; a hand is about 3 across.")
 
@@ -196,12 +198,7 @@ func _on_add() -> void:
 	var it := item()
 	if it == null:
 		return
-	var kind := option_value(_add_kind)
-	var part := HeldItemShape.new_part(kind, it.roles[0] if not it.roles.is_empty() else GarmentItem.DEFAULT_ROLE)
-	it.parts.append(part)
-	items_tab().part = it.parts.size() - 1
-	commit("Add %s" % HeldItemShape.kind_label(kind).split(",")[0].to_lower())
-	items_tab().select_part(it.parts.size() - 1)
+	items_tab().add_part(option_value(_add_kind))
 
 
 func _on_duplicate() -> void:
@@ -210,6 +207,7 @@ func _on_duplicate() -> void:
 	if it == null or part == null:
 		return
 	var copy: Dictionary = (part as Dictionary).duplicate(true)
+	copy["position"][0] = float(copy["position"][0]) + 1.0       # beside the first, so that it is seen to be there
 	it.parts.insert(items_tab().part + 1, copy)
 	commit("Duplicate part")
 	items_tab().select_part(items_tab().part + 1)
