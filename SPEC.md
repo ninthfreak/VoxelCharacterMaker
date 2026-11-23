@@ -94,12 +94,14 @@ bodies'; the low-poly pivots are in each body file.
 gives it, under the same names and with the same defaults (a check holds them equal to the game's table). What is
 different from 7.4:
 
-- **Hanging cloth is laid afresh for every pose** (`lowpoly/hang.py`), instead of being cut into rigid panels that a
-  driver rule turns. A skirt or a cape is a few columns of cloth, each fixed at its top and of fixed length; for a
-  pose, each column is a taut line from its top over whatever of the figure sticks out under it, then straight down,
-  leaning out by the garment's flare. Nothing is simulated or remembered between poses. So 7.4's panels, pivots,
-  drivers and the 0.8 "follow" do not apply to the low-poly figures. **This was a call made while building and is the
-  owner's to keep or throw out**; the reasons are in `docs/NOTES.md` 4j.
+- **Hanging cloth is laid once, standing, then follows bones** (`lowpoly/hang.py`; owner's choice, 2026-11). A skirt
+  or a cape is a few columns of cloth, each fixed at its top and of fixed length; standing, each column is a taut line
+  from its top over whatever of the figure sticks out under it, then straight down, leaning out by the garment's
+  flare. In a pose every point follows what its column's top follows and, further down, cloth bones the legs turn:
+  a skirt's front follows the leg in front, its back the leg behind, its sides their own leg, each with a second bone
+  at the knee for the cloth below it; a cape swings back with the leg behind. (Laid afresh for every pose by the
+  taut-line rule, as first built, the cloth jumped between poses a hair apart, so it would pop in any animation:
+  `docs/NOTES.md` 4zh.) Sitting, the cloth cuts the corner where the lap meets the belly by up to about 2 units.
 - A skirt hangs from the waist line (the top of the hips band), over the hips. Its waistband is still the waist band
   covered as a garment would cover it.
 - "Four panels" is one cloth all round; "two panels" is a front cloth and a back cloth with the sides open.
@@ -151,7 +153,7 @@ they are easy to change):
 3. The arm's top and the foot's top stand a little past their bands' heights and belong to "shoulder" and "foot".
 
 **Not decided yet** (the owner's to settle; `lowpoly/README.md` has the detail): how far each facial hair length
-grows out; the mouth's shapes; whether hanging cloth stays laid afresh for every pose; hard pieces and
+grows out; the mouth's shapes; hard pieces and
 sleeves at the joints; the polygon budget; flat or smooth shading; how far one step of bulk stands off the body; what
 becomes of edge style; and the final shape of the masculine clay.
 
@@ -466,7 +468,7 @@ that make it asymmetric, both aimed at one **side** (the character's own left or
 
 **Built so far (voxel):** skirt (above), cape, hood, shoulder straps, facial hair (§5.1), and a hand-drawn shape placed
 at a body anchor. *On the low-poly figure: skirt, cape, straps and facial hair; skirts and capes are hanging cloth
-laid afresh for every pose, not cloth panels (section 0). The hood: raised, a loose shell over the head with the face
+laid standing and following cloth bones (section 0). The hood: raised, a loose shell over the head with the face
 open, falling to a cowl on the shoulders; lowered, a collar with the empty hood lying on the back (settings raised,
 looseness, opening, lined, and for its shape peak, brim, fullness at the back and cowl length; the top is round
 unless peaked). The drawn shape is replaced by shapes of their own, each fixed at a place on the figure
@@ -514,8 +516,8 @@ Features (roughly in priority order):
 
 ## 9. Runtime
 
-*The game now draws one skinned mesh that bends at its joints, plus its hanging cloth laid for each pose
-(`runtime/lowpoly_rig.gd`; section 0). The voxel runtime below was removed in phase 5.*
+*The game now draws one skinned mesh that bends at its joints, plus its hanging cloth as a second skinned mesh on the
+same skeleton, which has nine cloth bones besides the eleven parts (`runtime/lowpoly_rig.gd`; section 0). The voxel runtime below was removed in phase 5.*
 
 **`GameCharacter`** (`runtime/game_character.gd`) is the node the game uses: it builds a saved character by its id
 from a wardrobe, through the same assembler as the editor, and shows it with a LowpolyRig. It changes the expression

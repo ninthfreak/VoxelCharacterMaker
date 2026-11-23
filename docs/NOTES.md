@@ -1523,6 +1523,34 @@ Left for the owner to judge:
   (heavy, overalls, short crop and full beard), Traveller (cape and hood, ponytail), Villager (slim, dress).
 - **Not in a character (on purpose):** the pose, the camera, the shading.
 
+## 4zh. Hanging cloth follows bones (owner's choice, "option B")
+
+- **Why.** Before building animation, the cloth was measured in motion. Laid afresh for every pose by the taut-line
+  rule, a cloth's points mostly moved 0.1 to 0.2 units for a fortieth of the way from standing to a stride, but now
+  and then 3 to 9 units at once: a knee coming under a column's face snapped the column out, and rows of points
+  snapped to new bends. It would pop in any animation, laid every frame or blended between laid poses alike (and a
+  lay costs 14 to 17 ms, too much for every frame anyway). The owner chose bones over smoothing the rule (hard,
+  unsure) and physics (hard, out of scope).
+- **How.** Laid once, standing, by the same rule (bind; standing it is exactly the old cloth, to 1e-15), then every
+  point follows fixed shares: what its column's top follows, blended over 1.5 units below the hip line into cloth
+  bones. A skirt has front, back, left and right bones at the hip line (front: the leg in front, back: the leg behind,
+  each only that way; sides: their own leg, swing and spread) and a second at the knee for each, following that
+  leg's knee (the back's only as far as its leg is behind, or sitting would swing the back out like a shelf). A
+  cape's lower part swings back with the leg behind (0.8 of it). Shares by the way a column faces (cosine squared,
+  so they add to one); at most four bones a point, as Godot skins.
+- **Measured.** No jumps: the largest step is the typical step, standing to a stride and to sitting. In the test
+  poses but sitting nothing comes through a skirt or a cape (mid-stride 0.00, was 0.8 to 1.4 with one bone at the hip
+  following 0.8 of a swing). Sitting, the cloth cuts the corner where the lap meets the belly by up to 1.85 units:
+  cloth half way between two turns takes their average (Godot's skinning), and the hip line turns 90 degrees there.
+  Mostly hidden under the lap and the hands; `check.py` holds sitting to under 2.5 and the rest to 0.15.
+- **Godot.** The skeleton has the nine cloth bones besides the eleven parts; the cloth is a second skinned mesh; a
+  pose turns nine more bones (a pose change with a cape: 14.9 ms before, 0.5 ms now). `laid_cloth` is worked out in
+  full precision only when asked (picking, checks). Godot's cloth matches lowpoly/ corner by corner in every dressed
+  case and test pose; a check holds the skeleton's cloth to the full-precision posing; another holds every step of a
+  slow move to under 0.5 units.
+- **What it costs.** The editor's still poses show the game's cloth, so sitting is stiffer than the laid cloth was (a
+  lap less hugged). Fine for strides, which matter most for animation.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

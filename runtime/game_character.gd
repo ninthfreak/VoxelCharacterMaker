@@ -7,7 +7,7 @@ extends Node3D
 ##
 ##   setup(wardrobe, "farmer")        build a character (or set wardrobe_path and character_id, and add it to a tree)
 ##   set_expression("angry", "frown") eyelids and mouth; the clothes are not dressed again
-##   set_pose("mid_stride")           a pose from runtime/poses.gd; the cloth is laid again for it
+##   set_pose("mid_stride")           a pose from runtime/poses.gd; the cloth follows its bones
 ##   wear_outfit("travelling")        other clothes for this character, here only: the wardrobe is not changed
 ##
 ## The low-poly library (the bodies and heads) is read once and shared by every GameCharacter; so is a wardrobe read

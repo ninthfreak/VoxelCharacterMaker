@@ -269,6 +269,92 @@ def lay(cloth, T, P, Z0):
     return polys
 
 
+# ---------------------------------------------------------------------------------- following the bones ---
+# The owner's choice (2026-11, "option B"): in motion, cloth is not laid afresh. Laid by the rule above for every pose,
+# it jumps between poses a hair apart (a knee coming under a column's face snaps the column out at once), so it would
+# pop in any animation. Instead it is laid once, standing (bind: the rule above, so standing it is exactly that), and
+# from then on every point follows bones, as games of the 1990s moved skirts: the points at the top follow what the
+# column's top follows; further down they follow cloth bones turned by the thighs (pose.cloth_bones):
+#
+#   skirt   front, back, left and right bones at the hip line, each point by the way its column faces, and under
+#           each another at knee height for the cloth below the knee
+#   cape    one bone that swings back with the leg furthest back
+#
+# A point's shares are set standing and never change, and the bones turn smoothly with the pose, so nothing can jump.
+
+SKIRT_BONES = ("skirt_front", "skirt_back", "skirt_left", "skirt_right",
+               "skirt_front_low", "skirt_back_low", "skirt_left_low", "skirt_right_low")
+CAPE_BONES = ("cape_back",)
+SKIRT_FROM = 0.5        # skirt cloth higher than this above the hip line follows only its top
+SKIRT_OVER = 1.5        # below that, it comes to follow the skirt bones wholly over this much further down (a short
+                        # blend: cloth half way between two turns takes the average of them, which cuts the corner at
+                        # the lap when sitting; the shorter the blend, the less)
+KNEE_FROM = 1.0         # and from this far above the knee it comes to follow the bones at the knee,
+KNEE_OVER = 2.0         # wholly over this much further down
+CAPE_FROM = 3.0         # a cape follows the chest down to this far above the hip line,
+CAPE_OVER = 5.0         # then comes to follow its bone over this much further down
+MOST_BONES = 4          # a point follows at most this many (what the game's skinning takes); the slightest go
+
+
+def cloth_shares(cloth, col, p, hip_z, knee_z):
+    """What a point of a column follows, standing at p: {bone or part: share}."""
+    skirt = cloth.frame == "pelvis"
+    g = float(np.clip((hip_z + (SKIRT_FROM if skirt else CAPE_FROM) - p[2]) / (SKIRT_OVER if skirt else CAPE_OVER), 0.0, 1.0))
+    out = {part: (1.0 - g) * share for part, share in col.shares.items()}
+    if skirt:
+        low = float(np.clip((knee_z + KNEE_FROM - p[2]) / KNEE_OVER, 0.0, 1.0))
+        ox, oy = float(col.out[0]), float(col.out[1])                # level, the way the column faces (front is -y)
+        q = {"skirt_front": max(0.0, -oy) ** 2, "skirt_back": max(0.0, oy) ** 2,
+             "skirt_left": max(0.0, ox) ** 2, "skirt_right": max(0.0, -ox) ** 2}
+        total = sum(q.values())
+        for bone, w in q.items():
+            if w <= 0.0: continue
+            share = g * w / total
+            if (1.0 - low) * share > 0.0: out[bone] = out.get(bone, 0.0) + (1.0 - low) * share
+            if low * share > 0.0: out[bone + "_low"] = out.get(bone + "_low", 0.0) + low * share
+    else:
+        out["cape_back"] = out.get("cape_back", 0.0) + g
+    kept = sorted(((w, b) for b, w in out.items() if w > 1e-12), key=lambda e: (-e[0], e[1]))[:MOST_BONES]
+    total = sum(w for w, _ in kept)
+    return {b: w / total for w, b in kept}
+
+
+def bind(cloth, T, P, Z0, hip_z, knee_z):
+    """The cloth laid standing (T: the figure at rest), kept as points and the polygons between them, with what every
+    point follows: {points, polys: [(corner numbers, role)], shares}. The polygons are lay()'s, standing."""
+    grid, placed = _grid(cloth, T, P, Z0)
+    rows_n = cloth.inner + 3
+    points = np.array([p for col in grid for p in col])
+    shares = [cloth_shares(cloth, cloth.columns[a], p, hip_z, knee_z) for a in range(len(grid)) for p in grid[a]]
+    polys = []
+    last = cloth.inner + 1
+    for a, b in cloth.pairs():
+        facing = placed[a][1] + placed[b][1]
+        for j in range(cloth.inner + 2):
+            quad = [a * rows_n + j, b * rows_n + j, b * rows_n + j + 1, a * rows_n + j + 1]
+            ids = []
+            for k in quad:
+                if not any(np.linalg.norm(points[k] - points[i]) < 1e-6 for i in ids): ids.append(k)
+            if len(ids) < 3: continue
+            pts = points[ids]
+            n = np.zeros(3)
+            for i in range(len(pts)):
+                n += np.cross(pts[i], pts[(i + 1) % len(pts)])
+            if np.linalg.norm(n) < 1e-9: continue
+            if n @ facing < 0: ids = ids[::-1]; pts = points[ids]
+            if len(ids) == 4 and (0.5 * (pts[1] + pts[3]) - 0.5 * (pts[0] + pts[2])) @ facing > 1e-9:
+                ids = [ids[1], ids[2], ids[3], ids[0]]
+            role = "hem" if (j == last and cloth.columns[a].trim and cloth.columns[b].trim) else "cloth"
+            polys.append((ids, role))
+    return dict(points=points, polys=polys, shares=shares)
+
+
+def posed(bound, T):
+    """A bound cloth in a pose (T: pose.transforms with the cloth bones): [(polygon, role)]."""
+    pts = np.array([sum(w * (T[b][0] @ v + T[b][1]) for b, w in sh.items()) for v, sh in zip(bound["points"], bound["shares"])])
+    return [(pts[ids], role) for ids, role in bound["polys"]]
+
+
 def through(polys, P, axis=None, facing=None):
     """How far the figure comes through cloth. polys: the cloth's polygons; P: corners of the figure.
     Round a skirt, give axis: the (x, y) of the upright line the figure stands round. For each corner, look along the

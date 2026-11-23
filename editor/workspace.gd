@@ -108,7 +108,7 @@ func rebuild() -> void:
 ## Short description of a figure for the status line.
 func lowpoly_status_text(figure: LowpolyFigure) -> String:
 	var body := editor.library.body(figure.body_id)
-	var cloth := view.lowpoly_rig.laid_cloth.size() if view.lowpoly_rig.figure == figure else 0
+	var cloth := view.lowpoly_rig.cloth_piece_count() if view.lowpoly_rig.figure == figure else 0
 	return "%s - %s head   |   %d polygons, %d triangles%s   |   %s shading%s" % [
 		body.display_name() if body != null else figure.body_id, figure.head_shape, figure.visible_polygons(),
 		figure.triangles(), ", and %d pieces of hanging cloth" % cloth if cloth > 0 else "", shading, status_extra()]

@@ -780,7 +780,7 @@ def sheet_hood():
     tl += tiles(cloak(raised=False), "female", "average", "round", [(145, 12)], pose="mid_stride")
     tl += tiles(cloak(raised=False), "female", "average", "round", [(90, 8)], pose="mid_stride")
     rows.append(("6. Lowered: lined, loose, other builds, mid-stride",
-                 "the hood lies on the chest and turns with it; the cape is laid afresh for every pose, so in a stride it swings away and the hood stays on the back.",
+                 "the hood lies on the chest and turns with it; the cape follows its bone, so in a stride it swings back with the back leg and the hood stays on the back.",
                  band(tl, ["lined: from behind", "lined: back", "heavy, thickness 3", "short", "mid-stride: behind", "mid-stride: side"], gap_after=(1, 3))))
     for n in sorted(notes): print("  note:", n)
     save_sheet(rows, "hood.png")

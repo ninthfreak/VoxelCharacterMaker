@@ -58,6 +58,90 @@ def transforms(pose, pivots):
     return out
 
 
+# --------------------------------------------------------------------------------------------- cloth bones ---
+# Bones that hanging cloth follows (hang.py, "following the bones"): not parts of the body, turned by the legs. A
+# skirt has a bone for each of its four sides at the hip line, under the pelvis, and under each of those another at
+# knee height, so that cloth below the knee hangs along the shin (sitting, it drapes over the knees instead of standing
+# out like a board; in a stride the back leg's heel stays inside). A cape has one bone at the hip line.
+#
+# A thigh's swing is how far its knee has gone forward of straight down (negative: back), its spread how far it leans
+# out to its own side, both seen from the pelvis; a knee's bend is how far its shin has gone forward of its thigh's
+# line (a bent knee is negative), seen from the thigh.
+
+FOLLOW = 1.0            # how much of a thigh's swing the skirt bones at the hip take
+FOLLOW_LOW = 1.0        # how much of a knee's bend the skirt bones at the knee take
+CAPE_FOLLOW = 0.8       # how much of the back leg's swing a cape bone takes (the voxel panels' rule: 0.8)
+SOFT = 5.0              # degrees: within this of each other the two legs share being "the leg in front"
+BEHIND = 20.0           # degrees: the back of a skirt follows the knee of the leg behind only as that leg goes back,
+                        # wholly once it is this far back (sitting, both thighs forward, it hangs straight down)
+
+
+def hip_point(pivots):
+    """Where the skirt's upper bones and the cape's bone turn: between the two hip joints."""
+    return 0.5 * (np.array(pivots["thigh_L"], float) + np.array(pivots["thigh_R"], float))
+
+
+def knee_point(pivots):
+    """Where the skirt's lower bones turn: at the hip point's middle and depth, at knee height."""
+    p = hip_point(pivots)
+    p[2] = 0.5 * (pivots["shin_L"][2] + pivots["shin_R"][2])
+    return p
+
+
+def leg_angles(T):
+    """{side: (swing, spread, bend)} in degrees, for "L" and "R"."""
+    Ap = T["pelvis"][0]
+    down = np.array([0.0, 0.0, -1.0])
+    out = {}
+    for s in ("L", "R"):
+        d = Ap.T @ (T["thigh_" + s][0] @ down)
+        swing = float(np.degrees(np.arctan2(-d[1], -d[2])))
+        spread = float(np.degrees(np.arcsin(np.clip(d[0] if s == "L" else -d[0], -1.0, 1.0))))   # out of the
+        # upright plane the leg swings in; measured against straight down instead, it flips when the thigh is level
+        k = T["thigh_" + s][0].T @ (T["shin_" + s][0] @ down)
+        bend = float(np.degrees(np.arctan2(-k[1], -k[2])))
+        out[s] = (swing, spread, bend)
+    return out
+
+
+def cloth_turns(T):
+    """How each cloth bone is turned, under its parent (pelvis, or its upper bone): {bone: matrix}. The front of a
+    skirt follows the leg in front, its back the leg behind (each only that way), its sides their own leg; the bones
+    at the knee follow the same leg's knee (the back's only as far as that leg is behind). A cape follows the leg
+    behind."""
+    a = leg_angles(T)
+    (sl, ol, bl), (sr, orr, br) = a["L"], a["R"]
+    ahead = 1.0 / (1.0 + np.exp(-(sl - sr) / SOFT))                 # how much the left is the leg in front
+    return {
+        "skirt_front": _rx(-FOLLOW * max(sl, sr, 0.0)),
+        "skirt_back": _rx(-FOLLOW * min(sl, sr, 0.0)),
+        "skirt_left": _rx(-FOLLOW * sl) @ _ry(-FOLLOW * ol),
+        "skirt_right": _rx(-FOLLOW * sr) @ _ry(FOLLOW * orr),
+        "skirt_front_low": _rx(-FOLLOW_LOW * (ahead * bl + (1.0 - ahead) * br)),
+        "skirt_back_low": _rx(-FOLLOW_LOW * float(np.clip(-min(sl, sr) / BEHIND, 0.0, 1.0))
+                              * ((1.0 - ahead) * bl + ahead * br)),
+        "skirt_left_low": _rx(-FOLLOW_LOW * bl),
+        "skirt_right_low": _rx(-FOLLOW_LOW * br),
+        "cape_back": _rx(-CAPE_FOLLOW * min(sl, sr, 0.0)),
+    }
+
+
+CLOTH_PARENT = {"skirt_front_low": "skirt_front", "skirt_back_low": "skirt_back", "skirt_left_low": "skirt_left",
+                "skirt_right_low": "skirt_right"}   # the others: the pelvis
+
+
+def with_cloth_bones(T, pivots):
+    """T with the cloth bones added: each turned at its own point, carried by its parent."""
+    turns = cloth_turns(T)
+    for bone in ("skirt_front", "skirt_back", "skirt_left", "skirt_right", "cape_back",
+                 "skirt_front_low", "skirt_back_low", "skirt_left_low", "skirt_right_low"):
+        R = turns[bone]
+        piv = knee_point(pivots) if bone.endswith("_low") else hip_point(pivots)
+        Ap, tp = T[CLOTH_PARENT.get(bone, "pelvis")]
+        T[bone] = (Ap @ R, Ap @ (piv - R @ piv) + tp)
+    return T
+
+
 def from_game(parts):
     """A pose as the game writes it (runtime/poses.gd: degrees about Godot's X, Y and Z for each part), in the terms
     used here. Godot's X swings a hanging limb forward and leans an upright part back; its Z moves a hanging limb to
@@ -84,21 +168,10 @@ def posed_bend(body, polys, pose):
 
 def laid(body, look, pose):
     """A dressed figure (dress.Look) in a pose, in its two kinds: the polygons that bend, each as (its record, its
-    posed corners), and each hanging cloth as (the cloth, its polygons [(polygon, role)]). A cloth is laid over the
-    posed figure and over the cloths before it."""
-    T = transforms(pose, body["pivots"])
+    posed corners), and each hanging cloth as (the cloth, its polygons [(polygon, role)]), following its bones."""
+    T = with_cloth_bones(transforms(pose, body["pivots"]), body["pivots"])
     bent = [(q, _bent(q, T)) for q in look.polys]
-    under = [(q, pts, q["pts"][:, 2]) for q, pts in bent]
-    cloths = []
-    for cloth in look.cloths:
-        sel = [(pts, z0) for q, pts, z0 in under if cloth.over(q)]
-        P = np.concatenate([a for a, _ in sel]) if sel else np.zeros((0, 3))
-        Z0 = np.concatenate([b for _, b in sel]) if sel else np.zeros(0)
-        made = hang.lay(cloth, T, P, Z0)
-        cloths.append((cloth, made))
-        tag = dict(piece="cloth:" + cloth.name, band=None, hidden=False)
-        under += [(tag, pts, np.full(len(pts), -1.0)) for pts, _ in made]
-    return bent, cloths
+    return bent, [(cloth, hang.posed(cloth.bound, T)) for cloth in look.cloths]
 
 
 def posed(body, look, pose):

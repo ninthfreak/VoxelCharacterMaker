@@ -96,8 +96,8 @@ func _run() -> void:
 	var tf := LowpolyAssembler.assemble(library, travelling)
 	var bare := LowpolyAssembler.assemble(library, CharacterRequest.make("female_average", "round", w))
 	_time("build, bare (mesh only)", func() -> void: rig.build(bare, {}))
-	_time("build, travelling (mesh, and its cape laid once)", func() -> void: rig.build(tf, {}))
-	_time("a new pose for travelling (the cape laid again)", func() -> void: rig.apply_pose("mid_stride"))
+	_time("build, travelling (mesh, and its cape bound once)", func() -> void: rig.build(tf, {}))
+	_time("a new pose for travelling (bones turned, the cape with them)", func() -> void: rig.apply_pose("mid_stride"))
 	_time("flat to smooth shading and back (mesh made twice)", func() -> void:
 		rig.set_flat_shading(false)
 		rig.set_flat_shading(true))
@@ -144,7 +144,7 @@ func _run() -> void:
 	_time("Preview: another body (travelling outfit)", func() -> void:
 		which[0] = 1 - which[0]
 		pv._choose("body_id", bodies[which[0]]))
-	_time("Preview: another pose (as its menu does it: re-posed, cape laid again)", func() -> void:
+	_time("Preview: another pose (as its menu does it: bones turned)", func() -> void:
 		which[0] = 1 - which[0]
 		pv.pose = ["rest", "mid_stride"][which[0]]
 		pv.view.set_pose(pv.pose))

@@ -11,8 +11,9 @@ extends Node3D
 ##
 ## The rig's origin is at the figure's feet on the ground.
 ##
-## Hanging cloth (skirts, capes: LowpolyCloth) is not part of the skin. It is laid afresh over the posed figure every
-## time the pose changes, in full precision, and drawn as a second mesh that the skeleton does not move.
+## Hanging cloth (skirts, capes: LowpolyCloth) is a second skinned mesh on the same skeleton: laid once standing, it
+## follows the body and the cloth bones (LowpolyPose), which the skeleton has too and which every pose turns. Nothing
+## is worked out per pose but those nine turns, so a pose costs the same with cloth as without.
 ##
 ## Shading: flat (every polygon one shade, the polygons show) or smooth (shade blended across them from corner to
 ## corner, the way 1990s 3D games lit their models). Which one the game uses is the owner's call (lowpoly/README.md,
@@ -51,17 +52,30 @@ void fragment() {
 var figure: LowpolyFigure = null
 var skeleton: Skeleton3D = null
 var mesh_instance: MeshInstance3D = null
-## the hanging cloth as laid in the current pose (null when the figure has none)
+## the hanging cloth (null when the figure has none): skinned like the body
 var cloth_instance: MeshInstance3D = null
-## that cloth: [[polygon (flat points, asset units, posed), colour], ...]
-var laid_cloth: Array = []
+## that cloth in the current pose: [[polygon (flat points, asset units, posed), colour], ...], worked out in full
+## precision when asked (picking, checks), not for drawing
+var laid_cloth: Array:
+	get:
+		if _laid_stale:
+			_laid = []
+			if figure != null:
+				for pair in LowpolyCloth.lay_all(figure, _pose):
+					var cloth: LowpolyCloth = pair[0]
+					for made in pair[1]:
+						_laid.append([made[0], cloth.colours.get(String(made[1]), Color.MAGENTA)])
+			_laid_stale = false
+		return _laid
 var flat_shading := true: set = set_flat_shading
 
 var _material: ShaderMaterial = null
 ## the same, drawn from both sides: for hanging cloth, whose inside shows (lowpoly/picture.py draws it so too)
 var _cloth_material: ShaderMaterial = null
 var _pose: Dictionary = {}
-var _bone: Dictionary = {}          ## part -> bone index
+var _bone: Dictionary = {}          ## part or cloth bone -> bone index
+var _laid: Array = []
+var _laid_stale := true
 
 
 func _init() -> void:
@@ -91,15 +105,15 @@ func set_flat_shading(on: bool) -> void:
 	flat_shading = on
 	if figure != null and mesh_instance != null:
 		mesh_instance.mesh = _make_mesh()
-		_show_cloth()
+		if cloth_instance != null:
+			cloth_instance.mesh = _make_cloth_mesh()
 
 
 func material() -> ShaderMaterial:
 	return _material
 
 
-## Replace the whole figure, in this pose (part -> degrees), or in the pose it had. Its cloth is laid once, for that
-## pose.
+## Replace the whole figure, in this pose (part -> degrees), or in the pose it had.
 func build(p_figure: LowpolyFigure, pose: Variant = null) -> void:
 	if pose != null:
 		_pose = (pose as Dictionary).duplicate()
@@ -110,7 +124,7 @@ func build(p_figure: LowpolyFigure, pose: Variant = null) -> void:
 	skeleton = Skeleton3D.new()
 	skeleton.name = "Skeleton"
 	add_child(skeleton)
-	for part in LowpolyLibrary.PARTS:
+	for part in _bones():
 		var i := skeleton.add_bone(part)
 		_bone[part] = i
 		var parent := _parent(part)
@@ -120,7 +134,7 @@ func build(p_figure: LowpolyFigure, pose: Variant = null) -> void:
 	skeleton.reset_bone_poses()
 
 	var skin := Skin.new()
-	for part in LowpolyLibrary.PARTS:
+	for part in _bones():
 		skin.add_named_bind(part, _rest_global(part).affine_inverse())
 	mesh_instance = MeshInstance3D.new()
 	mesh_instance.name = "Mesh"
@@ -129,8 +143,25 @@ func build(p_figure: LowpolyFigure, pose: Variant = null) -> void:
 	add_child(mesh_instance)
 	mesh_instance.skin = skin
 	mesh_instance.skeleton = NodePath("../Skeleton")
+	if not figure.cloths.is_empty():
+		LowpolyCloth.bind_all(figure)
+		cloth_instance = MeshInstance3D.new()
+		cloth_instance.name = "Cloth"
+		cloth_instance.mesh = _make_cloth_mesh()
+		cloth_instance.material_override = _cloth_material
+		add_child(cloth_instance)
+		cloth_instance.skin = skin
+		cloth_instance.skeleton = NodePath("../Skeleton")
 	apply_pose_values(_pose)
 	rebuilt.emit()
+
+
+## The skeleton's bones: the eleven parts, then the cloth bones.
+func _bones() -> Array[String]:
+	var out: Array[String] = []
+	out.append_array(LowpolyLibrary.PARTS)
+	out.append_array(LowpolyPose.CLOTH_BONES)
+	return out
 
 
 func _clear() -> void:
@@ -140,7 +171,8 @@ func _clear() -> void:
 	skeleton = null
 	mesh_instance = null
 	cloth_instance = null
-	laid_cloth = []
+	_laid = []
+	_laid_stale = true
 	_bone.clear()
 
 
@@ -151,45 +183,51 @@ func apply_pose(pose_name: String) -> void:
 	apply_pose_values(Poses.get_pose(pose_name))
 
 
-## Apply explicit Euler angles in degrees: part name -> Vector3.
+## Apply explicit Euler angles in degrees: part name -> Vector3. The cloth bones turn with the legs.
 func apply_pose_values(pose: Dictionary) -> void:
 	_pose = pose.duplicate()
+	_laid_stale = true
 	if skeleton == null:
 		return
 	for part in LowpolyLibrary.PARTS:
 		var i: int = _bone[part]
 		skeleton.set_bone_pose_position(i, _rest_local(part).origin)
 		skeleton.set_bone_pose_rotation(i, _turn(part, _pose).get_rotation_quaternion())
-	_lay_cloth()
+	var turns := LowpolyPose.cloth_turns(LowpolyPose.transforms(_pose, figure.parts))
+	for bone in LowpolyPose.CLOTH_BONES:
+		var i: int = _bone[bone]
+		skeleton.set_bone_pose_position(i, _rest_local(bone).origin)
+		skeleton.set_bone_pose_rotation(i, godot_basis(turns[bone]).get_rotation_quaternion())
 
 
-## Lay the figure's hanging cloth for the current pose and show it.
-func _lay_cloth() -> void:
-	laid_cloth = []
-	if figure != null:
-		for pair in LowpolyCloth.lay_all(figure, _pose):
-			var cloth: LowpolyCloth = pair[0]
-			for made in pair[1]:
-				laid_cloth.append([made[0], cloth.colours.get(String(made[1]), Color.MAGENTA)])
-	_show_cloth()
+## A turn in the asset files' axes (x across, y depth, z up) as Godot's: M r M^T, M taking (x, y, z) to (-x, z, y).
+static func godot_basis(r: PackedFloat64Array) -> Basis:
+	var cols: Array[Vector3] = []
+	for e in [Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)]:
+		var f := Vec64.apply(r, Vec64.v(-e.x, e.z, e.y))
+		cols.append(Vector3(-f[0], f[2], f[1]))
+	return Basis(cols[0], cols[1], cols[2])
 
 
-## The laid cloth as a plain mesh in the rig's own space: flat shading gives each piece its own normal; smooth
-## shading shares a normal wherever pieces meet.
-func _show_cloth() -> void:
-	if laid_cloth.is_empty():
-		if cloth_instance != null:
-			cloth_instance.visible = false
-		return
-	if cloth_instance == null:
-		cloth_instance = MeshInstance3D.new()
-		cloth_instance.name = "Cloth"
-		cloth_instance.material_override = _cloth_material
-		add_child(cloth_instance)
-	cloth_instance.visible = true
+## The hanging cloth as one skinned surface, from its standing binding: each polygon with its own corners, so it keeps
+## its own colour and (flat shading) its own normal; smooth shading shares a normal wherever pieces meet.
+func _make_cloth_mesh() -> ArrayMesh:
+	var pieces: Array = []               # [corners (flat, standing), shares per corner, colour]
+	for c in figure.cloths:
+		var cloth: LowpolyCloth = c
+		var points: PackedFloat64Array = cloth.bound["points"]
+		var shares: Array = cloth.bound["shares"]
+		for entry in cloth.bound["polys"]:
+			var ids: PackedInt32Array = entry[0]
+			var flat := PackedFloat64Array()
+			var sh: Array = []
+			for k in ids:
+				flat.append_array(Vec64.at(points, k))
+				sh.append(shares[k])
+			pieces.append([flat, sh, cloth.colours.get(String(entry[1]), Color.MAGENTA)])
 	var sums := {}
 	var own: Array = []
-	for piece in laid_cloth:
+	for piece in pieces:
 		var pts: PackedFloat64Array = piece[0]
 		var n := PackedFloat64Array([0.0, 0.0, 0.0])
 		for i in pts.size() / 3:
@@ -201,9 +239,11 @@ func _show_cloth() -> void:
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var colours := PackedColorArray()
+	var bones := PackedInt32Array()
+	var weights := PackedFloat32Array()
 	var indices := PackedInt32Array()
-	for j in laid_cloth.size():
-		var pts: PackedFloat64Array = laid_cloth[j][0]
+	for j in pieces.size():
+		var pts: PackedFloat64Array = pieces[j][0]
 		var base := verts.size()
 		var count := pts.size() / 3
 		for i in count:
@@ -211,7 +251,8 @@ func _show_cloth() -> void:
 			var n: PackedFloat64Array = own[j] if flat_shading else sums[key]
 			verts.push_back(FigureAxes.point_to_godot(Vec64.to_vector3(Vec64.at(pts, i))))
 			normals.push_back(FigureAxes.direction_to_godot(Vec64.to_vector3(n)).normalized())
-			colours.push_back(laid_cloth[j][1])
+			colours.push_back(pieces[j][2])
+			_push_weights(bones, weights, pieces[j][1][i])
 		for i in range(1, count - 1):                       # Godot's front faces are clockwise: each fan triangle reversed
 			indices.append_array(PackedInt32Array([base, base + i + 1, base + i]))
 	var arrays := []
@@ -219,10 +260,12 @@ func _show_cloth() -> void:
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_COLOR] = colours
+	arrays[Mesh.ARRAY_BONES] = bones
+	arrays[Mesh.ARRAY_WEIGHTS] = weights
 	arrays[Mesh.ARRAY_INDEX] = indices
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	cloth_instance.mesh = mesh
+	return mesh
 
 
 func current_pose() -> Dictionary:
@@ -325,10 +368,14 @@ func figure_aabb(part: String = "") -> AABB:
 # --------------------------------------------------------------------- helpers ---
 
 func _parent(part: String) -> String:
+	if part in LowpolyPose.CLOTH_BONES:
+		return LowpolyPose.cloth_parent(part)
 	return String((figure.parts[part] as Dictionary)["parent"])
 
 
 func _pivot(part: String) -> Vector3:
+	if part in LowpolyPose.CLOTH_BONES:
+		return Vec64.to_vector3(LowpolyPose.cloth_pivot(figure.parts, part))
 	return (figure.parts[part] as Dictionary)["pivot"]
 
 
@@ -421,6 +468,15 @@ func _push_weights(bones: PackedInt32Array, weights: PackedFloat32Array, w: Dict
 		else:
 			bones.push_back(0)
 			weights.push_back(0.0)
+
+
+## How many pieces of hanging cloth the figure has.
+func cloth_piece_count() -> int:
+	var n := 0
+	if figure != null:
+		for c in figure.cloths:
+			n += ((c as LowpolyCloth).bound.get("polys", []) as Array).size()
+	return n
 
 
 func polygon_count() -> int:

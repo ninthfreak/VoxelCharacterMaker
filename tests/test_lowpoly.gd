@@ -89,7 +89,8 @@ static func _rig(t: TestReport, library: LowpolyLibrary) -> void:
 	var f := LowpolyFigure.make(library, "male_short", "strong", Palette.SKIN_MID)
 	var rig := LowpolyRig.new()
 	rig.build(f)
-	t.check_equal(rig.skeleton.get_bone_count(), 11, "a bone for each of the eleven parts")
+	t.check_equal(rig.skeleton.get_bone_count(), 11 + LowpolyPose.CLOTH_BONES.size(),
+		"a bone for each of the eleven parts, and the nine cloth bones")
 	var parents_ok := true
 	for part in LowpolyLibrary.PARTS:
 		var i := rig.skeleton.find_bone(part)
@@ -101,8 +102,8 @@ static func _rig(t: TestReport, library: LowpolyLibrary) -> void:
 	var arrays := mesh.surface_get_arrays(0)
 	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
 	t.check_equal(indices.size() / 3, f.triangles(), "the mesh draws every visible polygon, as %d triangles" % f.triangles())
-	t.check(rig.mesh_instance.skin != null and rig.mesh_instance.skin.get_bind_count() == 11,
-		"the mesh is skinned to all eleven bones")
+	t.check(rig.mesh_instance.skin != null and rig.mesh_instance.skin.get_bind_count() == 11 + LowpolyPose.CLOTH_BONES.size(),
+		"the mesh is skinned to all twenty bones")
 	var still := rig.posed_points({})
 	var moved := 0.0
 	for k in still.size():
@@ -334,7 +335,8 @@ static func _dressing_rules(t: TestReport, library: LowpolyLibrary, wardrobe: Wa
 	t.check(not others and hair_kept, "with one item soloed, only that item of the clothes is on the figure; hair stays")
 
 
-## Hanging cloth as the game draws it: kept on the figure, laid afresh when the pose changes, in front of what it hides.
+## Hanging cloth as the game draws it: kept on the figure, skinned to the body and its cloth bones, in front of what it
+## hides; moving smoothly, with no jumps, however slowly the pose changes.
 static func _cloth_in_the_rig(t: TestReport, library: LowpolyLibrary, wardrobe: Wardrobe) -> void:
 	var req := CharacterRequest.new()
 	req.body_id = "female_average"
@@ -348,13 +350,33 @@ static func _cloth_in_the_rig(t: TestReport, library: LowpolyLibrary, wardrobe: 
 	rig.build(f)
 	var standing := rig.laid_cloth.duplicate()
 	t.check(rig.cloth_instance != null and rig.cloth_instance.visible and rig.cloth_instance.mesh != null
-		and not standing.is_empty(), "the rig draws the skirt (%d pieces) as a mesh of its own" % standing.size())
+		and rig.cloth_instance.skin == rig.mesh_instance.skin and not standing.is_empty(),
+		"the rig draws the skirt (%d pieces) as a mesh of its own, skinned like the body" % standing.size())
 	rig.apply_pose(Poses.SITTING)
 	var moved := false
 	for i in mini(standing.size(), rig.laid_cloth.size()):
 		moved = moved or Vec64.norm(Vec64.sub(Vec64.at(standing[i][0], 0), Vec64.at(rig.laid_cloth[i][0], 0))) > 0.5 \
 			or Vec64.norm(Vec64.sub(Vec64.at(standing[i][0], 2), Vec64.at(rig.laid_cloth[i][0], 2))) > 0.5
-	t.check(moved, "sitting, the skirt is laid again over the lap")
+	t.check(moved, "sitting, the skirt follows the thighs over the lap")
+	# what the graphics card draws: every point of the cloth moved by the skeleton's bones, cloth bones too, against
+	# the same points posed in full precision (LowpolyPose, which lowpoly/ is checked against)
+	rig.skeleton.force_update_all_bone_transforms()
+	var t_full := LowpolyPose.with_cloth_bones(LowpolyPose.transforms(rig.current_pose(), f.parts), f.parts)
+	var worst := 0.0
+	var cloth0: LowpolyCloth = f.cloths[0]
+	var pts: PackedFloat64Array = cloth0.bound["points"]
+	for k in pts.size() / 3:
+		var shares: Dictionary = cloth0.bound["shares"][k]
+		var rest_g := FigureAxes.point_to_godot(Vec64.to_vector3(Vec64.at(pts, k)))
+		var at := Vector3.ZERO
+		for bone in shares.keys():
+			var i := rig.skeleton.find_bone(String(bone))
+			var m := rig.skeleton.get_bone_global_pose(i) * rig._rest_global(String(bone)).affine_inverse()
+			at += float(shares[bone]) * (m * rest_g)
+		var want := Vec64.to_vector3(LowpolyPose.bend(t_full, Vec64.at(pts, k), shares))
+		worst = maxf(worst, FigureAxes.godot_to_point(at).distance_to(want))
+	t.check(worst < 0.01, "sitting, the skeleton puts every point of the skirt where the full-precision posing does",
+		"%.4f units off at most" % worst)
 	rig.apply_pose(Poses.REST)
 	t.check((rig.cloth_instance.material_override as ShaderMaterial).shader.code.contains("cull_disabled")
 		and (rig.mesh_instance.material_override as ShaderMaterial).shader.code.contains("cull_back"),
@@ -364,6 +386,24 @@ static func _cloth_in_the_rig(t: TestReport, library: LowpolyLibrary, wardrobe: 
 	t.check(hit == -1, "a click on the skirt picks nothing under it",
 		"picked %s" % (String(f.polygons[hit]["region"]) if hit >= 0 else "nothing"))
 	rig.free()
+	# smooth: however slowly a pose changes, no point of the cloth jumps (laid afresh for every pose, it did: by up to
+	# 9 units between poses a fortieth apart)
+	for outfit in ["dress", "travelling", "robe"]:
+		req.worn = wardrobe.outfit(outfit)
+		var g := LowpolyAssembler.assemble(library, req)
+		for target in [Poses.MID_STRIDE, Poses.SITTING]:
+			var a := Poses.get_pose(Poses.REST)
+			var b := Poses.get_pose(target)
+			var prev := _cloth_points(g, a)
+			var largest := 0.0
+			for step in range(1, 41):
+				var cur := _cloth_points(g, Poses.blend(a, b, step / 40.0))
+				for i in cur.size() / 3:
+					largest = maxf(largest, Vec64.norm(Vec64.sub(Vec64.at(cur, i), Vec64.at(prev, i))))
+				prev = cur
+			t.check(largest < 0.5, "'%s', standing to %s in forty steps: no point of the cloth moves more than 0.5 in a step"
+				% [outfit, Poses.display_name(target)], "most: %.2f" % largest)
+	req.worn = wardrobe.outfit("dress")
 	# settings of the wrong type, as a hand-edited file might have them: read as lowpoly/specials.py reads them
 	var odd := Wardrobe.from_json(wardrobe.to_json())
 	var skirt := odd.item("skirt")
@@ -381,6 +421,15 @@ static func _cloth_in_the_rig(t: TestReport, library: LowpolyLibrary, wardrobe: 
 	t.check(plain.laid_cloth.is_empty() and (plain.cloth_instance == null or not plain.cloth_instance.visible),
 		"a figure with no hanging cloth draws none")
 	plain.free()
+
+
+## Every corner of a figure's hanging cloth in a pose, flat.
+static func _cloth_points(f: LowpolyFigure, pose: Dictionary) -> PackedFloat64Array:
+	var out := PackedFloat64Array()
+	for pair in LowpolyCloth.lay_all(f, pose):
+		for made in pair[1]:
+			out.append_array(made[0])
+	return out
 
 
 ## A figure's polygons whose piece is one of `pieces` (or, with `all_but_face`, every polygon but the face's).

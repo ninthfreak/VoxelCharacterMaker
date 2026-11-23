@@ -5,7 +5,7 @@ the bodies and heads, and the Python that makes, dresses, poses and checks them.
 five phases (owner's go-ahead, 2026-11; `docs/NOTES.md` 4t to 4y), all done: the game reads the bodies, heads and
 region table from `assets/lowpoly/`, dresses them in clothing and hair made of regions, straps, skirts and capes,
 grows facial hair on them and draws their faces (`core/lowpoly/`), and draws them bending, with their hanging cloth
-laid afresh for every pose (`runtime/lowpoly_rig.gd`). The editor's three tabs (Face & Hair, Clothes, Preview) show
+following cloth bones (`runtime/lowpoly_rig.gd`). The editor's three tabs (Face & Hair, Clothes, Preview) show
 them, and a click on the figure picks a region. The voxel system was removed in phase 5.
 
 Godot ignores this folder (`.gdignore`), so nothing here is imported into the project.
@@ -55,7 +55,7 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Heads | all five (round, boxy, oval, strong, heart) as rounded forms: 114 polygons each, same layout; any head goes on any body (`renders/heads.png`) |
 | Faces: eyes, lids, lashes, eyebrows, skin tones | built: oval eyes from the wardrobe's eye sets and their colourways, the game's ten lid states, lids from the skin tone, a thin lash line, eyebrows from the hair, all six skin tones (`renders/faces.png`) |
 | The mouth | a first pass: a short line, straight or curved, or a small open oval (four: neutral, smile, frown, open). New here; the voxel faces have none. The game's table of them is `core/mouths.gd`, next to the lid states; which mouth goes with which lid state is open |
-| Building polygons in Godot (assembler, editor, runtime) | done (all five phases): bodies and heads bending on a skeleton; clothing and hair made of regions (`LowpolyAssembler`); faces and facial hair (`LowpolyFace`, `LowpolyFacialHair`); straps, skirts and capes (`LowpolyShapes`), skirts and capes laid afresh for every pose (`LowpolyCloth`, `LowpolyPose`); all of it in full precision; the editor's three tabs, flat or smooth shading, picking regions on polygons, a mouth picker. Godot's posed corners, dressed polygons, faces and laid cloth are checked against the Python's. The voxel code is gone |
+| Building polygons in Godot (assembler, editor, runtime) | done (all five phases): bodies and heads bending on a skeleton; clothing and hair made of regions (`LowpolyAssembler`); faces and facial hair (`LowpolyFace`, `LowpolyFacialHair`); straps, skirts and capes (`LowpolyShapes`), skirts and capes laid standing and following cloth bones (`LowpolyCloth`, `LowpolyPose`); all of it in full precision; the editor's three tabs, flat or smooth shading, picking regions on polygons, a mouth picker. Godot's posed corners, dressed polygons, faces and laid cloth are checked against the Python's. The voxel code is gone |
 
 ## How a body is made
 
@@ -199,18 +199,22 @@ Three ways, by what the clothing is:
 - **It bends with the body.** A garment made of regions is the body's own polygons, recoloured or lifted off the
   body, and each corner keeps following what it was lifted from. Straps lie on the chest and follow it.
 - **It hangs.** A skirt or a cape is hanging cloth (`hang.py`): a few columns of cloth, each fixed at its top (a skirt
-  to the waist line, a cape to the shoulder line) and each a fixed length. For any pose, every column is a taut line
+  to the waist line, a cape to the shoulder line) and each a fixed length. Standing, every column is a taut line
   from its top over whatever of the figure sticks out under it, then straight down, leaning out by the garment's
-  flare. Nothing is simulated and nothing is remembered between poses, so standing still is one more pose. This is
-  what makes a skirt fit the hips, let the forward knee push its front out, and lie over a lap. Each column has five
-  rows of points between its top and its trim line, on its bends; a four-sided piece of cloth between two columns
-  that is not flat is split into two triangles along the diagonal that folds outward, as cloth over a body does.
-  (Three rows, and either diagonal, let the thick thighs of the heavy and short bodies come through a skirt when
-  sitting.)
+  flare: that fits a skirt to the hips. Each column has five rows of points between its top and its trim line, on
+  its bends; a four-sided piece of cloth between two columns that is not flat is split into two triangles along the
+  diagonal that folds outward, as cloth over a body does.
+  In a pose it **follows bones** (owner's choice, 2026-11): each point follows what its column's top follows and,
+  further down, cloth bones turned by the legs (`pose.py`): a skirt's front follows the leg in front, its back the
+  leg behind, its sides their own leg, each with a second bone at the knee for the cloth below it; a cape swings back
+  with the leg behind. Smooth by construction, and in the game nine bones turned per pose. Laid afresh for every
+  pose instead (the first build), the cloth jumped between poses a hair apart: a knee coming under a column snapped it
+  out at once, so it would pop in any animation. Sitting, it cuts the corner where the lap meets the belly by up to
+  about 2 units (`check.py` holds every other test pose to 0.15).
 - **It stays rigid.** Nothing does yet. `pose.posed_rigid` is kept for hard pieces, if they come to need it.
 
-The voxel system turned hanging cloth by rule instead: each panel by 0.8 of a thigh's swing. That rule is not used
-here; see "Not decided yet", 1.
+The voxel system turned hanging cloth by rule too: each panel by 0.8 of a thigh's swing. The cloth bones are that
+rule grown up: four sides and a knee each, and smooth.
 
 ## Files
 
@@ -281,14 +285,9 @@ pictures take about 40 seconds a view and are kept in `lowpoly/_work/` for the n
 
 All of these are the owner's to settle. Recommendations are recommendations.
 
-1. **How hanging cloth moves.** Built: it is laid afresh for every pose ("How clothing moves" above). That was a
-   call made while building, in place of the voxel rule (each panel turned by 0.8 of a thigh's swing), because a
-   panel that turns cannot cover a lap when sitting and lifts its whole hem in every stride. It costs something on
-   the Godot side: a skirt or cape becomes a small mesh whose points are worked out whenever the pose changes (about
-   50 points a cloth), instead of a few bones turned by rule. Recommendation: keep it. The old rule could be rebuilt
-   for polygons if the owner prefers it.
-   Still open under the same heading: hard pieces fixed to one part so that they never bend (which could be what the
-   "hard" edge style comes to mean), and sleeves at the shoulder.
+1. **How hanging cloth moves.** Decided (owner, 2026-11): laid standing, then following cloth bones ("How clothing
+   moves" above). Still open under the same heading: hard pieces fixed to one part so that they never bend (which
+   could be what the "hard" edge style comes to mean), and sleeves at the shoulder.
 2. **Polygon budget.** A body is 344 polygons with an edge on every region boundary, and a head 114: 458 for the
    figure. Dressed in a starter outfit a figure is about 500 to 560: a skirt adds about 56, a cape 28, a pair of straps
    about 36, and every band that is lifted off the body adds a ring of hem polygons. A pair of eyes with brows adds

@@ -518,10 +518,11 @@ static func _preview(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(pv._summary.text.contains("blink") and pv._summary.text.contains("deep"), "and the summary says so")
 	pv._choose("mouth", Mouths.DEFAULT)
 
-	# A pose lays the cloth again; the shading switch reaches the figure.
+	# A pose moves the cloth with its bones; the shading switch reaches the figure.
 	var standing := lp.laid_cloth.duplicate()
-	pv.view.set_pose(Poses.SITTING)
-	t.check(lp.laid_cloth.size() == standing.size() and lp.laid_cloth != standing, "sitting lays the cape again")
+	pv.view.set_pose(Poses.MID_STRIDE)
+	t.check(lp.laid_cloth.size() == standing.size() and lp.laid_cloth != standing,
+		"in a stride the cape swings back with the back leg")
 	pv.view.set_pose(Poses.REST)
 	pv._shading_pick.select(1)
 	pv._shading_pick.item_selected.emit(1)

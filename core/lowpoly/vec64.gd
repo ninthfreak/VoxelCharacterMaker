@@ -84,6 +84,11 @@ static func apply(m: PackedFloat64Array, a: PackedFloat64Array) -> PackedFloat64
 		m[6] * a[0] + m[7] * a[1] + m[8] * a[2]])
 
 
+## m transposed (for a turn, its inverse)
+static func transpose(m: PackedFloat64Array) -> PackedFloat64Array:
+	return PackedFloat64Array([m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]])
+
+
 ## m @ n
 static func matmul(m: PackedFloat64Array, n: PackedFloat64Array) -> PackedFloat64Array:
 	var out := PackedFloat64Array()

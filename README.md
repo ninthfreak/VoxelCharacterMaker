@@ -27,7 +27,7 @@ against the Python corner by corner.
 | Garments made of regions: roles, bulk, hems, layering, mirror | done |
 | Faces: eye sets, colours, ten lid states, lids, brows, a mouth, six skin tones | done |
 | Facial hair: four parts and one length | done |
-| Straps, skirts and capes; skirts and capes laid afresh in every pose | done |
+| Straps, skirts and capes; skirts and capes laid standing, then following cloth bones the legs turn | done |
 | One-file wardrobe (v2) with exact round-trip | done; v1 files and the old facial hair styles still open |
 | Editor: three tabs (Face & Hair, Clothes, Preview), flat or smooth shading, picking regions on the figure | done |
 | Hood (raised or lowered) | done |

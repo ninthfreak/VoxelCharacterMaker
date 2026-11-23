@@ -6,11 +6,14 @@ extends RefCounted
 ## corner by corner (tests/test_lowpoly.gd); read that file for the reasoning behind each number.
 ##
 ## Hanging cloth is not part of the bending skin. It is a few COLUMNS of cloth, each fixed at its top to the figure
-## (a skirt to the waist line, a cape to the shoulder line) with a fixed length. For any pose every column is laid by
-## one rule: a taut line from its top, over whatever of the figure sticks out under it, then straight down for the
-## rest of its length (leaning out by the garment's flare). Nothing is simulated and nothing is remembered from one
-## pose to the next, so the cloth is laid afresh for every pose (lay_all), over the figure posed in full precision
-## (LowpolyPose). The cloth between two neighbouring columns is a face of four-sided pieces.
+## (a skirt to the waist line, a cape to the shoulder line) with a fixed length, laid standing by one rule: a taut line
+## from its top, over whatever of the figure sticks out under it, then straight down for the rest of its length
+## (leaning out by the garment's flare). The cloth between two neighbouring columns is a face of four-sided pieces.
+##
+## In a pose the cloth follows bones (the owner's choice, 2026-11): it is laid once, standing (bind), and every point
+## then follows what its column's top follows and, further down, cloth bones turned by the legs (LowpolyPose cloth
+## bones; cloth_shares). Laid afresh for every pose by the rule above, it jumped between poses a hair apart, so it
+## would pop in any animation; following bones, nothing can jump. lay_all gives it in any pose.
 ##
 ## Points here are full precision (Vec64): a vector is a PackedFloat64Array of three; a list of points one flat
 ## PackedFloat64Array (x, y, z of each in turn), or (out, drop) pairs for a column's own line.
@@ -20,6 +23,15 @@ const MARGIN := 0.75           ## a face also minds what stands this far past ei
 const INNER := 5               ## rows of points a column has between its top and its trim line
 const TRIM := 1.0              ## how much of a column's lower end is in the hem colour
 const TIE := 1e-9              ## lengths this close are equal: the first of them is taken, whatever the rounding
+
+# following the bones (lowpoly/hang.py)
+const SKIRT_FROM := 0.5        ## skirt cloth higher than this above the hip line follows only its top
+const SKIRT_OVER := 1.5        ## below that, it comes to follow the skirt bones wholly over this much further down
+const KNEE_FROM := 1.0         ## and from this far above the knee it comes to follow the bones at the knee,
+const KNEE_OVER := 2.0         ## wholly over this much further down
+const CAPE_FROM := 3.0         ## a cape follows the chest down to this far above the hip line,
+const CAPE_OVER := 5.0         ## then comes to follow its bone over this much further down
+const MOST_BONES := 4          ## a point follows at most this many (what Godot's skinning takes); the slightest go
 
 const LEG_BANDS: Array[String] = ["upper_thigh", "lower_thigh", "knee", "shin", "ankle", "foot"]
 const TORSO_BANDS: Array[String] = ["upper_chest", "lower_chest", "belly", "waist", "hips"]
@@ -62,6 +74,9 @@ class Column extends RefCounted:
 
 
 var name := ""
+## The cloth laid standing and bound to its bones (bind): {points, polys: [[corner numbers, role]], shares}. Made the
+## first time the cloth is posed (lay_all), and kept: the cloth is the same object in every copy of its figure.
+var bound := {}
 var facing := PackedFloat64Array()      ## a sheet that hangs facing one way (a cape): that way; a skirt: empty
 var columns: Array = []                 ## Column
 var sheets: Array = []                  ## [[column numbers side by side], closed into a ring or not]
@@ -449,40 +464,162 @@ func lay(t: Dictionary, p: PackedFloat64Array, z0: PackedFloat64Array) -> Array:
 	return polys
 
 
+# ---------------------------------------------------------------------------------- following the bones ---
+
+## What a point of a column follows, standing at p: {bone or part: share}.
+func cloth_shares(col: Column, p: PackedFloat64Array, hip_z: float, knee_z: float) -> Dictionary:
+	var skirt := frame == "pelvis"
+	var g := clampf((hip_z + (SKIRT_FROM if skirt else CAPE_FROM) - p[2]) / (SKIRT_OVER if skirt else CAPE_OVER), 0.0, 1.0)
+	var out := {}
+	for part in col.shares.keys():
+		out[String(part)] = (1.0 - g) * float(col.shares[part])
+	if skirt:
+		var low := clampf((knee_z + KNEE_FROM - p[2]) / KNEE_OVER, 0.0, 1.0)
+		var ox := col.out[0]
+		var oy := col.out[1]
+		var q := {"skirt_front": pow(maxf(0.0, -oy), 2), "skirt_back": pow(maxf(0.0, oy), 2),
+			"skirt_left": pow(maxf(0.0, ox), 2), "skirt_right": pow(maxf(0.0, -ox), 2)}
+		var total := 0.0
+		for bone in q.keys():
+			total += float(q[bone])
+		for bone in ["skirt_front", "skirt_back", "skirt_left", "skirt_right"]:
+			var w := float(q[bone])
+			if w <= 0.0:
+				continue
+			var share := g * w / total
+			if (1.0 - low) * share > 0.0:
+				out[bone] = float(out.get(bone, 0.0)) + (1.0 - low) * share
+			if low * share > 0.0:
+				out[bone + "_low"] = float(out.get(bone + "_low", 0.0)) + low * share
+	else:
+		out["cape_back"] = float(out.get("cape_back", 0.0)) + g
+	var kept: Array = []
+	for bone in out.keys():
+		if float(out[bone]) > 1e-12:
+			kept.append([float(out[bone]), String(bone)])
+	kept.sort_custom(func(x: Array, y: Array) -> bool:
+		return x[0] > y[0] if x[0] != y[0] else String(x[1]) < String(y[1]))
+	kept = kept.slice(0, MOST_BONES)
+	var sum := 0.0
+	for e in kept:
+		sum += float(e[0])
+	var shares := {}
+	for e in kept:
+		shares[String(e[1])] = float(e[0]) / sum
+	return shares
+
+
+## The cloth laid standing (t: the figure at rest), kept as points and the polygons between them, with what every
+## point follows: {points (flat), polys: [[corner numbers, role]], shares}. The polygons are lay()'s, standing.
+func bind(t: Dictionary, p: PackedFloat64Array, z0: PackedFloat64Array, hip_z: float, knee_z: float) -> Dictionary:
+	var got := _grid(t, p, z0)
+	var grid: Array = got[0]
+	var placed: Array = got[1]
+	var rows_n := inner + 3
+	var points := PackedFloat64Array()
+	var shares: Array = []
+	for a in grid.size():
+		var flat: PackedFloat64Array = grid[a]
+		points.append_array(flat)
+		for i in flat.size() / 3:
+			shares.append(cloth_shares(columns[a], Vec64.at(flat, i), hip_z, knee_z))
+	var polys: Array = []
+	var last := inner + 1
+	for pair in pairs():
+		var a: int = pair[0]
+		var b: int = pair[1]
+		var facing_ab := Vec64.add(placed[a][1], placed[b][1])
+		for j in inner + 2:
+			var quad := [a * rows_n + j, b * rows_n + j, b * rows_n + j + 1, a * rows_n + j + 1]
+			var ids: Array = []
+			for k in quad:
+				var dup := false
+				for i in ids:
+					dup = dup or Vec64.norm(Vec64.sub(Vec64.at(points, k), Vec64.at(points, i))) < 1e-6
+				if not dup:
+					ids.append(k)
+			if ids.size() < 3:
+				continue
+			var n := PackedFloat64Array([0.0, 0.0, 0.0])
+			for i in ids.size():
+				n = Vec64.add(n, Vec64.cross(Vec64.at(points, ids[i]), Vec64.at(points, ids[(i + 1) % ids.size()])))
+			if Vec64.norm(n) < 1e-9:
+				continue
+			if Vec64.dot(n, facing_ab) < 0.0:
+				ids.reverse()
+			if ids.size() == 4:
+				var fold := Vec64.sub(Vec64.mul(Vec64.add(Vec64.at(points, ids[1]), Vec64.at(points, ids[3])), 0.5),
+					Vec64.mul(Vec64.add(Vec64.at(points, ids[0]), Vec64.at(points, ids[2])), 0.5))
+				if Vec64.dot(fold, facing_ab) > 1e-9:
+					ids = [ids[1], ids[2], ids[3], ids[0]]
+			var role := "hem" if (j == last and (columns[a] as Column).trim and (columns[b] as Column).trim) else "cloth"
+			polys.append([PackedInt32Array(ids), role])
+	return {"points": points, "polys": polys, "shares": shares}
+
+
+## A bound cloth in a pose (t: LowpolyPose transforms with the cloth bones): [[polygon (flat points), role], ...].
+static func posed(b: Dictionary, t: Dictionary) -> Array:
+	var points: PackedFloat64Array = b["points"]
+	var moved := PackedFloat64Array()
+	moved.resize(points.size())
+	var shares: Array = b["shares"]
+	for i in points.size() / 3:
+		var q := LowpolyPose.bend(t, Vec64.at(points, i), shares[i])
+		moved[3 * i] = q[0]
+		moved[3 * i + 1] = q[1]
+		moved[3 * i + 2] = q[2]
+	var out: Array = []
+	for entry in b["polys"]:
+		var flat := PackedFloat64Array()
+		for k in (entry[0] as PackedInt32Array):
+			flat.append_array(Vec64.at(moved, k))
+		out.append([flat, String(entry[1])])
+	return out
+
+
 # ------------------------------------------------------------------------------------------ in a pose ---
 
-## Every cloth of a figure laid in a pose: [[cloth, [[polygon (flat points), role], ...]], ...]. Each is laid over the
-## figure posed in full precision and over the cloths before it (lowpoly/pose.py laid).
+## Bind every cloth of a figure that is not bound yet: each laid standing over the figure and over the cloths before
+## it (lowpoly/dress.py, when it dresses the figure).
+static func bind_all(figure: LowpolyFigure) -> void:
+	var missing := false
+	for c in figure.cloths:
+		missing = missing or (c as LowpolyCloth).bound.is_empty()
+	if not missing:
+		return
+	var rest := LowpolyPose.rest()
+	var hip_z := LowpolyPose.hip_point(figure.parts)[2]
+	var knee_z := LowpolyPose.knee_point(figure.parts)[2]
+	var laid: Array = []                 # cloth laid so far, standing: [[polygon, role], ...]
+	for c in figure.cloths:
+		var cloth: LowpolyCloth = c
+		if cloth.bound.is_empty():
+			var p := PackedFloat64Array()
+			var z0 := PackedFloat64Array()
+			for poly in figure.polygons:
+				if not hangs_over(cloth.over, String(poly["piece"]), RegionMap.key_band(String(poly["region"]))):
+					continue
+				for k in poly["corners"]:
+					p.append_array(figure.point64(k))
+					z0.append(figure.points64[3 * k + 2])
+			if hangs_over(cloth.over, "cloth:", ""):
+				for made in laid:
+					var flat: PackedFloat64Array = made[0]
+					p.append_array(flat)
+					for i in flat.size() / 3:
+						z0.append(-1.0)            # cloth already hanging always counts
+			cloth.bound = cloth.bind(rest, p, z0, hip_z, knee_z)
+		laid.append_array(posed(cloth.bound, rest))
+
+
+## Every cloth of a figure in a pose: [[cloth, [[polygon (flat points), role], ...]], ...], following its bones
+## (lowpoly/pose.py laid).
 static func lay_all(figure: LowpolyFigure, pose: Dictionary) -> Array:
 	var out: Array = []
 	if figure.cloths.is_empty():
 		return out
-	var t := LowpolyPose.transforms(pose, figure.parts)
-	var posed := PackedFloat64Array()
-	posed.resize(figure.points64.size())
-	for k in figure.points64.size() / 3:
-		var q := LowpolyPose.bend(t, Vec64.at(figure.points64, k), figure.weights[k])
-		posed[3 * k] = q[0]
-		posed[3 * k + 1] = q[1]
-		posed[3 * k + 2] = q[2]
-	var laid: Array = []                 # cloth laid so far: [[polygon, role], ...]
+	bind_all(figure)
+	var t := LowpolyPose.with_cloth_bones(LowpolyPose.transforms(pose, figure.parts), figure.parts)
 	for c in figure.cloths:
-		var cloth: LowpolyCloth = c
-		var p := PackedFloat64Array()
-		var z0 := PackedFloat64Array()
-		for poly in figure.polygons:
-			if not hangs_over(cloth.over, String(poly["piece"]), RegionMap.key_band(String(poly["region"]))):
-				continue
-			for k in poly["corners"]:
-				p.append_array(Vec64.at(posed, k))
-				z0.append(figure.points64[3 * k + 2])
-		if hangs_over(cloth.over, "cloth:", ""):
-			for made in laid:
-				var flat: PackedFloat64Array = made[0]
-				p.append_array(flat)
-				for i in flat.size() / 3:
-					z0.append(-1.0)                    # cloth already hanging always counts
-		var polys := cloth.lay(t, p, z0)
-		out.append([cloth, polys])
-		laid.append_array(polys)
+		out.append([c, posed((c as LowpolyCloth).bound, t)])
 	return out

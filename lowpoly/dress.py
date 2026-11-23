@@ -128,12 +128,17 @@ class Fit:
     def rest(self):
         return {part: (np.eye(3), np.zeros(3)) for part in lb.PARENT}
 
+    def rest_bones(self):
+        """At rest, with the cloth bones too (pose.with_cloth_bones): nothing turned."""
+        import hang as _h
+        return {part: (np.eye(3), np.zeros(3)) for part in list(lb.PARENT) + list(_h.SKIRT_BONES + _h.CAPE_BONES)}
+
 
 class Look:
     """A dressed figure: what dress() returns.
     polys   the body and everything that bends with it: dicts with pts, rgb, shares (for every corner, the parts it
             follows), part, piece, band, hidden, and by: the worn item that made it (None for bare skin)
-    cloths  hanging cloth (hang.Cloth), laid afresh for every pose
+    cloths  hanging cloth (hang.Cloth), laid standing and bound to its bones (cloth.bound; pose.laid poses it)
     notes   what was asked for and could not be built"""
 
     def __init__(self, body, polys, cloths, notes):
@@ -147,6 +152,12 @@ class Look:
         """The figure in a pose (standing if none), ready for picture.prepare_coloured."""
         import pose
         return pose.posed_groups(self.body, self, pose_ or {})
+
+
+def pose_heights(body):
+    """The heights where the cloth bones turn: the hip line and the knees (pose.hip_point, pose.knee_point)."""
+    pv = body["pivots"]
+    return 0.5 * (pv["thigh_L"][2] + pv["thigh_R"][2]), 0.5 * (pv["shin_L"][2] + pv["shin_R"][2])
 
 
 def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, brow=None, mouth=None, special_shapes=True):
@@ -321,8 +332,9 @@ def dress(body, wardrobe, worn, skin=SKIN, paint=None, features=(), eyes=None, b
             cloth, more = specials.BUILT[kind](fit, params, colours, name=item_id)
             if cloth is not None:
                 cloths.append(cloth)
-                P, Z0 = fit.points(cloth.over)                        # laid standing, so the next cloth hangs over it
-                for pts, _ in hang.lay(cloth, fit.rest(), P, Z0):
+                P, Z0 = fit.points(cloth.over)                        # laid standing, so the next cloth hangs over it,
+                cloth.bound = hang.bind(cloth, fit.rest(), P, Z0, *pose_heights(body))   # and bound to its bones
+                for pts, _ in hang.posed(cloth.bound, fit.rest_bones()):
                     fit._polys = fit._polys + [dict(pts=pts, piece="cloth:" + cloth.name, band=None, hidden=False)]
         notes += more
     if eyes is not None or mouth is not None:                        # the face: under hair and hats, which stand in front of it
