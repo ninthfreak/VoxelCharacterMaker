@@ -73,7 +73,7 @@ static func _file(t: TestReport) -> void:
 	copy.brow_hair = "hair_auburn"
 	w.add_character(copy)
 	var data := w.to_json()
-	t.check_equal(int(data["version"]), 3, "saved as version 3")
+	t.check_equal(int(data["version"]), Wardrobe.VERSION, "saved as the current version")
 	var back := Wardrobe.from_json(JSON.parse_string(JSON.stringify(data)))
 	t.check(back != null and back.to_json() == data, "saved and read back: the same wardrobe, characters and all")
 	t.check(back.character("farmer_2").same_as(copy) and back.character("farmer_2").name == "Farmer, older",

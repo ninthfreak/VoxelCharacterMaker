@@ -57,6 +57,9 @@ look as far as it would go, here and in earlier attempts of their own, and it ke
   clothes do bulk. Stubble is a tint flush with the face; short is opaque and still flush; longer lengths grow out
   from the face. A named style is a set of parts: a full beard has all four, an Amish beard all but the moustache
   (`lowpoly/renders/facial_hair.png`).
+- **Held items are low-poly too** (owner, 2026-11): weapons, shields, tools, a potion being drunk. The world will be
+  voxel blocks; the characters and what they hold are not. Items are made in the same editor, from simple shapes
+  placed, turned and sized, as in a beginner's CAD tool (section 7.5).
 
 **Where this stands:** `lowpoly/README.md`. In short: eight bodies (slim, average, heavy and short, for each sex) are
 cut so that their polygons follow the region map of section 3.4, with the shares and pivots that make them bend;
@@ -173,8 +176,8 @@ pixel-art-shaded voxel figures. Parts of it:
 5. **Editor** — an in-engine tool for creating wardrobe items and faces (and later editing bodies).
 6. **Runtime** — assembling a dressed character and animating it with rigid parts.
 
-Out of scope for now: children (they will get their own model and clothing later), held items/props, physics cloth,
-LOD, final animation set.
+Out of scope for now: children (they will get their own model and clothing later), physics cloth, LOD, final
+animation set. (Held items were out of scope; they are in now: section 7.5.)
 
 **Engine: Godot 4.** Chosen because its scenes and resources are plain text and editor tools are easy to write, which
 suits building with Claude Code. Use the current stable 4.x release. *Recommended:* GDScript (works directly in
@@ -402,10 +405,12 @@ smooth, which is still the owner's call (section 0); the skin tones, garment ton
 ### 7.1 One file
 
 Everything lives in **one wardrobe file** (JSON): palette, every item with its roles and colourways, saved
-outfits, eye sets, and **saved characters** (version 3). Bodies, heads and faces are separate library files.
+outfits, eye sets, **saved characters** (version 3) and **held items** (version 4, section 7.5). Bodies, heads and
+faces are separate library files.
 
 A **saved character** (`core/character_def.gd`) is who someone is: body, head, skin tone, eye set and its colourway,
-brows, resting eyelids and mouth, hair, facial hair and face accessory (each with its colourway), and the clothes worn.
+brows, resting eyelids and mouth, hair, facial hair and face accessory (each with its colourway), the clothes worn,
+and what it holds in each hand.
 It names items, eye sets and colours by id; deleting an item takes it off every character, and anything else missing
 falls back (a colourway to the item's first, an eye set to the first), so a character always builds. It makes the
 request the assembler builds from, for the editor and the game alike.
@@ -484,6 +489,33 @@ the same idea as the dress.
 Hand-placed voxel edits: allowed on special types; ordinary parametric garments stay purely parametric (hand edits
 would stop them fitting other bodies). Decals (buttons, emblems) are deferred; thin trim bands cover most of it.
 
+### 7.5 Held items (owner, 2026-11)
+
+Weapons, shields, tools and potions: items a character holds, in the same wardrobe file (section `held_items`) with
+roles and colourways like any item, made in the editor's Items tab. They are not worn and not dressed: an item is a
+list of **parts**, each one simple shape placed, turned and sized in the item's own space (the figure's axes and
+units), coloured by a role (`core/held_item_shape.gd`; `lowpoly/held.py` makes the same corners):
+
+- **box**; **wedge** (a block whose top slopes to nothing at its front); **cylinder**, **cone** and **sphere**, with a
+  number of sides (3 to 24: 4 makes a square post, 8 nearly round);
+- **outline**: a flat shape drawn on a 16 by 16 grid and given thickness (blades, axe heads, shields);
+- **spin**: half a side view drawn on the grid and spun round its middle (bottles, handles, pommels).
+
+A part fills its size exactly: its width, depth and height are the box round it, whatever its number of sides. A part
+may be **mirrored** (drawn again across the item's middle). Every part is a closed piece, faces outward; parts overlap
+and nothing is cut away (no holes: a hole would be a gap between parts). Turns are degrees forward (about x), then
+sideways (about y), then round (about z).
+
+**Holding.** The item's **grip** is where the hand closes, with a turn for how the item sits in it; a two-handed item
+also has a **second grip** (kept; not used yet). Unturned, an item made standing up and facing the front is held as a
+sword is, in the right hand with the arm hanging: its top points ahead, out of the thumb's side of the fist, its front
+faces outward and its left side down. So a sword or an axe made standing up needs no turn; a bottle held upright is
+turned 90 degrees sideways. **The left hand holds the mirror image.** The grip goes at the palm (the middle of the box
+round the hand) and the item rides the forearm, as one rigid piece: there is no hand bone and the hand does not close
+round it (section 13). Held items are drawn after the face, so changing what is held does not dress the figure again.
+A saved character keeps one item per hand; the game's `GameCharacter.hold(item, hand)` and `release(hand)` change it
+for that character only.
+
 ---
 
 ## 8. Editor (in Godot)
@@ -529,8 +561,8 @@ against, and `lowpoly/check.py` holds the cloth to 0.15 units in eight frames of
 
 **`GameCharacter`** (`runtime/game_character.gd`) is the node the game uses: it builds a saved character by its id
 from a wardrobe, through the same assembler as the editor, and shows it with a LowpolyRig. It changes the expression
-(eyelids, mouth) without dressing the figure again, a pose, an animation (`play`), or the clothes worn (for that node
-only: the wardrobe is not changed). The library of bodies and heads, and a wardrobe read from a file, are read once and shared.
+(eyelids, mouth) without dressing the figure again, a pose, an animation (`play`), the clothes worn, or what it holds
+(`hold`, `release`; for that node only: the wardrobe is not changed). The library of bodies and heads, and a wardrobe read from a file, are read once and shared.
 `runtime/character_demo.tscn` stands the saved characters in a row, walking on the spot.
 
 - Each part is a mesh under a Node3D at its pivot, parented per §3.1; animation rotates the pivots (AnimationPlayer).
@@ -598,7 +630,8 @@ The two that still apply as written: the coordinate test from §2, and the wardr
 
 ## 13. Open questions (for the owner, when relevant)
 
-- Hands as separate parts with pre-drawn grip poses, once held items exist.
+- Hands as separate parts with pre-drawn grip poses: held items exist now (section 7.5), held at the palm of an open
+  hand.
 - Whether cloth panels stay rule-driven or get simple physics.
 - Re-voxelised animation look vs plain rotated parts.
 - Decals (buttons, emblems) — currently deferred.

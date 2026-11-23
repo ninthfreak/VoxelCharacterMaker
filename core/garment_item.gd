@@ -53,6 +53,10 @@ const SLOT_DRAW_ORDER := {
 const FEATURE_SLOTS: Array[String] = ["hair", "facial_hair", "face_accessory"]
 
 const CLOTHES := ""
+## Held items (weapons, shields, tools, potions): built from parts, held in a hand (HeldItemShape). Not worn, not
+## dressed: kept in the wardrobe file under "held_items".
+const HELD := "held"
+const HELD_CATEGORIES: Array[String] = ["weapon", "shield", "tool", "consumable", "other"]
 const DEFAULT_COLOURWAY := "default"
 const DEFAULT_ROLE := "cloth"
 
@@ -83,6 +87,14 @@ var coverage: Dictionary = {}
 ## Special shapes: Array of {"type": String, "params": Dictionary}
 var specials: Array = []
 
+## A held item's parts (HeldItemShape.part): Array of Dictionary, drawn in order.
+var parts: Array = []
+## Where a held item's hand closes, and how the item turns in it: {"position": [x, y, z], "rotation": [x, y, z]}, in
+## the item's own units (24 a metre) and degrees.
+var grip: Dictionary = {"position": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0]}
+## Where the other hand goes on a two-handed item ({} for a one-handed one): {"position": [x, y, z]}.
+var second_grip: Dictionary = {}
+
 
 static func create(p_id: String, p_name: String, p_category: String = "other") -> GarmentItem:
 	var item := GarmentItem.new()
@@ -91,6 +103,16 @@ static func create(p_id: String, p_name: String, p_category: String = "other") -
 	item.category = p_category
 	item.draw_order = default_draw_order(p_category)
 	item.colourways = {DEFAULT_COLOURWAY: {DEFAULT_ROLE: "ink"}}
+	return item
+
+
+## A held item: one part to start from, in two roles.
+static func create_held(p_id: String, p_name: String) -> GarmentItem:
+	var item := create(p_id, p_name, "weapon")
+	item.slot = HELD
+	item.roles = ["main", "detail"]
+	item.colourways = {DEFAULT_COLOURWAY: {"main": "slate", "detail": "ink"}}
+	item.parts = [HeldItemShape.new_part("box", "main")]
 	return item
 
 
@@ -113,12 +135,18 @@ static func slot_label(p_slot: String) -> String:
 		"hair": return "Hair"
 		"facial_hair": return "Facial hair"
 		"face_accessory": return "Face accessory"
+		HELD: return "Held items"
 		CLOTHES: return "Clothes"
 	return p_slot.capitalize()
 
 
+## Not clothing: a feature (hair, facial hair, a face accessory) or a held item.
 func is_feature() -> bool:
 	return slot != CLOTHES
+
+
+func is_held() -> bool:
+	return slot == HELD
 
 
 ## True when the item has any special shape.
@@ -302,6 +330,9 @@ func remove_role(role: String) -> void:
 		if String((coverage[key] as Dictionary)["role"]) == role:
 			(coverage[key] as Dictionary)["role"] = fallback
 	_rename_shape_role(role, fallback)
+	for part in parts:
+		if String((part as Dictionary).get("role", "")) == role:
+			(part as Dictionary)["role"] = fallback
 
 
 func rename_role(old_name: String, new_name: String) -> void:
@@ -320,6 +351,9 @@ func rename_role(old_name: String, new_name: String) -> void:
 		if String((coverage[key] as Dictionary)["role"]) == old_name:
 			(coverage[key] as Dictionary)["role"] = new_name
 	_rename_shape_role(old_name, new_name)
+	for part in parts:
+		if String((part as Dictionary).get("role", "")) == old_name:
+			(part as Dictionary)["role"] = new_name
 
 
 ## Hand-drawn shapes paint with roles too, so a role change has to reach them.
@@ -380,6 +414,14 @@ func to_json() -> Dictionary:
 				"params": JsonIO.normalise_numbers(e.get("params", {})),
 			})
 		out["specials"] = list
+	if slot == HELD:
+		var list: Array = []
+		for part in parts:
+			list.append(HeldItemShape.clean_part(part, roles[0] if not roles.is_empty() else DEFAULT_ROLE))
+		out["parts"] = list
+		out["grip"] = HeldItemShape.clean_grip(grip, true)
+		if not second_grip.is_empty():
+			out["second_grip"] = HeldItemShape.clean_grip(second_grip, false)
 	return out
 
 
@@ -445,6 +487,16 @@ static func from_json(p_id: String, data: Dictionary, p_slot: String = CLOTHES) 
 		FacialHairSettings.complete_roles(item)
 	for type in item.special_types():
 		item.complete_roles_for(type)
+
+	if p_slot == HELD:
+		item.parts.clear()
+		var raw_parts: Variant = data.get("parts", [])
+		if raw_parts is Array:
+			for raw in raw_parts:
+				if raw is Dictionary:
+					item.parts.append(HeldItemShape.clean_part(raw, item.roles[0]))
+		item.grip = HeldItemShape.clean_grip(data.get("grip", {}), true)
+		item.second_grip = HeldItemShape.clean_grip(data.get("second_grip", {}), false)
 
 	# Version 1 files: an item was either parametric or special, never both.
 	if String(data.get("kind", "")) == "special" and data.has("special_type"):

@@ -10,6 +10,8 @@ extends Node3D
 ##   set_pose("mid_stride")           a pose from runtime/poses.gd (stops any animation); the cloth follows its bones
 ##   play("walk")                     an animation from runtime/animations.gd, blended in from the pose it has
 ##   wear_outfit("travelling")        other clothes for this character, here only: the wardrobe is not changed
+##   hold("short_sword", "R")          a held item in the right hand ("L" the left); the clothes are not dressed again
+##   release("R")                      empty that hand
 ##
 ## The low-poly library (the bodies and heads) is read once and shared by every GameCharacter; so is a wardrobe read
 ## from a file.
@@ -110,6 +112,41 @@ func stop() -> void:
 	animation = ""
 	if animator != null:
 		animator.stop()
+
+
+## A held item in a hand ("R" the right, "L" the left), in a colourway ("" = its first), for this character here.
+## Whatever that hand held is put down. Returns false, and changes nothing, if the wardrobe has no such held item.
+func hold(item_id: String, side: String = RegionMap.SIDE_RIGHT, colourway: String = "") -> bool:
+	var it := wardrobe.item(item_id) if wardrobe != null else null
+	if definition == null or it == null or not it.is_held() or not (side in [RegionMap.SIDE_LEFT, RegionMap.SIDE_RIGHT]):
+		push_error("no held item '%s' to hold in the %s hand" % [item_id, side])
+		return false
+	_set_hand(side, item_id, colourway)
+	return true
+
+
+## Empty a hand ("R" or "L").
+func release(side: String = RegionMap.SIDE_RIGHT) -> void:
+	if definition != null:
+		_set_hand(side, "", "")
+
+
+## What a hand holds: the item's id, or "".
+func held_in(side: String) -> String:
+	if definition == null:
+		return ""
+	return definition.left_hand_id if side == RegionMap.SIDE_LEFT else definition.right_hand_id
+
+
+func _set_hand(side: String, item_id: String, colourway: String) -> void:
+	if side == RegionMap.SIDE_LEFT:
+		definition.left_hand_id = item_id
+		definition.left_hand_colourway = colourway
+	else:
+		definition.right_hand_id = item_id
+		definition.right_hand_colourway = colourway
+	if not _dressed.is_empty():
+		_show(_request())
 
 
 ## Other clothes, for this character here: Array of {"item": id, "colourway": name}.

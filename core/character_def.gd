@@ -31,11 +31,19 @@ var accessory_id: String = ""
 var accessory_colourway: String = ""
 ## Clothing worn: Array of {"item": id, "colourway": name}, in the order put on.
 var worn: Array = []
+## What it holds in each hand: a held item's id ("" = nothing) and its colourway ("" = the item's first).
+var right_hand_id: String = ""
+var right_hand_colourway: String = ""
+var left_hand_id: String = ""
+var left_hand_colourway: String = ""
 
 ## The fields kept in the file, in this order: the fields above but id, which is the file's key.
 const FIELDS: Array[String] = ["name", "body_id", "head_shape", "skin_tone", "eye_set_id", "eye_colourway",
 	"brow_hair", "lids", "mouth", "hair_id", "hair_colourway", "facial_id", "facial_colourway", "accessory_id",
-	"accessory_colourway"]
+	"accessory_colourway", "right_hand_id", "right_hand_colourway", "left_hand_id", "left_hand_colourway"]
+
+## The hands, as [id field, colourway field, side] (RegionMap's sides: "R" the figure's right).
+const HANDS := [["right_hand_id", "right_hand_colourway", "R"], ["left_hand_id", "left_hand_colourway", "L"]]
 
 
 static func create(p_id: String, p_name: String) -> CharacterDef:
@@ -67,6 +75,14 @@ func make_request(wardrobe: Wardrobe) -> CharacterRequest:
 			var way := String(pair[1])
 			features.append({"item": it.id, "colourway": way if it.has_colourway(way) else it.first_colourway()})
 	request.features = features
+	var held: Array = []
+	for hand in HANDS:
+		var it2 := wardrobe.item(String(get(hand[0]))) if not String(get(hand[0])).is_empty() else null
+		if it2 != null and it2.is_held():
+			var way2 := String(get(hand[1]))
+			held.append({"item": it2.id, "colourway": way2 if it2.has_colourway(way2) else it2.first_colourway(),
+				"side": String(hand[2])})
+	request.held = held
 	return request
 
 
@@ -93,6 +109,15 @@ func resolved(wardrobe: Wardrobe) -> CharacterDef:
 		if not found:
 			r.set(slot[0], "")
 			r.set(slot[1], "")
+	for hand in HANDS:
+		var found2 := false
+		for h in request.held:
+			if String((h as Dictionary)["side"]) == String(hand[2]):
+				r.set(hand[1], String((h as Dictionary)["colourway"]))
+				found2 = true
+		if not found2:
+			r.set(hand[0], "")
+			r.set(hand[1], "")
 	if not wardrobe.palette.has(r.brow_hair):
 		r.brow_hair = ""
 	return r
@@ -122,9 +147,9 @@ func live_worn(wardrobe: Wardrobe) -> Array:
 	return out
 
 
-## Whether it wears or has this item, as clothing or as a feature.
+## Whether it wears, has or holds this item: as clothing, as a feature or in a hand.
 func uses_item(item_id: String) -> bool:
-	if item_id in [hair_id, facial_id, accessory_id]:
+	if item_id in [hair_id, facial_id, accessory_id, right_hand_id, left_hand_id]:
 		return true
 	for entry in worn:
 		if String((entry as Dictionary).get("item", "")) == item_id:
@@ -132,7 +157,7 @@ func uses_item(item_id: String) -> bool:
 	return false
 
 
-## Take an item off: out of the clothes, or out of its feature slot.
+## Take an item off: out of the clothes, out of its feature slot, or out of its hand.
 func drop_item(item_id: String) -> void:
 	for i in range(worn.size() - 1, -1, -1):
 		if String((worn[i] as Dictionary).get("item", "")) == item_id:
@@ -146,6 +171,12 @@ func drop_item(item_id: String) -> void:
 	if accessory_id == item_id:
 		accessory_id = ""
 		accessory_colourway = ""
+	if right_hand_id == item_id:
+		right_hand_id = ""
+		right_hand_colourway = ""
+	if left_hand_id == item_id:
+		left_hand_id = ""
+		left_hand_colourway = ""
 
 
 func to_json() -> Dictionary:

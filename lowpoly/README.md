@@ -55,6 +55,7 @@ Godot ignores this folder (`.gdignore`), so nothing here is imported into the pr
 | Heads | all five (round, boxy, oval, strong, heart) as rounded forms: 114 polygons each, same layout; any head goes on any body (`renders/heads.png`) |
 | Faces: eyes, lids, lashes, eyebrows, skin tones | built: oval eyes from the wardrobe's eye sets and their colourways, the game's ten lid states, lids from the skin tone, a thin lash line, eyebrows from the hair, all six skin tones (`renders/faces.png`) |
 | The mouth | a first pass: a short line, straight or curved, or a small open oval (four: neutral, smile, frown, open). New here; the voxel faces have none. The game's table of them is `core/mouths.gd`, next to the lid states; which mouth goes with which lid state is open |
+| Held items: parts placed, turned and sized; held at the palm, riding the forearm | built in Python (`held.py`) and in the game (`core/held_item_shape.gd`), checked corner for corner; the editor's Items tab makes them |
 | Building polygons in Godot (assembler, editor, runtime) | done (all five phases): bodies and heads bending on a skeleton; clothing and hair made of regions (`LowpolyAssembler`); faces and facial hair (`LowpolyFace`, `LowpolyFacialHair`); straps, skirts and capes (`LowpolyShapes`), skirts and capes laid standing and following cloth bones (`LowpolyCloth`, `LowpolyPose`); all of it in full precision; the editor's three tabs, flat or smooth shading, picking regions on polygons, a mouth picker. Godot's posed corners, dressed polygons, faces and laid cloth are checked against the Python's. The voxel code is gone |
 
 ## How a body is made
@@ -229,6 +230,7 @@ rule grown up: four sides and a knee each, and smooth.
 | `drawn.py` | the shapes of their own (long beard, ponytail, bun, horns, pauldrons): a loft of oval sections from each type's settings |
 | `facial_hair.py` | facial hair: four parts and a length, cut into the head's own polygons |
 | `hang.py` | hanging cloth: how a skirt or a cape is laid over the figure in a pose |
+| `held.py` | held items (weapons, shields, tools, potions): their parts (box, wedge, cylinder, cone, sphere, a drawn outline with thickness, a drawn side view spun round) and how a hand holds them |
 | `heads.py` | the five heads; writes `heads/*.json` and `*.obj` |
 | `faces.py` | the eyes, with their lids and brows, and the mouth, as flat polygons on a head |
 | `pose.py` | posing: the bending skin, hanging cloth, the game's poses in this folder's terms, and the rigid-piece alternative |
@@ -239,7 +241,7 @@ rule grown up: four sides and a knee each, and smooth.
 | `dump_wardrobe.gd` | run by `game.py` in Godot: writes those as JSON into `_work/` |
 | `../assets/lowpoly/` | what the game reads (Godot ignores this folder, so the files live there). The eight body files (`body_<sex>_<build>.json`): corners and their shares, polygons with region and part, pivots, the band table and each band's heights on that body, how far the head is raised. The five head files: corners, polygons with their region, the eye box and its angle, the seven sections that define the shape. Generated; do not hand-edit |
 | `bodies/`, `heads/` | the same bodies and heads as OBJ files, to look at in any 3D viewer. Generated |
-| `expected.py` | writes `tests/lowpoly_expected.json`: where every corner of a figure must be in each test pose, every polygon of some dressed figures and their hanging cloth in several poses, and some faces with facial hair, which the Godot tests hold the game to |
+| `expected.py` | writes `tests/lowpoly_expected.json`: where every corner of a figure must be in each test pose, every polygon of some dressed figures and their hanging cloth in several poses, some faces with facial hair, and four test held items in a hand, which the Godot tests hold the game to |
 | `renders/` | the sheets each decision was made from. `faces_first_port.png` is the eyes as first ported, in cells with straight or square edges, which the owner turned down for rounded ovals |
 
 `dress.py`, `specials.py`, `hang.py`, `faces.py` and `facial_hair.py` hold the clothing and face rules for polygons in

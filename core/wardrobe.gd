@@ -22,11 +22,14 @@ extends RefCounted
 ##   2  adds "features" (by slot) and "eye_sets"; items may carry several
 ##      special shapes alongside their regions. Version 1 files load, and hair
 ##      items move to the hair slot.
+##   3  adds "characters" (saved characters).
+##   4  adds "held_items" (weapons, shields, tools, potions: built from parts, held in a hand), and a saved character's
+##      held items. Older files load with none.
 
 ## The file's format name, from when the characters were voxels; kept so that every wardrobe file saved since still
 ## opens (lowpoly/ checks it too).
 const FORMAT := "voxel_wardrobe"
-const VERSION := 3                  ## 3: saved characters (2: features and eye sets)
+const VERSION := 4                  ## 4: held items (3: saved characters; 2: features and eye sets)
 const DEFAULT_EXTENSION := "vxwardrobe.json"
 
 signal changed
@@ -34,8 +37,8 @@ signal changed
 ## palette colour name -> Color
 var palette: Dictionary = {}
 
-## item id -> GarmentItem, clothing AND features. One namespace, so an id is
-## unique across both and the assembler finds either the same way.
+## item id -> GarmentItem, clothing, features AND held items. One namespace, so an id is
+## unique across them all and the assembler finds any the same way.
 var items: Dictionary = {}
 
 ## eye set id -> EyeSet
@@ -369,6 +372,11 @@ func feature_ids(p_slot: String) -> Array[String]:
 	return item_ids_by_draw_order(p_slot)
 
 
+## The held items, by name.
+func held_ids() -> Array[String]:
+	return item_ids_by_draw_order(GarmentItem.HELD)
+
+
 func unique_item_id(base: String) -> String:
 	return _unique(base, items, "item")
 
@@ -608,12 +616,15 @@ func to_json() -> Dictionary:
 		palette_out[String(key)] = JsonIO.colour_to_hex(palette[key])
 
 	var clothes_out := {}
+	var held_out := {}
 	var features_out := {}
 	for slot in GarmentItem.FEATURE_SLOTS:
 		features_out[slot] = {}
 	for item_id in items.keys():
 		var it: GarmentItem = items[item_id]
-		if it.is_feature():
+		if it.is_held():
+			held_out[String(item_id)] = it.to_json()
+		elif it.is_feature():
 			if not features_out.has(it.slot):
 				features_out[it.slot] = {}
 			(features_out[it.slot] as Dictionary)[String(item_id)] = it.to_json()
@@ -642,6 +653,7 @@ func to_json() -> Dictionary:
 		"palette": palette_out,
 		"items": clothes_out,
 		"features": features_out,
+		"held_items": held_out,
 		"eye_sets": eyes_out,
 		"outfits": outfits_out,
 		"characters": characters_out,
@@ -678,6 +690,12 @@ static func from_json(data: Dictionary) -> Wardrobe:
 		for item_id2 in section.keys():
 			w.items[String(item_id2)] = GarmentItem.from_json(
 				String(item_id2), section[item_id2], String(slot_name))
+
+	var raw_held: Variant = data.get("held_items", {})          # version 4
+	if raw_held is Dictionary:
+		for item_id3 in (raw_held as Dictionary).keys():
+			if raw_held[item_id3] is Dictionary:
+				w.items[String(item_id3)] = GarmentItem.from_json(String(item_id3), raw_held[item_id3], GarmentItem.HELD)
 
 	var raw_eyes: Dictionary = data.get("eye_sets", {})
 	for set_id in raw_eyes.keys():

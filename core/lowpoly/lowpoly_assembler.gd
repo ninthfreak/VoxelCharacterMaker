@@ -62,15 +62,43 @@ static func dress_key(req: CharacterRequest) -> String:
 	return var_to_str(parts)
 
 
-## The face drawn on a dressed figure ([figure, whiskers], from dress()): on a copy of it, unless `copy` is false, so
-## that the editor can keep a dressed figure and draw another face on it when only the face's choices change.
+## The face drawn on a dressed figure ([figure, whiskers], from dress()), and what it holds: on a copy of it, unless
+## `copy` is false, so that the editor can keep a dressed figure and draw another face, or another held item, on it
+## when only those change.
 static func face_on(library: LowpolyLibrary, dressed: Array, req: CharacterRequest, copy: bool = true) -> LowpolyFigure:
 	var f: LowpolyFigure = dressed[0]
 	if copy:
 		f = f.copy()
 	_draw_face(f, library.head(req.head_shape), library.body(req.body_id).head_raise, req,
 		Palette.skin_tones(req.skin_tone)[1], dressed[1])
+	_hold(f, req)
 	return f
+
+
+## Held items, each at the palm of its hand and riding that forearm (HeldItemShape). One item per hand: a second for
+## the same hand is left out, and the figure's warnings say so.
+static func _hold(f: LowpolyFigure, req: CharacterRequest) -> void:
+	if req.wardrobe == null:
+		return
+	var sides := {}
+	for entry in req.held:
+		var e: Dictionary = entry
+		var it := req.wardrobe.item(String(e.get("item", "")))
+		var side := String(e.get("side", RegionMap.SIDE_RIGHT))
+		if it == null or not it.is_held() or not (side in [RegionMap.SIDE_LEFT, RegionMap.SIDE_RIGHT]):
+			continue
+		if sides.has(side):
+			f.warnings.append("%s: the %s hand already holds %s" % [it.name,
+				"left" if side == RegionMap.SIDE_LEFT else "right", sides[side]])
+			continue
+		sides[side] = it.name
+		var way := String(e.get("colourway", ""))
+		if not it.has_colourway(way):
+			way = it.first_colourway()
+		var colours := {}
+		for role in it.roles:
+			colours[role] = CharacterRequest.role_tones(req, it.id, way, role)[1]
+		HeldItemShape.add_to_figure(f, it, colours, side)
 
 
 ## Everything but the face: [the dressed figure, its facial hair (what the face needs to know of it)], or [] if the

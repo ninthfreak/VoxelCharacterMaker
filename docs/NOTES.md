@@ -1580,6 +1580,42 @@ Left for the owner to judge:
 - **Not done:** faces in motion (blinks, talking: an open question in SPEC 13), moving over the ground, and an editor
   for clips (they are written as tables, like the test poses).
 
+## 4zj. Held items (owner: "get item editing working, then instruct me")
+
+- **The owner's direction:** the world will be voxel blocks; the characters and their items are low-poly. Items are
+  edited by placing, turning and sizing simple shapes, as in a beginner's CAD tool, in the same editor. The owner
+  makes the items; Claude explains how. **The starter wardrobe therefore has no held items.**
+- **What an item is** (`core/held_item_shape.gd`, `lowpoly/held.py`; SPEC 7.5): a list of parts, each a box, wedge,
+  cylinder, cone, sphere, a drawn outline given thickness, or a drawn half side view spun round; a role, a place, a
+  turn (forward, sideways, round, in degrees), a size, a number of sides for the round ones, and a mirror switch. Plus
+  a grip (place and turn) and an optional second grip.
+- **Choices made as routine engineering:**
+  - A part fills its size exactly whatever its sides: the ring is scaled to its own box. On the round reading (corners
+    on an ellipse) a square post of width 2 came out 1.4 wide, and a triangle was off-centre.
+  - Drawings are on a 16 by 16 grid, in whole steps, stretched to the part's size: easy to draw, easy to describe
+    in words, and exact in both languages.
+  - Outline caps are cut into triangles by our own ear clipping, the same in GDScript and Python, rather than Godot's
+    triangulator, which Python could not match corner for corner.
+  - Nothing is cut away (no CSG): parts overlap. Godot's CSG nodes give a mesh only after frames pass, too late for
+    the assembler, which builds a figure in one call. A hole is made as a gap between parts.
+  - The grip is set for the right hand and **the left hand holds the mirror image**, as the body's left arm mirrors
+    its right. Turning instead of mirroring would flip an axe's blade upward in the left hand, or put a shield's face
+    against the arm.
+  - The hand frame follows a real fist with the arm hanging: what runs through the fist points ahead, the item's
+    front faces outward, its left side down. A sword made standing up needs no turn; a bottle held upright is turned
+    90 degrees sideways.
+  - The palm is the middle of the box round the hand band, so gloves do not move it.
+  - Held items are drawn with the face (`LowpolyAssembler.face_on`), after everything worn: changing what is held does
+    not dress the figure again. Each corner rides the forearm in full; the hand does not close (no hand bone; SPEC 13).
+  - Items are flat-shaded whatever the figure's shading: each polygon has its own corners.
+- **Where:** wardrobe file version 4 (`held_items`; older files open with none); a saved character's right and left
+  hand (`CharacterDef`); `CharacterRequest.held`; `GameCharacter.hold(item, "R" or "L")` and `release(hand)`.
+- **Checked** (`tests/test_held_items.gd`): every kind with several side counts is closed, faces outward and fills
+  its size about its middle; drawn outlines with a point, a notch or a straight run; a spin that misses the middle is
+  capped; mirrored and turned parts; four test items held on three bodies in both hands match `held.py` corner for
+  corner; file round trip and cleaning of nonsense values; holding, mirroring, upright bottles, moving with the
+  forearm in a pose; saved characters and the game node.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

@@ -3,7 +3,7 @@ class_name CharacterRequest
 extends RefCounted
 
 ## What a character is made of: a body, a head, a skin tone, the wardrobe, the clothes worn, the features (hair,
-## facial hair, a face accessory), the eyes and their lid state, and a mouth. LowpolyAssembler builds the figure from
+## facial hair, a face accessory), what it holds, the eyes and their lid state, and a mouth. LowpolyAssembler builds the figure from
 ## it; every editor tab makes one.
 ##
 ## Also here: the colours a request resolves to, which the game works out per character rather than per item (the
@@ -17,6 +17,10 @@ var worn: Array = []
 ## Features filling slots -- hair, facial hair, a face accessory: the same shape as `worn`. Kept apart because they
 ## come from a character's chosen features, not an outfit; dressed exactly like clothing.
 var features: Array = []
+## Held items: Array of {"item": id, "colourway": name, "side": "R" or "L"} (RegionMap's sides; "R" the figure's
+## right hand). Drawn with the face, after everything worn (LowpolyAssembler.face_on), so a change of what is held
+## does not dress the figure again.
+var held: Array = []
 ## The eye set to draw, by id in the wardrobe, and its colourway. With none (or one the wardrobe does not have) the
 ## wardrobe's first eye set is drawn.
 var eye_set_id: String = ""
