@@ -479,9 +479,14 @@ static func _items(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(tab.view.item_stage.polygon_count() == 6 and list._category.get_parent().visible
 		and not list._draw_order.get_parent().visible, "the view shows its box; it has a category but no draw order")
 
+	var drawing := _panel(tab, DrawingPanel) as DrawingPanel
+	var way: Dictionary = it.colourways["default"]
+	t.check(way == {"main": "bone", "detail": "rust"} and ed.wardrobe.colour("bone").get_luminance() > 0.6
+		and ed.wardrobe.colour("rust").get_luminance() > 0.25,
+		"it starts in light colours, to be seen against the dark view (bone and rust, not slate and ink)")
 	tab.add_part("cylinder")
 	t.check(it.parts.size() == 2 and tab.part == 1 and String(it.parts[1]["kind"]) == "cylinder"
-		and parts._sides_row.visible and not parts._drawing.visible,
+		and parts._sides_row.visible and not parts._draw.visible and not drawing._box.visible,
 		"Add part: a cylinder, chosen, with its number of sides offered and no drawing")
 	steps = ed.history._entries.size()
 	parts._size[2].value = 8.0
@@ -494,20 +499,22 @@ static func _items(t: TestReport, ed: CharacterEditor) -> void:
 	parts._kind.select(HeldItemShape.KINDS.find("outline"))
 	parts._kind.item_selected.emit(HeldItemShape.KINDS.find("outline"))
 	t.check(String(it.parts[1]["kind"]) == "outline" and (it.parts[1]["points"] as Array).size() == 4
-		and it.parts[1]["size"] == [1.0, 1.0, 9.0] and parts._drawing.visible and parts._grid.points.size() == 4,
-		"made an outline instead: it keeps its size and starts as a square drawing, shown on the grid")
-	parts._grid._add([8, 16])
+		and it.parts[1]["size"] == [1.0, 1.0, 9.0] and parts._draw.visible and drawing._box.visible
+		and drawing._grid.points.size() == 4,
+		"made an outline instead: it keeps its size and starts as a square drawing, on the Drawing sub-tab's grid")
+	drawing._grid._add([8, 16])
 	t.check((it.parts[1]["points"] as Array) == [[0, 0], [16, 0], [16, 16], [8, 16], [0, 16]],
 		"a click on a line already drawn puts a point into it")
-	parts._grid._add([4, 4])
+	drawing._grid._add([4, 4])
 	t.check((it.parts[1]["points"] as Array).size() == 6 and it.parts[1]["points"][-1] == [4, 4],
 		"a click anywhere else adds one at the end")
 	ed.undo()
 	t.check((tab.held.item().parts[1]["points"] as Array).size() == 5, "undo takes it away again")
 	it = tab.held.item()
 
-	tab.view.item_stage.part_chosen.emit(0)
-	t.check(tab.part == 0 and parts._list.is_selected(0), "a part chosen in the view is chosen in the list")
+	tab.view.item_stage.selection_changed.emit(0, [])
+	t.check(tab.part == 0 and parts._list.is_selected(0) and not drawing._box.visible and drawing._none.visible,
+		"a part chosen in the view is chosen in the list (a box: the Drawing sub-tab says to choose a drawn part)")
 	grip._place[2].value = -1.5
 	t.check(it.grip["position"] == [0.0, 0.0, -1.5], "the grip moves")
 
@@ -523,8 +530,12 @@ static func _items(t: TestReport, ed: CharacterEditor) -> void:
 	tab._show_pick.item_selected.emit(0)
 	t.check(tab.view.showing_item, "and back to the item alone")
 
-	parts._on_delete()
+	tab.delete_chosen()
 	t.check(it.parts.size() == 1 and tab.part == 0, "Delete part")
+	tab.add_part("spin")
+	t.check(tab._tabs.get_tab_title(tab._tabs.current_tab) == "Drawing" and drawing._box.visible and drawing._grid.spin,
+		"adding a drawn part goes to the Drawing sub-tab, its grid at the top of the panel, ready to draw on")
+	tab.show_section("Item")
 
 	t.group("editor: Preview -- held items")
 	ed.show_tab("Preview")
@@ -544,27 +555,29 @@ static func _items(t: TestReport, ed: CharacterEditor) -> void:
 		"a character saved holding it keeps it")
 
 
-static func _mouse(stage: ItemStage, at: Vector2, pressed: bool) -> bool:
+static func _mouse(stage: ItemStage, at: Vector2, pressed: bool, shift: bool = false) -> bool:
 	var ev := InputEventMouseButton.new()
 	ev.button_index = MOUSE_BUTTON_LEFT
 	ev.pressed = pressed
 	ev.position = at
+	ev.shift_pressed = shift
 	return stage.handle_input(ev)
 
 
-static func _mouse_to(stage: ItemStage, at: Vector2, ctrl: bool = false) -> bool:
+## The pointer moved, a button held (a drag) or not (`held` false: it only points).
+static func _mouse_to(stage: ItemStage, at: Vector2, shift: bool = false, held: bool = true) -> bool:
 	var ev := InputEventMouseMotion.new()
 	ev.position = at
-	ev.button_mask = MOUSE_BUTTON_MASK_LEFT
-	ev.ctrl_pressed = ctrl
+	ev.button_mask = MOUSE_BUTTON_MASK_LEFT if held else 0
+	ev.shift_pressed = shift
 	return stage.handle_input(ev)
 
 
-## Press at one place of the item's space, drag to another, let go.
-static func _drag(stage: ItemStage, from: Vector2, to: Vector2, ctrl: bool = false) -> void:
+## Press at one place of the item's space, drag to another, let go. `shift`: held from the first move on.
+static func _drag(stage: ItemStage, from: Vector2, to: Vector2, shift: bool = false) -> void:
 	_mouse(stage, from, true)
-	_mouse_to(stage, from.lerp(to, 0.5), ctrl)
-	_mouse_to(stage, to, ctrl)
+	_mouse_to(stage, from.lerp(to, 0.5), shift)
+	_mouse_to(stage, to, shift)
 	_mouse(stage, to, false)
 
 
@@ -591,12 +604,40 @@ static func _items_by_hand(t: TestReport, ed: CharacterEditor) -> void:
 	stage.redraw()
 	t.check(stage.facing() == 1 and stage._handles.size() == 4,
 		"from the front the view faces the item's depth: the chosen part has four squares (w, w, h, h)")
+	t.check(camera.flat and camera.projection == Camera3D.PROJECTION_ORTHOGONAL,
+		"and the front view of an item is flat (no perspective): everything below is done in it")
+	camera.set_view("three_quarter")
+	var slanted := camera.projection == Camera3D.PROJECTION_PERSPECTIVE
+	camera.set_view("top")
+	var from_above := camera.flat and stage.facing() == 2 and is_equal_approx(camera.pitch, -OrbitCamera.PITCH_LIMIT)
+	var turn_view := InputEventMouseButton.new()
+	turn_view.button_index = MOUSE_BUTTON_MIDDLE
+	turn_view.pressed = true
+	camera.handle_input(turn_view)
+	var turning := InputEventMouseMotion.new()
+	turning.relative = Vector2(12, 5)
+	camera.handle_input(turning)
+	turn_view.pressed = false
+	camera.handle_input(turn_view)
+	t.check(slanted and from_above and not camera.flat and camera.projection == Camera3D.PROJECTION_PERSPECTIVE,
+		"the 3/4 view is in perspective, the top view flat and straight down, and turning the view by hand goes "
+		+ "back to perspective")
+	ed.clothes.view.camera.set_view("front")
+	t.check(ed.clothes.view.camera.projection == Camera3D.PROJECTION_PERSPECTIVE, "a figure's front view stays in perspective")
+	camera.set_view("front")
+	tab.view.fit_view()
+	stage.redraw()
 
 	# choose by a click
 	var steps: int = ed.history._entries.size()
 	var box_face := Vector3(-0.8, -1.0, -0.8)
 	var hit: Dictionary = stage._hit(on.call(box_face))
 	t.check(int(hit["grab"]) == ItemStage.Grab.PART and int(hit["part"]) == 0, "the pointer on the box is on part 1")
+	_mouse_to(stage, on.call(box_face), false, false)
+	var outlined := stage._hover_edges
+	_mouse_to(stage, on.call(Vector3(0.0, -0.5, 3.0)), false, false)
+	t.check(outlined == 24 and stage._hover_edges == 0,
+		"the part under the pointer is outlined before it is clicked (the box's 24 edges); the chosen one is not")
 	_mouse(stage, on.call(box_face), true)
 	_mouse(stage, on.call(box_face), false)
 	t.check(tab.part == 0 and stage.selected == 0 and ed.history._entries.size() == steps
@@ -723,6 +764,103 @@ static func _items_by_hand(t: TestReport, ed: CharacterEditor) -> void:
 	t.check(it.parts[0]["size"] == [2.0, 1.0, 1.5] and it.parts[0]["position"] == [0.0, 0.0, -0.25],
 		"the bottom square pulled down by a half: taller by a half, the top where it was",
 		"%s at %s" % [it.parts[0]["size"], it.parts[0]["position"]])
+
+	# a move goes in steps from where the part is: its sides stay on the grid
+	it.parts[0]["rotation"] = [0.0, 0.0, 0.0]
+	it.parts[0]["position"] = [0.0, 0.0, 0.0]
+	it.parts[0]["size"] = [2.0, 2.0, 2.0]
+	tab.select_part(0)
+	var wide := {}
+	var high := {}
+	for h in stage._handles:
+		if int(h["axis"]) == 0 and float(h["sign"]) > 0.0:
+			wide = h
+		if int(h["axis"]) == 2 and float(h["sign"]) > 0.0:
+			high = h
+	var wide_at: Vector3 = ItemStage.to_item(wide["view"])
+	_drag(stage, on.call(wide_at), on.call(wide_at + Vector3(0.25, 0.0, 0.0)))
+	var sized: Array = [it.parts[0]["size"].duplicate(), it.parts[0]["position"].duplicate()]
+	_drag(stage, on.call(Vector3(0.0, -1.0, 0.5)), on.call(Vector3(1.0, -1.0, 0.5)))
+	t.check(sized == [[2.25, 2.0, 2.0], [0.125, 0.0, 0.0]] and it.parts[0]["position"] == [1.125, 0.0, 0.0],
+		"a part pulled a quarter wider on one side (its middle now on an eighth), then dragged 1 across: moved by "
+		+ "exactly 1, so its sides are still on the quarter grid (left side at 0, not an eighth off)",
+		"%s then %s" % [sized, it.parts[0]["position"]])
+
+	# Shift keeps its shape
+	it.parts[0]["position"] = [0.0, 0.0, 0.0]
+	it.parts[0]["size"] = [2.0, 2.0, 2.0]
+	tab.select_part(0)
+	for h in stage._handles:
+		if int(h["axis"]) == 2 and float(h["sign"]) > 0.0:
+			high = h
+	var high_at: Vector3 = ItemStage.to_item(high["view"])
+	steps = ed.history._entries.size()
+	_drag(stage, on.call(high_at), on.call(high_at + Vector3(0.0, 0.0, 0.5)), true)
+	t.check(it.parts[0]["size"] == [3.0, 3.0, 3.0] and it.parts[0]["position"] == [0.0, 0.0, 0.0]
+		and ed.history._entries.size() == steps + 1,
+		"a square pulled half a unit with Shift held: the part keeps its shape (3 each way) about its middle, in "
+		+ "one drag and one undo step", "%s at %s" % [it.parts[0]["size"], it.parts[0]["position"]])
+	tab.select_part(1)
+	for h in stage._handles:
+		if int(h["axis"]) == 0 and float(h["sign"]) > 0.0:
+			wide = h
+	wide_at = ItemStage.to_item(wide["view"])
+	var tall: Array = it.parts[1]["position"].duplicate()
+	_drag(stage, on.call(wide_at), on.call(wide_at + Vector3(0.25, 0.0, 0.0)), true)
+	t.check(it.parts[1]["size"] == [1.5, 1.5, 6.0] and it.parts[1]["position"] == tall,
+		"the 1 x 1 x 4 cylinder the same way: 1.5 x 1.5 x 6, still round", str(it.parts[1]["size"]))
+	_drag(stage, on.call(wide_at + Vector3(0.25, 0.0, 0.0)), on.call(wide_at + Vector3(-40.0, 0.0, 0.0)), true)
+	t.check(it.parts[1]["size"] == [0.1, 0.1, 0.4], "pushed right in with Shift, it stops when its smallest size does")
+	ed.undo()
+	it = tab.held.item()
+
+	# several parts at once, in the 3/4 view (in perspective)
+	it.parts[0]["position"] = [0.0, 0.0, 0.0]
+	it.parts[0]["size"] = [2.0, 2.0, 2.0]
+	it.parts[1]["position"] = [0.0, 0.0, 6.0]
+	it.parts[1]["size"] = [1.0, 1.0, 4.0]
+	tab.select_part(0)
+	camera.set_view("three_quarter")
+	tab.view.fit_view()
+	stage.redraw()
+	var on_cylinder := Vector3(0.0, 0.0, 8.0)                    # the middle of its top
+	steps = ed.history._at                                       # (an undo above left a step to redo)
+	_mouse(stage, on.call(on_cylinder), true, true)
+	_mouse(stage, on.call(on_cylinder), false, true)
+	t.check(stage.selected == 1 and stage.also == [0] and tab.part == 1 and tab.also == [0]
+		and ed.history._at == steps and (_panel(tab, PartsPanel) as PartsPanel)._list.get_item_text(0).contains("also chosen"),
+		"Shift+click on another part chooses it too: it takes the squares, the first stays chosen (the list says so)")
+	var hold := Vector3(0.0, -1.0, 0.5)                          # on the box's front
+	_drag(stage, on.call(hold), on.call(hold + Vector3(0.75, 0.0, 0.5)))
+	t.check(it.parts[0]["position"] == [0.75, 0.0, 0.5] and it.parts[1]["position"] == [0.75, 0.0, 6.5]
+		and ed.history._at == steps + 1 and ed.history.undo_label() == "Move 2 parts"
+		and stage.chosen().size() == 2,
+		"a drag on either moves both, by the same steps, as one undo step (in the 3/4 view, in perspective)",
+		"%s and %s" % [it.parts[0]["position"], it.parts[1]["position"]])
+	stage.nudge(-1, 0)
+	t.check(it.parts[0]["position"] == [0.5, 0.0, 0.5] and it.parts[1]["position"] == [0.5, 0.0, 6.5],
+		"the arrow keys move both")
+	tab.copy_part()
+	tab.paste_part()
+	t.check(it.parts.size() == 4 and tab.chosen().size() == 2 and it.parts[2]["position"] == [1.5, 0.0, 0.5]
+		and it.parts[3]["position"] == [1.5, 0.0, 6.5],
+		"Ctrl+C and Ctrl+V copy both, pasted 1 unit beside, keeping their arrangement, and chosen")
+	stage.delete_requested.emit()
+	t.check(it.parts.size() == 2 and it.parts[0]["position"] == [0.5, 0.0, 0.5], "Delete removes everything chosen")
+	tab.select_part(1, [0])
+	hold = Vector3(0.5, -1.0, 0.75)
+	_mouse(stage, on.call(hold), true)
+	_mouse(stage, on.call(hold), false)
+	t.check(stage.selected == 0 and stage.also.is_empty() and tab.part == 0 and tab.also.is_empty(),
+		"a plain click on one of them, with no drag: that one alone is chosen")
+	_mouse(stage, on.call(Vector3(0.5, 0.0, 8.5)), true, true)
+	_mouse(stage, on.call(Vector3(0.5, 0.0, 8.5)), false, true)
+	_mouse(stage, on.call(Vector3(0.5, 0.0, 8.5)), true, true)
+	_mouse(stage, on.call(Vector3(0.5, 0.0, 8.5)), false, true)
+	t.check(stage.selected == 0 and stage.also.is_empty(), "Shift+click on a chosen part again lets it go")
+	camera.set_view("front")
+	tab.view.fit_view()
+	stage.redraw()
 
 	# the grip
 	tab.show_section("Grip")

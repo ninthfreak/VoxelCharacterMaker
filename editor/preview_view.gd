@@ -150,6 +150,7 @@ func show_lowpoly(figure: LowpolyFigure, flat: bool) -> void:
 	_readout.visible = false
 	_container.focus_mode = Control.FOCUS_NONE
 	_container.mouse_default_cursor_shape = Control.CURSOR_ARROW
+	camera.allow_flat = false                    # a figure is always looked at in perspective
 	for bar in _toolbars:
 		bar.visible = false
 	var first := lowpoly_rig.figure == null or was_item
@@ -235,17 +236,20 @@ func _pick_at(screen_position: Vector2) -> void:
 # ------------------------------------------------------------ an item alone ---
 
 ## Show a held item on its own, to be put together by hand (ItemStage): `selected` is the part chosen (-1 for none),
-## `mode` an ItemStage.Mode. `refit`: frame it afresh (another item), keeping the way the camera looks.
-func show_item(item: GarmentItem, colours: Dictionary, selected: int, mode: int, refit: bool = false) -> void:
+## `also` the others chosen with it, `mode` an ItemStage.Mode. `refit`: frame it afresh (another item), keeping the
+## way the camera looks.
+func show_item(item: GarmentItem, colours: Dictionary, selected: int, mode: int, refit: bool = false,
+		also: Array = []) -> void:
 	var first := not showing_item
 	showing_item = true
 	lowpoly_rig.visible = false
 	_ground.visible = false
 	item_stage.visible = true
 	_container.focus_mode = Control.FOCUS_CLICK
+	camera.allow_flat = true                     # straight-on views of an item are flat, to line parts up by eye
 	for bar in _toolbars:
 		bar.visible = true
-	item_stage.show_item(item, colours, selected, mode)
+	item_stage.show_item(item, colours, selected, mode, also)
 	if first:
 		fit_if_untouched()
 	elif refit:

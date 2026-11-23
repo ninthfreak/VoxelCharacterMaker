@@ -59,8 +59,10 @@ The editor is the project's main scene. It has four tabs:
   parts: boxes, wedges, cylinders, cones, spheres, and shapes drawn on a grid
   (an outline given thickness, or half a side view spun round). Put together by
   hand in the view: click a part to choose it, drag it to move it, pull the
-  squares on its sides to size it, the ring to turn it; the buttons above the
-  view add parts; Ctrl+C, Ctrl+V and Ctrl+X copy, paste and cut a part. The
+  squares on its sides to size it (Shift keeps its shape), the ring to turn
+  it; Shift+click chooses several parts to move together; the buttons above the
+  view add parts; Ctrl+C, Ctrl+V and Ctrl+X copy, paste and cut. The front,
+  side and top views of an item are flat, to line parts up by eye. The
   numbers in the panel follow, for fine work. On the Grip
   sub-tab, drag the hand to say where and how the item is held. See the item
   alone, or in a character's right or left hand.

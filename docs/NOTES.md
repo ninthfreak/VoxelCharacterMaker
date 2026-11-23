@@ -1756,6 +1756,46 @@ medium; medium to high) - the drawing grid at the top of the panel when a drawn 
 later its points dragged in the view (medium; medium) - Shift+click to move several parts (medium; medium: wait
 until it is missed). Not recommended now: anything under 8 or 9 until the owner has used it on their own machine.
 
+## 4zn. The review's seven improvements, built (owner: "do all the recommended improvements")
+
+1. **A move goes in steps from where the part is.** The drag's distance is snapped, not the part's middle. A part
+   widened on one side and then dragged keeps its sides on the quarter grid (4zm's measured case: left side at -1.5
+   now, was -1.375). The grip moves the same way.
+2. **Shift keeps the shape.** With Shift held, pulling a square changes every size together, about the part's
+   middle (the side pulled still follows the pointer, so the size along it changes by twice the pull); it stops when
+   the part's smallest size reaches the least allowed. The 1.5 ball that took six pulls and two changes of view is
+   one pull.
+3. **Flat straight-on views** (`OrbitCamera.allow_flat`, on only while an item is shown): front, back, left, right
+   and top are orthographic, the top view straight down; the 3/4 view and any view turned by hand are in perspective,
+   and a figure always is. In a flat view the camera's distance only sets how much is in view, so it stands well
+   back and zooming cannot put it inside the item. Label3D's own "fixed size" came out tiny in a flat view; every
+   word in the view is now sized by hand from what a pixel covers where it stands, the same in both.
+4. **The drawing grid has a sub-tab of its own** (Item, Drawing, Grip, Colours; `DrawingPanel`): 259 px down the
+   panel, where it had been 1127 px down a panel showing 907. Adding a drawn part goes there. It was not put at the
+   top of the Item sub-tab, because everything below would have jumped down whenever a drawn part was chosen.
+5. **A new item starts in bone and rust**, not slate and ink (or, in a wardrobe that has dropped those names, the
+   first colour its palette has).
+6. **The part under the pointer is outlined** in yellow before it is clicked (the colour already used for the
+   square or ring the pointer is on); a part already chosen keeps its white edges.
+7. **Shift+click chooses more parts.** The one clicked last takes the squares and the ring; the others stay chosen
+   (white edges, "[also chosen]" in the list). A drag on any of them moves them all by the same steps; the arrow
+   keys, Delete, Ctrl+C / X / V work on all of them (pasted parts keep their arrangement); sizing, turning, centring
+   and the number boxes stay with the one that has the squares. Shift+click on a chosen part lets it go; a plain
+   click on one of several, with no drag, leaves that one alone chosen. Shift and a drag on empty space still slides
+   the view.
+
+**Measured again**, the same sword through real input: 25 actions (was 32), 16 undo steps (was 21). The gain is
+the pommel (Shift) and the two changes of view it no longer needs.
+
+**Checked:** 640 tests (17 more than before, for these: steps and the grid, Shift on a cube and on a 1 x 1 x 4 cylinder and its
+lower limit, the outline's edge count, flat and perspective by view and after turning by hand, a figure's view left
+in perspective, two parts chosen, moved, nudged, copied, deleted, let go; the Drawing sub-tab on adding a drawn part;
+the starting colours); the whole by-hand suite now runs in the flat front view, with the several-parts checks in the
+3/4 view in perspective. Looked at under xvfb in the front, 3/4 and top views.
+
+**Not done, from 4zm's list:** turning the view when there is no empty space or middle button, and trackpad
+gestures (8); the small things under 9. Both wait for the owner's own machine.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed

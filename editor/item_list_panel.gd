@@ -182,6 +182,12 @@ func _on_new() -> void:
 		it = GarmentItem.create(id, label, "top")
 	elif selection.slot == GarmentItem.HELD:
 		it = GarmentItem.create_held(id, label)
+		# its starting colours, or (a wardrobe that has dropped them) whatever the palette has
+		var names := w.palette_names()
+		var way: Dictionary = it.colourways[GarmentItem.DEFAULT_COLOURWAY]
+		for role in way.keys():
+			if not w.palette.has(String(way[role])) and not names.is_empty():
+				way[role] = names[0]
 	else:
 		it = GarmentItem.create_feature(id, label, selection.slot)
 		it.roles = ["hair"]

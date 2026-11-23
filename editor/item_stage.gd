@@ -12,20 +12,26 @@ extends Node3D
 ## plane across it, and the turning ring turns about it.
 ##
 ##   PARTS   click a part to choose it; drag it to move it. The chosen part has a square on four of its sides, those
-##           not seen end on (w, d, h: pull one and that side moves, the opposite side stays), a ring to turn it, and
-##           two lines through its middle that say which way a drag goes (x, y, z).
+##           not seen end on (w, d, h: pull one and that side moves, the opposite side stays; with Shift held the part
+##           keeps its shape, every size changing together about its middle), a ring to turn it, and two lines through
+##           its middle that say which way a drag goes (x, y, z). Shift+click chooses more parts (or lets one go):
+##           a drag, the arrow keys, Delete and copying then work on all of them; the squares and the ring stay on
+##           the one clicked last. The part under the pointer is outlined before it is clicked.
 ##   GRIP    the forearm and hand that will hold the item are shown at its grip: drag the hand (or the diamond at the
 ##           grip) to move the grip, the ring to turn it.
 ##
-## Everything snaps to a quarter unit and 15 degrees: items are a handful of parts and small in the game, so nothing
-## finer is offered by hand (the panels' numbers take any value). Escape gives up a drag; Delete removes the chosen
+## Everything goes in steps of a quarter unit and 15 degrees: items are a handful of parts and small in the game, so
+## nothing finer is offered by hand (the panels' numbers take any value). A move steps from where the part is, so
+## its sides stay on the grid they were on (snapping its middle to the grid knocked them off it by an eighth after
+## one side had been pulled). Escape gives up a drag; Delete removes the chosen
 ## part; the arrow keys nudge it. Copy, cut and paste are the tab's (Ctrl+C, Ctrl+X, Ctrl+V).
 ## Told apart by shape and a letter, never by red against green: squares resize, the ring turns, a diamond is a grip.
 ##
 ## The stage changes the item itself while a drag goes on (`edited`: the panels follow) and says when the drag is
 ## over (`edit_finished`: one undo step for whoever owns the wardrobe).
 
-signal part_chosen(part: int)
+## What is chosen changed here: the part with the handles, and the others chosen with it.
+signal selection_changed(part: int, also: Array)
 signal edited
 signal edit_finished(label: String, merge: bool)
 signal delete_requested
@@ -47,6 +53,7 @@ const DRAG_PX := 4.0                ## a press becomes a drag once the pointer h
 const END_ON := 0.8                 ## a side whose way lies this close to the line of sight (a cosine) has no handle
 const ARROW_AHEAD := 4.0            ## the grip's arrows, in units
 const ARROW_UP := 2.5
+const TEXT_SCALE := 1.3              ## a label's letters: this many screen pixels to a pixel of its font size
 const AXES: Array[String] = ["x", "y", "z"]
 const SIZES: Array[String] = ["w", "d", "h"]
 const SIZE_WORDS: Array[String] = ["width", "depth", "height"]
@@ -57,6 +64,8 @@ var body_material: Material = null
 var item: GarmentItem = null
 var colours: Dictionary = {}
 var selected: int = -1
+## The other parts chosen along with `selected` (Shift+click): moved, nudged, deleted and copied with it.
+var also: Array = []
 var mode: int = Mode.PARTS
 ## The forearm and hand that hold the item, in the hand's own frame (the palm at 0; HeldItemShape.RIGHT_HAND undone):
 ## Array of [corners (PackedVector3Array), whether it is of the hand itself (not the forearm above it)]. hand_of()
@@ -83,6 +92,8 @@ var _press := {}
 var _dragging := false
 var _changed := false
 var _hover := {}
+var _hover_edges := 0               ## how many edges of the part under the pointer are drawn (for the tests)
+var _seen_zoom := 0.0
 var _seen := Transform3D()
 var _seen_size := Vector2.ZERO
 
@@ -99,8 +110,6 @@ func _init() -> void:
 		var label := Label3D.new()
 		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		label.no_depth_test = true
-		label.fixed_size = true
-		label.pixel_size = 0.0012
 		label.font_size = 18
 		label.outline_size = 5
 		label.render_priority = 12
@@ -137,10 +146,11 @@ static func hand_of(library: LowpolyLibrary, body_id: String) -> Array:
 	return out
 
 
-func show_item(p_item: GarmentItem, p_colours: Dictionary, p_selected: int, p_mode: int) -> void:
+func show_item(p_item: GarmentItem, p_colours: Dictionary, p_selected: int, p_mode: int, p_also: Array = []) -> void:
 	item = p_item
 	colours = p_colours
 	selected = p_selected
+	also = p_also.duplicate()
 	mode = p_mode
 	if item == null:
 		_press = {}
@@ -156,7 +166,18 @@ func polygon_count() -> int:
 	return _polys.size()
 
 
-## The chosen part, or null.
+## Every part chosen: the one with the handles first, then the others; only parts the item has.
+func chosen() -> Array:
+	var out: Array = []
+	if item == null:
+		return out
+	for i in [selected] + also:
+		if int(i) >= 0 and int(i) < item.parts.size() and not out.has(int(i)):
+			out.append(int(i))
+	return out
+
+
+## The chosen part (the one with the handles), or null.
 func _part() -> Variant:
 	if item == null or selected < 0 or selected >= item.parts.size():
 		return null
@@ -252,7 +273,7 @@ func redraw() -> void:
 			hi = hi.max(p)
 		_polys.append([own, int(q["part"]), bool(q["mirrored"])])
 		_add_polygon(verts, normals, shades, indices, corners, q["colour"])
-		if int(q["part"]) == selected and mode == Mode.PARTS:
+		if mode == Mode.PARTS and (int(q["part"]) == selected or also.has(int(q["part"]))):
 			for k in corners.size():
 				edges.push_back(corners[k])
 				edges.push_back(corners[(k + 1) % corners.size()])
@@ -344,12 +365,10 @@ func _add_label(text: String, at: Vector3, colour: Color) -> void:
 	label.position = at
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
-	label.fixed_size = true
-	label.pixel_size = 0.0012
 	label.font_size = 18
 	label.outline_size = 6
 	label.modulate = colour
-	_scene.add_child(label)
+	_scene.add_child(label)                              # _layout gives it its size on the screen
 
 
 ## The forearm and hand at the grip, see-through: what will hold the item, and how big a hand is.
@@ -428,7 +447,7 @@ func _process(_delta: float) -> void:
 	if camera == null or not is_visible_in_tree():
 		return
 	var size := _view_size()
-	if not camera.global_transform.is_equal_approx(_seen) or size != _seen_size:
+	if not camera.global_transform.is_equal_approx(_seen) or size != _seen_size or _zoom() != _seen_zoom:
 		_layout()
 
 
@@ -437,8 +456,15 @@ func _view_size() -> Vector2:
 	return viewport.get_visible_rect().size if viewport != null else Vector2(800, 600)
 
 
+## What says how far in a flat view is zoomed (its transform does not): 0 for a view in perspective.
+func _zoom() -> float:
+	return camera.size if camera.projection == Camera3D.PROJECTION_ORTHOGONAL else 0.0
+
+
 ## How much of the view's space one pixel covers at a point.
 func _per_pixel(at: Vector3) -> float:
+	if camera.projection == Camera3D.PROJECTION_ORTHOGONAL:
+		return camera.size / maxf(_view_size().y, 1.0)
 	var depth := (at - camera.global_position).dot(-camera.global_transform.basis.z)
 	return 2.0 * maxf(depth, 0.01) * tan(deg_to_rad(camera.fov) * 0.5) / maxf(_view_size().y, 1.0)
 
@@ -465,6 +491,12 @@ func _layout() -> void:
 		return
 	_seen = camera.global_transform
 	_seen_size = _view_size()
+	_seen_zoom = _zoom()
+	# words keep one size on the screen, in perspective and flat alike (Label3D's own "fixed size" is tiny in a
+	# flat view): each is given the size a pixel has where it stands
+	for child in _scene.get_children():
+		if child is Label3D:
+			(child as Label3D).pixel_size = TEXT_SCALE * _per_pixel((child as Label3D).position)
 	var right := camera.global_transform.basis.x
 	var up := camera.global_transform.basis.y
 	var dark := PackedVector3Array()
@@ -539,6 +571,18 @@ func _layout() -> void:
 		letter = _letter(letter, "grip", at - up * 24.0 * px, Color.WHITE)
 		_knobs.append({"grab": Grab.GRIP, "view": at})
 
+	# the part under the pointer, outlined before it is clicked (not one already chosen: it has its edges)
+	var outline := PackedVector3Array()
+	if mode == Mode.PARTS and _press.is_empty() and _is(_hover, Grab.PART) and not chosen().has(int(_hover["part"])):
+		for entry in _polys:
+			if int(entry[1]) != int(_hover["part"]):
+				continue
+			var c: PackedVector3Array = entry[0]
+			for k in c.size():
+				outline.push_back(to_view(c[k]))
+				outline.push_back(to_view(c[(k + 1) % c.size()]))
+	_hover_edges = outline.size() / 2
+	_surface(mesh, Mesh.PRIMITIVE_LINES, outline, _material(Palette.UI_YELLOW, 9))
 	_surface(mesh, Mesh.PRIMITIVE_LINES, guides, _material(Palette.UI_SKY, 9))
 	_surface(mesh, Mesh.PRIMITIVE_TRIANGLES, dark, _material(Color8(16, 18, 26), 10))
 	_surface(mesh, Mesh.PRIMITIVE_TRIANGLES, white, _material(Color.WHITE, 11))
@@ -593,6 +637,7 @@ func _letter(index: int, text: String, at: Vector3, colour: Color, size: int = 1
 	var label := _letters[index]
 	label.text = text
 	label.position = at
+	label.pixel_size = TEXT_SCALE * _per_pixel(at)
 	label.modulate = colour
 	label.font_size = size
 	label.outline_size = 5 if outlined else 0
@@ -704,12 +749,10 @@ func handle_input(event: InputEvent) -> bool:
 		if mb.button_index != MOUSE_BUTTON_LEFT:
 			return false
 		if mb.pressed:
-			if mb.shift_pressed:
-				return false                               # shift and drag slides the view
 			var hit := _hit(mb.position)
 			if _is(hit, Grab.NONE):
-				return false                               # empty space: the camera turns
-			_begin(hit, mb.position)
+				return false                               # empty space: the camera turns (with Shift, slides)
+			_begin(hit, mb.position, mb.shift_pressed)
 			return true
 		if _press.is_empty():
 			return false
@@ -724,7 +767,7 @@ func handle_input(event: InputEvent) -> bool:
 		if not _dragging and mm.position.distance_to(_press["from"]) < DRAG_PX:
 			return true
 		_dragging = true
-		_drag_to(mm.position)
+		_drag_to(mm.position, mm.shift_pressed)
 		return true
 	if event is InputEventKey:
 		return _key(event as InputEventKey)
@@ -734,7 +777,7 @@ func handle_input(event: InputEvent) -> bool:
 func _point_at(hit: Dictionary) -> void:
 	match int(hit["grab"]):
 		Grab.NONE: cursor = Control.CURSOR_ARROW
-		Grab.PART: cursor = Control.CURSOR_MOVE if int(hit["part"]) == selected else Control.CURSOR_POINTING_HAND
+		Grab.PART: cursor = Control.CURSOR_MOVE if chosen().has(int(hit["part"])) else Control.CURSOR_POINTING_HAND
 		Grab.GRIP: cursor = Control.CURSOR_MOVE
 		_: cursor = Control.CURSOR_DRAG
 	var slim := hit.duplicate()
@@ -744,7 +787,7 @@ func _point_at(hit: Dictionary) -> void:
 		_layout()
 
 
-func _begin(hit: Dictionary, from: Vector2) -> void:
+func _begin(hit: Dictionary, from: Vector2, shift: bool = false) -> void:
 	_press = hit.duplicate()
 	_press["from"] = from
 	_press["axis"] = facing()
@@ -752,11 +795,19 @@ func _begin(hit: Dictionary, from: Vector2) -> void:
 	_changed = false
 	match int(hit["grab"]):
 		Grab.PART:
-			if int(hit["part"]) != selected:
-				selected = int(hit["part"])
-				part_chosen.emit(selected)
-				redraw()
-			_press["start"] = (_part() as Dictionary).duplicate(true)
+			var p := int(hit["part"])
+			if shift:
+				_toggle(p)
+			elif not chosen().has(p):
+				_choose(p, [])
+			else:
+				_press["alone"] = p                      # let go without a drag: this one alone stays chosen
+			# a drag moves everything chosen (a part just let go with Shift is not, and does not move)
+			var starts := {}
+			if chosen().has(p):
+				for i in chosen():
+					starts[i] = (item.parts[i] as Dictionary).duplicate(true)
+			_press["starts"] = starts
 			_press["grabbed"] = hit["at"]
 		Grab.SIZE:
 			var p: Dictionary = _part()
@@ -780,6 +831,29 @@ func _begin(hit: Dictionary, from: Vector2) -> void:
 	_layout()
 
 
+## Choose a part and the others with it, and say so.
+func _choose(part: int, others: Array) -> void:
+	var before := chosen()
+	selected = part
+	also = others.duplicate()
+	also.erase(part)
+	if chosen() != before:
+		var press := _press                              # whoever listens shows the item again: the press goes on
+		selection_changed.emit(selected, also.duplicate())
+		_press = press
+		redraw()
+
+
+## Shift+click: one more part chosen (it takes the handles), or a chosen one let go.
+func _toggle(part: int) -> void:
+	var all := chosen()
+	if not all.has(part):
+		_choose(part, all)
+	elif all.size() > 1:
+		all.erase(part)
+		_choose(all[0], all.slice(1))
+
+
 ## The pointer's angle about one of the item's axes, round a point, in degrees; NAN where there is none.
 func _angle(at: Vector2, centre: Vector3, axis: int) -> float:
 	var on: Variant = _on_plane(at, centre, axis)
@@ -789,48 +863,72 @@ func _angle(at: Vector2, centre: Vector3, axis: int) -> float:
 	return rad_to_deg(atan2(d[(axis + 2) % 3], d[(axis + 1) % 3]))
 
 
-## Slide a place [x, y, z] in the plane across `axis` by how far the pointer has gone from where it took hold.
-func _slid(at: Vector2, start: Array, grabbed: Vector3, axis: int, flip_x: bool = false) -> Variant:
+## How far the pointer has gone from where it took hold, in the plane across `axis`, in whole steps: [x, y, z] (0
+## along `axis`), or null where its ray runs along the plane. Steps, not places: what is moved keeps whatever it had
+## beyond the grid, so a part's sides stay on the lines they were on.
+func _steps(at: Vector2, grabbed: Vector3, axis: int, flip_x: bool = false) -> Variant:
 	var on: Variant = _on_plane(at, grabbed, axis)
 	if on == null:
 		return null
 	var d: Vector3 = (on as Vector3) - grabbed
 	if flip_x:
 		d.x = -d.x
-	var out: Array = start.duplicate()
+	var out: Array = [0.0, 0.0, 0.0]
 	for j in 3:
 		if j != axis:
-			out[j] = _clean(float(start[j]) + d[j], SNAP)
+			out[j] = _clean(d[j], SNAP)
 	return out
 
 
-func _drag_to(at: Vector2) -> void:
+static func _moved(place: Array, by: Array) -> Array:
+	var out: Array = []
+	for j in 3:
+		out.append(_clean(float(place[j]) + float(by[j]), PLACES))
+	return out
+
+
+func _drag_to(at: Vector2, shift: bool = false) -> void:
 	var axis := int(_press["axis"])
-	var start: Dictionary = _press["start"]
+	var start: Dictionary = _press.get("start", {})
 	match int(_press["grab"]):
 		Grab.PART:
-			var to: Variant = _slid(at, start["position"], _press["grabbed"], axis, bool(_press["mirrored"]))
-			if to == null:
+			var starts: Dictionary = _press["starts"]
+			var by: Variant = _steps(at, _press["grabbed"], axis, bool(_press["mirrored"]))
+			if by == null or starts.is_empty():
 				return
-			_change(_part(), "position", to)
-			readout = _place_text(to, axis)
+			for i in starts.keys():
+				_change(item.parts[i], "position", _moved(starts[i]["position"], by))
+			_press.erase("alone")
+			readout = _place_text((_part() as Dictionary)["position"], axis) \
+				+ ("" if starts.size() == 1 else "   (%d parts)" % starts.size())
 		Grab.SIZE:
 			var t := _along(at, _press["base"], _press["way"])
 			if is_nan(t) or is_nan(float(_press["t0"])):
 				return
 			var i := int(_press["side"])
 			var was := float(start["size"][i])
-			var now := maxf(HeldItemShape.MIN_SIZE, _clean(was + t - float(_press["t0"]), SNAP))
+			var grown := t - float(_press["t0"])
 			var size: Array = (start["size"] as Array).duplicate()
-			size[i] = now
-			var way: Vector3 = _press["way"]
 			var place: Array = (start["position"] as Array).duplicate()
-			for j in 3:
-				place[j] = _clean(float(place[j]) + way[j] * 0.5 * (now - was), PLACES)
 			var p: Dictionary = _part()
+			if shift:
+				# it keeps its shape: every size by the same amount, about its middle (the side pulled still follows
+				# the pointer, so the size along it grows by twice as far)
+				var factor := maxf(HeldItemShape.MIN_SIZE, _clean(was + 2.0 * grown, SNAP)) / was
+				for j in 3:
+					factor = maxf(factor, HeldItemShape.MIN_SIZE / float(size[j]))
+				for j in 3:
+					size[j] = _clean(float(size[j]) * factor, PLACES)
+				readout = "%s x %s x %s   (keeping its shape)" % [_number(size[0]), _number(size[1]), _number(size[2])]
+			else:
+				var now := maxf(HeldItemShape.MIN_SIZE, _clean(was + grown, SNAP))
+				size[i] = now
+				var way: Vector3 = _press["way"]
+				for j in 3:
+					place[j] = _clean(float(place[j]) + way[j] * 0.5 * (now - was), PLACES)
+				readout = "%s %s" % [SIZE_WORDS[i], _number(now)]
 			_change(p, "size", size)
 			_change(p, "position", place)
-			readout = "%s %s" % [SIZE_WORDS[i], _number(now)]
 		Grab.TURN, Grab.GRIP_TURN:
 			var angle := _angle(at, _press["centre"], axis)
 			if is_nan(angle) or is_nan(float(_press["angle0"])):
@@ -840,11 +938,11 @@ func _drag_to(at: Vector2) -> void:
 			_change(target, "rotation", turned(start["rotation"], axis, by))
 			readout = "turned %s degrees" % _number(by)
 		Grab.GRIP:
-			var to2: Variant = _slid(at, start["position"], _press["grabbed"], axis)
-			if to2 == null:
+			var by2: Variant = _steps(at, _press["grabbed"], axis)
+			if by2 == null:
 				return
-			_change(item.grip, "position", to2)
-			readout = "grip   " + _place_text(to2, axis)
+			_change(item.grip, "position", _moved(start["position"], by2))
+			readout = "grip   " + _place_text(item.grip["position"], axis)
 	if _changed:
 		redraw()
 		edited.emit()
@@ -871,7 +969,7 @@ static func _place_text(place: Array, axis: int) -> String:
 
 func _label_for(grab: int) -> String:
 	match grab:
-		Grab.PART: return "Move part %d" % (selected + 1)
+		Grab.PART: return "Move part %d" % (selected + 1) if also.is_empty() else "Move %d parts" % chosen().size()
 		Grab.SIZE: return "Resize part %d" % (selected + 1)
 		Grab.TURN: return "Turn part %d" % (selected + 1)
 		Grab.GRIP: return "Move grip"
@@ -882,10 +980,13 @@ func _label_for(grab: int) -> String:
 func _end() -> void:
 	var grab := int(_press["grab"])
 	var changed := _changed and _differs()
+	var alone := int(_press.get("alone", -1)) if not _dragging else -1
 	_press = {}
 	_dragging = false
 	_changed = false
 	readout = ""
+	if alone >= 0:
+		_choose(alone, [])                               # a plain click on one of several: that one alone
 	redraw()
 	if changed:
 		edit_finished.emit(_label_for(grab), false)
@@ -893,10 +994,15 @@ func _end() -> void:
 
 ## Whether what was dragged ended anywhere but where it began.
 func _differs() -> bool:
-	var start: Dictionary = _press["start"]
 	match int(_press["grab"]):
-		Grab.PART, Grab.SIZE, Grab.TURN: return _part() != start
-		Grab.GRIP, Grab.GRIP_TURN: return item.grip != start
+		Grab.PART:
+			var starts: Dictionary = _press["starts"]
+			for i in starts.keys():
+				if item.parts[i] != starts[i]:
+					return true
+			return false
+		Grab.SIZE, Grab.TURN: return _part() != _press["start"]
+		Grab.GRIP, Grab.GRIP_TURN: return item.grip != _press["start"]
 	return false
 
 
@@ -906,7 +1012,12 @@ func cancel() -> void:
 		return
 	var start: Dictionary = _press.get("start", {})
 	match int(_press["grab"]):
-		Grab.PART, Grab.SIZE, Grab.TURN:
+		Grab.PART:
+			var starts: Dictionary = _press["starts"]
+			for i in starts.keys():
+				if int(i) < item.parts.size():
+					item.parts[i] = (starts[i] as Dictionary).duplicate(true)
+		Grab.SIZE, Grab.TURN:
 			if _part() != null:
 				item.parts[selected] = start.duplicate(true)
 		Grab.GRIP, Grab.GRIP_TURN:
@@ -942,10 +1053,9 @@ func _key(key: InputEventKey) -> bool:
 	return false
 
 
-## Move the chosen part a quarter unit the way an arrow key points on the screen, flat to the view faced.
+## Move what is chosen a quarter unit the way an arrow key points on the screen, flat to the view faced.
 func nudge(across: int, upward: int) -> bool:
-	var part: Variant = _part()
-	if part == null or camera == null:
+	if _part() == null or camera == null:
 		return false
 	var axis := facing()
 	var right := to_item(camera.global_transform.basis.x)
@@ -954,11 +1064,12 @@ func nudge(across: int, upward: int) -> bool:
 	var b := (axis + 2) % 3
 	var along := a if absf(right[a]) >= absf(right[b]) else b
 	var rise := b if along == a else a
-	var place: Array = ((part as Dictionary)["position"] as Array).duplicate()
-	place[along] = _clean(float(place[along]) + across * SNAP * (1.0 if right[along] >= 0.0 else -1.0), PLACES)
-	place[rise] = _clean(float(place[rise]) + upward * SNAP * (1.0 if up[rise] >= 0.0 else -1.0), PLACES)
-	(part as Dictionary)["position"] = place
+	var by: Array = [0.0, 0.0, 0.0]
+	by[along] = across * SNAP * (1.0 if right[along] >= 0.0 else -1.0)
+	by[rise] = upward * SNAP * (1.0 if up[rise] >= 0.0 else -1.0)
+	for i in chosen():
+		item.parts[i]["position"] = _moved(item.parts[i]["position"], by)
 	redraw()
 	edited.emit()
-	edit_finished.emit("Nudge part %d" % (selected + 1), true)
+	edit_finished.emit("Nudge part %d" % (selected + 1) if also.is_empty() else "Nudge %d parts" % chosen().size(), true)
 	return true

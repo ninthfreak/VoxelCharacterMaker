@@ -106,12 +106,17 @@ static func create(p_id: String, p_name: String, p_category: String = "other") -
 	return item
 
 
+## The colours a new held item starts in: light ones, to be seen against the editor's dark view (slate and ink, the
+## first choice, all but vanished there).
+const HELD_START_COLOURS := {"main": "bone", "detail": "rust"}
+
+
 ## A held item: one part to start from, in two roles.
 static func create_held(p_id: String, p_name: String) -> GarmentItem:
 	var item := create(p_id, p_name, "weapon")
 	item.slot = HELD
 	item.roles = ["main", "detail"]
-	item.colourways = {DEFAULT_COLOURWAY: {"main": "slate", "detail": "ink"}}
+	item.colourways = {DEFAULT_COLOURWAY: HELD_START_COLOURS.duplicate()}
 	item.parts = [HeldItemShape.new_part("box", "main")]
 	return item
 

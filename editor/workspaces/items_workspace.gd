@@ -18,9 +18,9 @@ extends Workspace
 const SHOW_ITEM := "item"
 const SHOW_RIGHT := "R"
 const SHOW_LEFT := "L"
-const HINT_PARTS := "Drag a part to move it.   Pull a square to size it.   Drag the ring to turn it.   " \
-	+ "Drag empty space to turn the view."
-const HINT_GRIP := "Drag the hand to move the grip.   Drag the ring to turn it.   Drag empty space to turn the view."
+const HINT_PARTS := "Drag a part: move.   Pull a square: size (Shift keeps its shape).   Drag the ring: turn.   " \
+	+ "Shift+click: choose more.   Drag empty space: turn the view."
+const HINT_GRIP := "Drag the hand: move the grip.   Drag the ring: turn it.   Drag empty space: turn the view."
 const HINT_KEYS := "Arrow keys: move a quarter unit   |   Ctrl+C copy   |   Ctrl+V paste   |   Ctrl+X cut   |   " \
 	+ "Delete   |   Ctrl+Z undo"
 const CENTRE_TIPS: Array[String] = ["Put the chosen part on the item's middle, across (x 0)",
@@ -31,8 +31,10 @@ var body_id: String = "male_average"
 var head_shape: String = "round"
 var pose: String = Poses.REST
 var show_mode: String = SHOW_ITEM
-## The part being edited: its number in the item's parts (-1 for none).
+## The part being edited: its number in the item's parts (-1 for none). It has the handles in the view.
 var part: int = 0
+## The other parts chosen with it (Shift+click): moved, nudged, copied, cut and deleted together.
+var also: Array = []
 var held: ItemSelection = null
 
 var _show_pick: OptionButton = null
@@ -43,10 +45,11 @@ var _tabs: TabContainer = null
 var _list: ItemListPanel = null
 var _parts: PartsPanel = null
 var _grip: GripPanel = null
+var _drawing: DrawingPanel = null
 var _hint: Label = null
 var _keys: Label = null
-## The part copied or cut (Ctrl+C, Ctrl+X): pasted into this item or another.
-var _clipboard: Dictionary = {}
+## The parts copied or cut (Ctrl+C, Ctrl+X): pasted into this item or another.
+var _clipboard: Array = []
 var _hand_body := ""
 var _shown_id := ""
 
@@ -59,14 +62,15 @@ func _build() -> void:
 	held = ItemSelection.make(editor, GarmentItem.HELD)
 	held.changed.connect(func() -> void:
 		part = 0
+		also = []
 		rebuild())
 	var stage := view.item_stage
-	stage.part_chosen.connect(select_part)
+	stage.selection_changed.connect(func(index: int, others: Array) -> void: select_part(index, others))
 	stage.edited.connect(_on_dragging)
 	stage.edit_finished.connect(func(label: String, merge: bool) -> void:
 		editor.commit(label, self, merge)
 		edited.emit(self))
-	stage.delete_requested.connect(func() -> void: _parts._on_delete())
+	stage.delete_requested.connect(delete_chosen)
 	_build_toolbar()
 
 	heading(side, "Held items")
@@ -99,6 +103,7 @@ func _build() -> void:
 	_list = ItemListPanel.new()
 	add_panel(_list, held, item_box)
 	_parts = add_panel(PartsPanel.new(), held, item_box) as PartsPanel
+	_drawing = add_panel(DrawingPanel.new(), held, _tab("Drawing")) as DrawingPanel
 	_grip = add_panel(GripPanel.new(), held, _tab("Grip")) as GripPanel
 	add_panel(ColourPanel.new(), held, _tab("Colours"))
 	_tabs.tab_changed.connect(func(_index: int) -> void: rebuild())      # the Grip sub-tab: the view edits the grip
@@ -168,12 +173,43 @@ func stage_mode() -> int:
 		else ItemStage.Mode.PARTS
 
 
-## Choose a part to edit (and show it chosen).
-func select_part(index: int) -> void:
+## Choose a part to edit, and any others chosen with it (and show them chosen).
+func select_part(index: int, others: Array = []) -> void:
 	part = index
+	also = others.duplicate()
+	also.erase(index)
 	_parts.refresh()
+	_drawing.refresh()
 	_grip.refresh()
 	rebuild()
+
+
+## Every part chosen, the one with the handles first; only parts the item has.
+func chosen() -> Array:
+	var it := held.item()
+	var out: Array = []
+	if it == null:
+		return out
+	for i in [part] + also:
+		if int(i) >= 0 and int(i) < it.parts.size() and not out.has(int(i)):
+			out.append(int(i))
+	return out
+
+
+## Delete every part chosen (the Delete key, or the panel's button).
+func delete_chosen() -> void:
+	var it := held.item()
+	var going := chosen()
+	if it == null or going.is_empty():
+		return
+	going.sort()
+	going.reverse()
+	for i in going:
+		it.parts.remove_at(i)
+	part = mini(int(going[-1]), it.parts.size() - 1)
+	also = []
+	editor.commit("Delete part" if going.size() == 1 else "Delete %d parts" % going.size(), self)
+	edited.emit(self)
 
 
 ## Add a part of this kind on top of the item, chosen, ready to be dragged into place. With no item yet, a new item
@@ -198,7 +234,8 @@ func add_part(kind: String) -> void:
 		fresh["position"] = [0.0, 0.0, ceilf((top + 0.5 * float(fresh["size"][2])) / ItemStage.SNAP - 1e-6) * ItemStage.SNAP]
 	it.parts.append(fresh)
 	part = it.parts.size() - 1
-	show_section("Item")
+	also = []
+	show_section("Drawing" if kind in HeldItemShape.DRAWN else "Item")      # a drawn part: its shape is drawn next
 	editor.commit("Add %s" % HeldItemShape.kind_name(kind).to_lower(), self)
 	edited.emit(self)
 	view.fit_view()                                    # the new part is on top: bring it into the view
@@ -219,46 +256,60 @@ func centre_part(axis: int) -> void:
 	edited.emit(self)
 
 
-## Copy the chosen part (Ctrl+C), to paste into this item or another.
+## Copy what is chosen (Ctrl+C), to paste into this item or another.
 func copy_part() -> bool:
 	var it := held.item()
-	if it == null or part < 0 or part >= it.parts.size():
+	var parts := chosen()
+	if it == null or parts.is_empty():
 		return false
-	_clipboard = (it.parts[part] as Dictionary).duplicate(true)
-	editor.set_status_hint("Copied part %d. Ctrl+V pastes it." % (part + 1))
+	parts.sort()
+	_clipboard = []
+	for i in parts:
+		_clipboard.append((it.parts[i] as Dictionary).duplicate(true))
+	editor.set_status_hint("Copied %s. Ctrl+V pastes." % ("part %d" % (part + 1) if parts.size() == 1
+		else "%d parts" % parts.size()))
 	return true
 
 
-## Cut the chosen part (Ctrl+X): copied, then removed.
+## Cut what is chosen (Ctrl+X): copied, then removed.
 func cut_part() -> bool:
 	if not copy_part():
 		return false
-	_parts._on_delete()
+	delete_chosen()
 	return true
 
 
-## Paste the part copied (Ctrl+V), chosen. Where a part already is exactly where it would go (its own original, most
-## often) it is put 1 unit to the side, so that it is seen to be there.
+## Paste what was copied (Ctrl+V), chosen. Where a part already is exactly where one of them would go (its own
+## original, most often) they are all put 1 unit to the side, so that they are seen to be there.
 func paste_part() -> bool:
 	var it := held.item()
 	if it == null or _clipboard.is_empty():
 		return false
-	var fresh := HeldItemShape.clean_part(_clipboard, it.roles[0] if not it.roles.is_empty() else GarmentItem.DEFAULT_ROLE)
-	if not it.roles.is_empty() and not it.roles.has(String(fresh["role"])):
-		fresh["role"] = it.roles[0]
+	var fallback := it.roles[0] if not it.roles.is_empty() else GarmentItem.DEFAULT_ROLE
+	var fresh: Array = []
+	for raw in _clipboard:
+		var one := HeldItemShape.clean_part(raw, fallback)
+		if not it.roles.has(String(one["role"])):
+			one["role"] = fallback
+		fresh.append(one)
 	var taken := true
 	while taken:
 		taken = false
-		for p in it.parts:
-			if (p as Dictionary)["position"] == fresh["position"]:
-				fresh["position"][0] = float(fresh["position"][0]) + 1.0
-				taken = true
+		for one in fresh:
+			for p in it.parts:
+				taken = taken or (p as Dictionary)["position"] == one["position"]
+		if taken:
+			for one in fresh:
+				one["position"][0] = float(one["position"][0]) + 1.0
 	var at := clampi(part + 1, 0, it.parts.size())
-	it.parts.insert(at, fresh)
+	for k in fresh.size():
+		it.parts.insert(at + k, fresh[k])
 	part = at
-	editor.commit("Paste part", self)
+	also = range(at + 1, at + fresh.size())
+	editor.commit("Paste part" if fresh.size() == 1 else "Paste %d parts" % fresh.size(), self)
 	edited.emit(self)
-	editor.set_status_hint("Pasted as part %d." % (at + 1))
+	editor.set_status_hint("Pasted as part %d." % (at + 1) if fresh.size() == 1
+		else "Pasted %d parts." % fresh.size())
 	return true
 
 
@@ -275,6 +326,7 @@ func handle_shortcut(key: InputEventKey) -> bool:
 ## A part is being dragged in the view: the numbers follow (no undo step until it is let go).
 func _on_dragging() -> void:
 	_parts.refresh()
+	_drawing.refresh()
 	_grip.refresh()
 	_show_status()
 
@@ -322,7 +374,7 @@ func rebuild() -> void:
 	var colours := {}
 	for role in it.roles:
 		colours[role] = CharacterRequest.role_tones(request, it.id, held.colourway, role)[1]
-	view.show_item(it, colours, part, mode, it.id != _shown_id)
+	view.show_item(it, colours, part, mode, it.id != _shown_id, also)
 	_shown_id = it.id
 	_show_status()
 
@@ -332,15 +384,16 @@ func _show_status() -> void:
 	if it == null:
 		editor.show_status_line(self, "No held item yet: press one of the Add a part buttons above the view, or New.", "")
 		return
-	var chosen := ""
+	var what := ""
 	if stage_mode() == ItemStage.Mode.GRIP:
-		chosen = "   |   the grip"
+		what = "   |   the grip"
 	elif part >= 0 and part < it.parts.size():
 		var p: Dictionary = it.parts[part]
-		chosen = "   |   part %d chosen: %s, %s wide, %s deep, %s tall" % [part + 1,
-			HeldItemShape.kind_name(String(p["kind"])).to_lower(), _num(p["size"][0]), _num(p["size"][1]), _num(p["size"][2])]
+		what = "   |   part %d chosen: %s, %s wide, %s deep, %s tall%s" % [part + 1,
+			HeldItemShape.kind_name(String(p["kind"])).to_lower(), _num(p["size"][0]), _num(p["size"][1]), _num(p["size"][2]),
+			"" if also.is_empty() else ", and %d more" % also.size()]
 	editor.show_status_line(self, "%s   |   %d part%s, %d polygons%s" % [it.name, it.parts.size(),
-		"" if it.parts.size() == 1 else "s", view.item_stage.polygon_count(), chosen], "")
+		"" if it.parts.size() == 1 else "s", view.item_stage.polygon_count(), what], "")
 
 
 static func _num(v: Variant) -> String:
@@ -361,6 +414,7 @@ func refresh() -> void:
 		part = -1
 	elif part < 0 or part >= it.parts.size():
 		part = 0 if not it.parts.is_empty() else -1
+	also = chosen().slice(1)
 	refresh_figure_controls()
 	body_id = refill_bodies(_body_pick, body_id)
 	select_value(_pose_pick, pose)

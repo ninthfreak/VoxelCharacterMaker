@@ -531,14 +531,21 @@ Features (roughly in priority order):
   numbers alone is not workable; numbers are for fine work and exact places). One rule for every drag: it moves flat
   to the view being faced (from the front: across and up; from above: across and depth; from a side: depth and up;
   an angled view uses whichever of those it faces most, and two lines through the part say which, by letter).
-  - Click a part to choose it; drag it to move it. Drag empty space to turn the view.
+  - Click a part to choose it; drag it to move it. Drag empty space to turn the view. The part under the pointer
+    is outlined before it is clicked. **Shift+click chooses more parts** (or lets one go): a drag, the arrow keys,
+    Delete and copying then work on all of them; the squares and the ring stay on the one clicked last.
   - The chosen part has a square on four of its sides (w, d, h; not the two seen end on): pull one and that side
-    moves, the opposite side stays. A ring turns it, about the way the view faces.
+    moves, the opposite side stays. **With Shift held the part keeps its shape**: every size changes together,
+    about its middle. A ring turns it, about the way the view faces.
+  - **The straight-on views of an item (front, back, left, right, top) are flat** (orthographic), so that parts
+    can be lined up by eye; the 3/4 view and a view turned by hand are in perspective. A figure is always shown in
+    perspective.
   - Buttons above the view add a part of each kind, on top of the item, chosen. A see-through hand at the grip gives
     the size of things.
   - On the Grip sub-tab the view edits the grip instead: the forearm and hand that will hold the item are shown; drag
     the hand to move the grip, the ring to turn it.
-  - Everything snaps to a quarter unit and 15 degrees; nothing finer is offered by hand. What a drag is doing is
+  - Everything goes in steps of a quarter unit and 15 degrees; nothing finer is offered by hand. A move steps
+    from where the part is (not to the grid), so its sides stay on the lines they were on. What a drag is doing is
     written by the pointer. One drag is one undo step; Escape gives it up.
   - The usual keys: Ctrl+C copies the chosen part, Ctrl+V pastes it (into the same item, beside the first, or into
     another item), Ctrl+X cuts it, Delete removes it, Ctrl+Z undoes. The arrow keys move it a quarter unit a press,
@@ -550,8 +557,10 @@ Features (roughly in priority order):
   - Handles are told apart by shape and letter, never by red against green: squares size, a ring turns, a diamond is
     a grip.
   - The panel keeps the list of parts and the numbers (shape, colour role, place, turn, size, sides, mirror), which
-    follow the view, and a 16 by 16 grid to draw an outline or a side view on (click to add a point, drag to move
-    one, right-click to remove one).
+    follow the view. A drawn part's shape is drawn on the **Drawing sub-tab**: a 16 by 16 grid at the top of the
+    panel, in sight without scrolling (click to add a point, drag to move one, right-click to remove one); adding a
+    drawn part goes there.
+  - A new item starts in two light colours (bone and rust), to be seen against the dark view.
   - Show: the item alone (where it is edited), or held in a character's right or left hand, in any pose. The Preview
     tab chooses what each hand holds.
 - **Saved characters** (Preview tab): save the whole character shown as a named character, pick one to see it,

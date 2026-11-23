@@ -3,12 +3,13 @@ class_name PartsPanel
 extends EditorPanel
 
 ## The parts of a held item (HeldItemShape): a list of them, and the chosen one's shape, colour role, place, turn,
-## size, sides, mirror and, for a drawn part, its drawing. The Items tab says which part is chosen (ItemsWorkspace.part);
-## a click on a part in the view chooses it too.
+## size, sides and mirror. The Items tab says which part is chosen (ItemsWorkspace.part, and the others chosen with
+## it, .also); a click on a part in the view chooses it too. A drawn part's shape is drawn on the Drawing sub-tab
+## (DrawingPanel).
 ##
 ## The numbers here are for fine work and exact places: parts are added, moved, sized and turned by hand in the view
-## (ItemStage and the buttons above it), and these follow. They step by a quarter unit (a turn by 15 degrees) with the arrows; any value can be
-## typed.
+## (ItemStage and the buttons above it), and these follow. They step by a quarter unit (a turn by 15 degrees) with
+## the arrows; any value can be typed.
 
 const STEP := 0.001                 ## what a typed number is kept to (ItemStage.PLACES)
 const ARROW := 0.25                 ## what an arrow click adds
@@ -24,9 +25,7 @@ var _size: Array[SpinBox] = []
 var _sides: SpinBox = null
 var _sides_row: Control = null
 var _mirror: CheckBox = null
-var _drawing: VBoxContainer = null
-var _grid: ShapeGrid = null
-var _stretch: Label = null
+var _draw: Button = null
 
 
 func items_tab() -> ItemsWorkspace:
@@ -43,7 +42,7 @@ func _build() -> void:
 	button_row(box, [
 		{"text": "Copy part", "action": func() -> void: items_tab().copy_part()},
 		{"text": "Paste part", "action": func() -> void: items_tab().paste_part()},
-		{"text": "Delete part", "action": _on_delete},
+		{"text": "Delete part", "action": func() -> void: items_tab().delete_chosen()},
 	])
 
 	_details = VBoxContainer.new()
@@ -78,26 +77,10 @@ func _build() -> void:
 	_mirror.toggled.connect(func(on: bool) -> void: _set_field("mirror", on, "Mirror part"))
 	_details.add_child(_mirror)
 
-	_drawing = VBoxContainer.new()
-	_details.add_child(_drawing)
-	var drawing_title := Label.new()
-	drawing_title.text = "Drawing"
-	drawing_title.add_theme_font_size_override("font_size", 15)
-	_drawing.add_child(drawing_title)
-	_stretch = hint(_drawing, "")
-	_grid = ShapeGrid.new()
-	_grid.drawn.connect(func(points: Array, label: String, merge: bool) -> void:
-		_set_field("points", points, label, merge))
-	_drawing.add_child(_grid)
-	button_row(_drawing, [
-		{"text": "Remove last point", "action": func() -> void:
-			var part: Variant = _part()
-			if part != null and not (part["points"] as Array).is_empty():
-				var points: Array = (part["points"] as Array).duplicate(true)
-				points.pop_back()
-				_set_field("points", points, "Remove a point")},
-		{"text": "Clear drawing", "action": func() -> void: _set_field("points", [], "Clear drawing")},
-	])
+	_draw = Button.new()
+	_draw.text = "Draw its shape (Drawing tab)"
+	_draw.pressed.connect(func() -> void: items_tab().show_section("Drawing"))
+	_details.add_child(_draw)
 
 
 ## The chosen part of the item being edited, or null.
@@ -117,8 +100,6 @@ func _set_field(field: String, value: Variant, label: String, merge: bool = fals
 		return
 	(part as Dictionary)[field] = value
 	commit(label, merge)
-	if field == "points":
-		_refresh_grid_note(part)
 	if field == "role" or field == "mirror":
 		refresh()
 
@@ -134,8 +115,9 @@ func refresh() -> void:
 	_list.clear()
 	for i in it.parts.size():
 		var p: Dictionary = it.parts[i]
-		_list.add_item("%d   %s   -   %s%s" % [i + 1, HeldItemShape.kind_label(String(p["kind"])).split(",")[0],
-			String(p["role"]), "   (mirrored)" if bool(p.get("mirror", false)) else ""])
+		_list.add_item("%d   %s   -   %s%s%s" % [i + 1, HeldItemShape.kind_name(String(p["kind"])),
+			String(p["role"]), "   (mirrored)" if bool(p.get("mirror", false)) else "",
+			"   [also chosen]" if items_tab().also.has(i) else ""])
 	if chosen >= 0 and chosen < it.parts.size():
 		_list.select(chosen)
 		_list.ensure_current_is_visible()
@@ -153,38 +135,8 @@ func refresh() -> void:
 		_sides_row.visible = kind in HeldItemShape.ROUND
 		_sides.value = int(p2.get("sides", 8))
 		_mirror.button_pressed = bool(p2.get("mirror", false))
-		_drawing.visible = kind in HeldItemShape.DRAWN
-		if _drawing.visible:
-			_grid.show_points(p2.get("points", []), kind == "spin")
-			_refresh_grid_note(p2)
+		_draw.visible = kind in HeldItemShape.DRAWN
 	end_guard()
-
-
-func _refresh_grid_note(part: Dictionary) -> void:
-	var size: Array = part["size"]
-	var spin := String(part["kind"]) == "spin"
-	var n := (part.get("points", []) as Array).size()
-	var least := 2 if spin else 3
-	_stretch.text = "%s Stretched to the part's size: %s wide, %s tall. %d point%s%s." % [
-		"Half a side view, spun round the middle (the blue line)." if spin
-			else "An outline; the part's depth is its thickness.",
-		_num(float(size[0])), _num(float(size[2])), n, "" if n == 1 else "s",
-		"" if n >= least else " (it needs %d at least)" % least]
-
-
-static func _num(v: float) -> String:
-	return str(snappedf(v, 0.01))
-
-
-# ------------------------------------------------------------------ actions --
-
-func _on_delete() -> void:
-	var it := item()
-	if it == null or _part() == null:
-		return
-	it.parts.remove_at(items_tab().part)
-	commit("Delete part")
-	items_tab().select_part(mini(items_tab().part, it.parts.size() - 1))
 
 
 ## Another kind of shape, keeping the place, turn, size and role; a drawn kind starts from its default drawing.

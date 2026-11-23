@@ -9,6 +9,11 @@ extends Camera3D
 ## zooms. Keys 1-6 jump to the fixed views. The figure faces -Z in Godot space,
 ## so "front" means looking from -Z toward the figure -- the same test the
 ## coordinate lock in tests/test_axes.gd performs.
+##
+## Where it is allowed (allow_flat: the Items tab's view of an item), the straight-on views -- front, back, left,
+## right, top -- are FLAT (orthographic): nothing looks bigger for being nearer, so parts can be lined up by eye, as
+## in TinkerCAD's flat view or Blender's and Godot's numbered views. Turning the view by hand goes back to
+## perspective; the 3/4 view is always in perspective.
 
 const ORBIT_SPEED := 0.6
 const PAN_SPEED := 0.0025
@@ -18,6 +23,9 @@ const MAX_DISTANCE := 12.0
 const PITCH_LIMIT := 89.0
 ## Room left around the figure when the view fits itself to it.
 const FRAME_MARGIN := 1.16
+## A flat view's camera stands at least this far back, however far in it is zoomed, so that nothing is cut off in
+## front of it (in a flat view the distance changes nothing that is seen).
+const FLAT_BACK := 6.0
 
 ## Views, as (yaw, pitch) in degrees. Yaw 0 looks at the figure's front.
 const VIEWS := {
@@ -33,6 +41,11 @@ var target: Vector3 = Vector3(0, 0.875, 0)  ## mid-figure: 1.75 m / 2
 var distance: float = 3.0
 var yaw: float = -30.0
 var pitch: float = -10.0
+
+## Whether the straight-on views are shown flat.
+var allow_flat := false: set = set_allow_flat
+## The view is flat now.
+var flat := false
 
 var _dragging_orbit := false
 var _dragging_pan := false
@@ -80,7 +93,18 @@ func set_view(view: String) -> void:
 	var v: Vector2 = VIEWS[view]
 	yaw = v.x
 	pitch = v.y
+	flat = allow_flat and view != "three_quarter"
+	if flat and view == "top":
+		pitch = -PITCH_LIMIT                        # straight down, where the view in perspective looks from a slant
 	_apply()
+
+
+func set_allow_flat(on: bool) -> void:
+	allow_flat = on
+	if not on and flat:
+		flat = false
+		if is_inside_tree():
+			_apply()
 
 
 func view_names() -> Array[String]:
@@ -109,7 +133,10 @@ func _apply() -> void:
 		-sin(pitch_rad),
 		-cos(yaw_rad) * cos(pitch_rad),
 	)
-	position = target + offset * distance
+	projection = PROJECTION_ORTHOGONAL if flat else PROJECTION_PERSPECTIVE
+	if flat:
+		size = 2.0 * distance * tan(deg_to_rad(fov) * 0.5)      # as much in view as the same distance in perspective
+	position = target + offset * (maxf(distance, FLAT_BACK) if flat else distance)
 	look_at(target, Vector3.UP)
 
 
@@ -148,6 +175,7 @@ func handle_input(event: InputEvent) -> bool:
 		var mm := event as InputEventMouseMotion
 		if _dragging_orbit:
 			moved_by_user = true
+			flat = false                               # turned by hand: in perspective again
 			yaw += mm.relative.x * ORBIT_SPEED
 			pitch -= mm.relative.y * ORBIT_SPEED
 			_apply()
