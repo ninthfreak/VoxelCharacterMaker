@@ -1695,6 +1695,67 @@ Left for the owner to judge:
   place on that axis becomes 0, the item's middle). The arrow-key nudge was already there but had been cut from the
   hint line with everything else, so the owner had to ask whether it existed: it is back on the keys line.
 
+## 4zm. The Items tab reviewed against other editors (owner's request)
+
+Scope: the Items tab and what it shares with the rest of the editor (camera, keys). Nothing was changed; this is the
+report. Two kinds of evidence:
+
+- **Other editors**, for the same jobs: TinkerCAD (the owner's own comparison), Blender, Godot's 3D editor, Kenney's
+  Asset Forge (models put together from blocks), Blockbench (low-poly models; it has a mode for setting how an item
+  sits in a hand), and Figma for the 2D habits everyone carries over. The pages themselves could not be opened from
+  this environment (those sites are not on its network list), so this rests on web search summaries and what is
+  generally known; where sources disagreed it is said.
+- **Our editor, used:** a short sword built from nothing through Godot's real input path under xvfb (a scratch
+  script; every drag a real mouse drag), counting what it took: 4 button clicks, 13 drags, 6 changes of view, 6
+  picks in the panel, 3 edits on the drawing grid; 32 actions, 21 undo steps.
+
+**Where it already does what the others do:** click to choose, drag to move, handles to size, a ring to turn; a
+read-out by the pointer (TinkerCAD shows sizes as you drag); arrow keys to nudge; Ctrl+C / V / X, Delete, Ctrl+Z; one
+undo step a drag; fixed views on number keys; a fit button. Two things it does better for this owner: no handle is told
+apart by red against green (Blender, Godot and Blockbench colour their axes red, green and blue), and one ring that
+turns the way you are looking instead of three.
+
+**Found, in order of weight:**
+
+1. **A defect: moving a part after sizing it knocks its sides off the grid.** A pull moves one side and keeps the
+   other, so the part's middle lands on an eighth; a drag then snaps the *middle* to a quarter, which shifts both
+   sides by an eighth. Measured: guard widened 0.25 on one side (left side at x -2.5), dragged 1 across, left side at
+   x -1.375. Blender's default is the other way round: a move goes in steps from where the thing started; snapping to
+   the grid itself is an option.
+2. **Sizing takes too many pulls, and half of them need the view turned.** Each square moves one side of one size.
+   The 1.5 ball for the pommel took six pulls and two changes of view; the guard five pulls and two changes. The
+   convention everywhere: hold Shift to keep the shape (all sizes together), and in TinkerCAD and Figma Alt for both
+   sides at once (TinkerCAD's sheets disagree on Alt alone; Shift+Alt, everything about the middle, is consistent).
+   With Shift alone the build above would have been 23 actions, not 32.
+3. **The straight-on views are in perspective.** TinkerCAD, Blender and Godot all offer a flat (orthographic) view,
+   because lining parts up by eye in perspective misleads: nearer things look bigger. Ours never does.
+4. **The drawing grid is out of sight.** For a drawn part it sits 1127 px down a panel that shows 907 px: it is
+   reached by scrolling past everything else, away from the view. And the outline's points cannot be dragged on the
+   part itself, which is the rule the rest of the tab now follows.
+5. **A new item is dark on dark.** Its two colours are slate and ink; the view's background is near black. In the
+   front view of the finished sword the pommel can hardly be seen.
+6. **Nothing shows what a click will choose.** Over a part only the cursor changes. Most editors outline what is
+   under the pointer; here it would also settle the one awkward case, a ring or square lying over another part.
+7. **One part at a time.** No way to choose two and move them together (Shift+click nearly everywhere; Asset Forge
+   and TinkerCAD also group). Making the handle longer means moving the guard and the blade up one by one.
+8. **The view can only be turned from empty space or with a middle button**, and there is none of either when the
+   item fills the view on a laptop. Two-finger and pinch gestures of a trackpad are not handled at all (untested: no
+   trackpad here).
+9. **Small:** an empty tab says what to do only on the status line at the bottom; Fit frames the whole item, not
+   the chosen part (F does that in TinkerCAD, Godot and Asset Forge); the item in a character's hand can be looked at
+   but not adjusted there (Blockbench adjusts the hold while showing the character; our Grip sub-tab's forearm does
+   the same job from the item's side).
+
+**Left out on purpose, and still right to leave out:** separate move / size / turn tools (Q W E R), three turning
+rings, cutting holes (TinkerCAD's hole shapes), editing single corners, typing numbers into the view.
+
+**Recommended, in this order** (difficulty; confidence that it helps): fix 1 by moving in steps from where the part
+is (low; high) - Shift keeps the shape when a square is pulled, about the part's middle (low; high) - lighter
+starting colours (trivial; high) - outline what the pointer is on (low; high) - flat straight-on views (low to
+medium; medium to high) - the drawing grid at the top of the panel when a drawn part is chosen (low; high), and
+later its points dragged in the view (medium; medium) - Shift+click to move several parts (medium; medium: wait
+until it is missed). Not recommended now: anything under 8 or 9 until the owner has used it on their own machine.
+
 ## 5. Still open, for the owner
 
 Since the move to low-poly (4i), the open questions for that work are listed
