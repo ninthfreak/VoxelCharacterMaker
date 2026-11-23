@@ -30,6 +30,10 @@ var accessory_colourway: String = ""
 var worn: Array = []
 ## The saved character last loaded or saved here ("" = none): what Update writes to.
 var character_id: String = ""
+## The animation playing ("" = none: the pose holds).
+var animation: String = ""
+var _animator: RigAnimator = null
+var _anim_pick: OptionButton = null
 
 var _body_pick: OptionButton = null
 var _head_pick: OptionButton = null
@@ -70,7 +74,13 @@ func _build() -> void:
 	_pose_pick = picker(side, "Pose", Poses.names(), pose_labels(),
 		func(value: String) -> void:
 			pose = value
+			_play("")
 			view.set_pose(value))
+	var anim_labels: Array = ["(none: hold the pose)"]
+	for clip in Animations.names():
+		anim_labels.append(Animations.display_name(clip))
+	_anim_pick = picker(side, "Animation", [""] + Animations.names(), anim_labels,
+		func(value: String) -> void: _play(value))
 	_skin_pick = picker(side, "Skin tone", Palette.SKIN_TONE_NAMES, [],
 		func(value: String) -> void: _choose("skin_tone", value))
 
@@ -137,6 +147,27 @@ func start_fresh() -> void:
 	worn = editor.wardrobe.outfit("everyday") if editor.wardrobe.outfit_names().has("everyday") else []
 
 
+## Play an animation on the figure ("" = stop, back to the pose chosen).
+func _play(clip: String) -> void:
+	if _guard > 0:
+		return
+	animation = clip
+	if _animator == null:
+		_animator = RigAnimator.make(view.lowpoly_rig)
+		add_child(_animator)
+	if clip.is_empty():
+		_animator.stop()
+		view.set_pose(pose)
+	else:
+		_animator.play(clip)
+	if _anim_pick != null:
+		_guard += 1
+		select_value(_anim_pick, clip)
+		_guard -= 1
+	if view.lowpoly_rig.figure != null:
+		editor.show_status_line(self, lowpoly_status_text(view.lowpoly_rig.figure), "")
+
+
 ## Choices that change what another menu offers (an eye set's colours, a hair's or a beard's colourways): after these
 ## the menus are filled again; after any other, only the summary changes.
 const REFILLS: Array[String] = ["eye_set_id", "hair_id", "facial_id", "accessory_id"]
@@ -198,6 +229,7 @@ func refresh() -> void:
 	body_id = refill_bodies(_body_pick, body_id)
 	select_value(_head_pick, head_shape)
 	select_value(_pose_pick, pose)
+	select_value(_anim_pick, animation)
 	select_value(_skin_pick, skin_tone)
 	select_value(_lid_pick, lids)
 	select_value(_mouth_pick, mouth)
@@ -379,7 +411,8 @@ func _refresh_summary() -> void:
 
 
 func status_extra() -> String:
-	return "   |   %d worn   |   %s" % [_live_worn().size(), Poses.display_name(pose)]
+	return "   |   %d worn   |   %s" % [_live_worn().size(),
+		Animations.display_name(animation) + " (playing)" if not animation.is_empty() else Poses.display_name(pose)]
 
 
 ## The summary again, after a character was saved, updated, renamed or deleted.

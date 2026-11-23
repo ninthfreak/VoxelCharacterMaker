@@ -3,7 +3,7 @@ class_name CharacterDemo
 extends Node3D
 
 ## The game-side path, shown on its own: saved characters, each a GameCharacter built by its id from the wardrobe,
-## standing in a row and going through the test poses.
+## standing in a row, walking on the spot (or, with no animation, going through the test poses).
 ##
 ## This is here to make one thing plain: the game builds a character through exactly the same calls as the editor.
 ## Nothing in this file knows about dressing or cloth -- GameCharacter asks LowpolyAssembler for a figure and hands
@@ -14,6 +14,8 @@ extends Node3D
 ## The characters to show, by id; empty = every saved character in the wardrobe.
 @export var character_ids: Array[String] = []
 @export var spacing: float = 0.9
+## An animation every character plays (Animations); "" = cycle the test poses instead.
+@export var animation: String = Animations.WALK
 @export var cycle_poses: bool = true
 @export var seconds_per_pose: float = 1.6
 
@@ -35,12 +37,15 @@ func _ready() -> void:
 		add_child(who)
 		if who.setup(wardrobe, ids[i]):
 			characters.append(who)
+			if not animation.is_empty():
+				who.play(animation, 0.0)
+				who.animator.time = 0.37 * i               # out of step with each other
 	if not Engine.is_editor_hint():
 		_add_camera_and_light(ids.size())
 
 
 func _process(delta: float) -> void:
-	if not cycle_poses or characters.is_empty() or Engine.is_editor_hint():
+	if not animation.is_empty() or not cycle_poses or characters.is_empty() or Engine.is_editor_hint():
 		return
 	_elapsed += delta
 	if _elapsed < seconds_per_pose:

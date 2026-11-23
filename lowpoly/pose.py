@@ -65,15 +65,10 @@ def transforms(pose, pivots):
 # out like a board; in a stride the back leg's heel stays inside). A cape has one bone at the hip line.
 #
 # A thigh's swing is how far its knee has gone forward of straight down (negative: back), its spread how far it leans
-# out to its own side, both seen from the pelvis; a knee's bend is how far its shin has gone forward of its thigh's
-# line (a bent knee is negative), seen from the thigh.
+# out to its own side; a shin's reach how far it points forward of straight down; all seen from the pelvis.
 
 FOLLOW = 1.0            # how much of a thigh's swing the skirt bones at the hip take
-FOLLOW_LOW = 1.0        # how much of a knee's bend the skirt bones at the knee take
 CAPE_FOLLOW = 0.8       # how much of the back leg's swing a cape bone takes (the voxel panels' rule: 0.8)
-SOFT = 5.0              # degrees: within this of each other the two legs share being "the leg in front"
-BEHIND = 20.0           # degrees: the back of a skirt follows the knee of the leg behind only as that leg goes back,
-                        # wholly once it is this far back (sitting, both thighs forward, it hangs straight down)
 
 
 def hip_point(pivots):
@@ -89,7 +84,8 @@ def knee_point(pivots):
 
 
 def leg_angles(T):
-    """{side: (swing, spread, bend)} in degrees, for "L" and "R"."""
+    """{side: (swing, spread, reach)} in degrees, for "L" and "R": the thigh's swing and spread, and how far its shin
+    points forward of straight down (negative: back), all seen from the pelvis."""
     Ap = T["pelvis"][0]
     down = np.array([0.0, 0.0, -1.0])
     out = {}
@@ -98,30 +94,32 @@ def leg_angles(T):
         swing = float(np.degrees(np.arctan2(-d[1], -d[2])))
         spread = float(np.degrees(np.arcsin(np.clip(d[0] if s == "L" else -d[0], -1.0, 1.0))))   # out of the
         # upright plane the leg swings in; measured against straight down instead, it flips when the thigh is level
-        k = T["thigh_" + s][0].T @ (T["shin_" + s][0] @ down)
-        bend = float(np.degrees(np.arctan2(-k[1], -k[2])))
-        out[s] = (swing, spread, bend)
+        k = Ap.T @ (T["shin_" + s][0] @ down)
+        reach = float(np.degrees(np.arctan2(-k[1], -k[2])))
+        out[s] = (swing, spread, reach)
     return out
 
 
 def cloth_turns(T):
-    """How each cloth bone is turned, under its parent (pelvis, or its upper bone): {bone: matrix}. The front of a
-    skirt follows the leg in front, its back the leg behind (each only that way), its sides their own leg; the bones
-    at the knee follow the same leg's knee (the back's only as far as that leg is behind). A cape follows the leg
-    behind."""
+    """How each cloth bone is turned, under its parent (pelvis, or its upper bone): {bone: matrix}. At the hip, the
+    front of a skirt follows the thigh furthest forward, its back the thigh furthest back (each only that way), its
+    sides their own thigh. At the knee, the front follows the shin that reaches furthest forward and the back the shin
+    that reaches furthest back (only back), whichever leg it is: in a walk the leg swinging through has its thigh
+    forward and its shin back, and the cloth behind must clear that heel. A side follows its own shin. A cape follows
+    the thigh furthest back."""
     a = leg_angles(T)
-    (sl, ol, bl), (sr, orr, br) = a["L"], a["R"]
-    ahead = 1.0 / (1.0 + np.exp(-(sl - sr) / SOFT))                 # how much the left is the leg in front
+    (sl, ol, rl), (sr, orr, rr) = a["L"], a["R"]
+    front = FOLLOW * max(sl, sr, 0.0)
+    back = FOLLOW * min(sl, sr, 0.0)
     return {
-        "skirt_front": _rx(-FOLLOW * max(sl, sr, 0.0)),
-        "skirt_back": _rx(-FOLLOW * min(sl, sr, 0.0)),
+        "skirt_front": _rx(-front),
+        "skirt_back": _rx(-back),
         "skirt_left": _rx(-FOLLOW * sl) @ _ry(-FOLLOW * ol),
         "skirt_right": _rx(-FOLLOW * sr) @ _ry(FOLLOW * orr),
-        "skirt_front_low": _rx(-FOLLOW_LOW * (ahead * bl + (1.0 - ahead) * br)),
-        "skirt_back_low": _rx(-FOLLOW_LOW * float(np.clip(-min(sl, sr) / BEHIND, 0.0, 1.0))
-                              * ((1.0 - ahead) * bl + ahead * br)),
-        "skirt_left_low": _rx(-FOLLOW_LOW * bl),
-        "skirt_right_low": _rx(-FOLLOW_LOW * br),
+        "skirt_front_low": _rx(-(max(rl, rr) - front)),
+        "skirt_back_low": _rx(-(min(rl, rr, 0.0) - back)),
+        "skirt_left_low": _rx(-(rl - FOLLOW * sl)),
+        "skirt_right_low": _rx(-(rr - FOLLOW * sr)),
         "cape_back": _rx(-CAPE_FOLLOW * min(sl, sr, 0.0)),
     }
 
@@ -140,6 +138,28 @@ def with_cloth_bones(T, pivots):
         Ap, tp = T[CLOTH_PARENT.get(bone, "pelvis")]
         T[bone] = (Ap @ R, Ap @ (piv - R @ piv) + tp)
     return T
+
+
+# ------------------------------------------------------------------------------------------------- clips ---
+
+def sample(clip, seconds):
+    """The pose an animation clip (runtime/animations.gd, from the game's tables) gives this many seconds in, as the
+    game writes poses ({part: [x, y, z]} degrees): every angle on a uniform Catmull-Rom curve through the clip's evenly
+    spaced keys. A looping clip wraps; one that does not holds its first key before its start and its last after."""
+    keys = clip["keys"]; n = len(keys)
+    if n == 1: return {k: list(v) for k, v in keys[0].items()}
+    loop = bool(clip["loop"]); share = seconds / float(clip["length"])
+    share = share % 1.0 if loop else min(max(share, 0.0), 1.0)
+    spans = n if loop else n - 1
+    at = share * spans; i = min(int(np.floor(at)), spans - 1); u = at - i
+    key = (lambda k: keys[k % n]) if loop else (lambda k: keys[min(max(k, 0), n - 1)])
+    p0, p1, p2, p3 = key(i - 1), key(i), key(i + 1), key(i + 2)
+    out = {}
+    for part in set(p0) | set(p1) | set(p2) | set(p3):
+        a, b, d, e = (np.array(p.get(part, (0.0, 0.0, 0.0)), float) for p in (p0, p1, p2, p3))
+        out[part] = list(0.5 * (2.0 * b + (d - a) * u + (2.0 * a - 5.0 * b + 4.0 * d - e) * u * u
+                               + (3.0 * b - a - 3.0 * d + e) * u * u * u))
+    return out
 
 
 def from_game(parts):

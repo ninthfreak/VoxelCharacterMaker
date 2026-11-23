@@ -65,15 +65,11 @@ static func bend(t: Dictionary, point: PackedFloat64Array, shares: Dictionary) -
 # step): not parts of the body, turned by the legs. A skirt has a bone for each of its four sides at the hip line,
 # under the pelvis, and under each of those another at knee height for the cloth below the knee; a cape has one bone
 # at the hip line. A thigh's swing is how far its knee has gone forward of straight down (negative: back), its spread
-# how far it leans out to its own side, both seen from the pelvis; a knee's bend how far its shin has gone forward of
-# its thigh's line (a bent knee is negative), seen from the thigh.
+# how far it leans out to its own side; a shin's reach how far it points forward of straight down; all seen from the
+# pelvis.
 
 const FOLLOW := 1.0                  ## how much of a thigh's swing the skirt bones at the hip take
-const FOLLOW_LOW := 1.0              ## how much of a knee's bend the skirt bones at the knee take
 const CAPE_FOLLOW := 0.8             ## how much of the back leg's swing a cape bone takes
-const SOFT := 5.0                    ## degrees: within this of each other the two legs share being "the leg in front"
-const BEHIND := 20.0                 ## degrees: the back of a skirt follows the knee of the leg behind only as that leg
-                                     ## goes back, wholly once it is this far back
 const CLOTH_BONES: Array[String] = ["skirt_front", "skirt_back", "skirt_left", "skirt_right", "cape_back",
 	"skirt_front_low", "skirt_back_low", "skirt_left_low", "skirt_right_low"]
 ## a cloth bone's parent (the others: the pelvis)
@@ -97,7 +93,8 @@ static func knee_point(parts: Dictionary) -> PackedFloat64Array:
 	return p
 
 
-## {side: [swing, spread, bend]} in degrees, for "L" and "R".
+## {side: [swing, spread, reach]} in degrees, for "L" and "R": the thigh's swing and spread, and how far its shin
+## points forward of straight down (negative: back), all seen from the pelvis.
 static func leg_angles(t: Dictionary) -> Dictionary:
 	var ap: PackedFloat64Array = t["pelvis"][0]
 	var down := Vec64.v(0.0, 0.0, -1.0)
@@ -106,33 +103,36 @@ static func leg_angles(t: Dictionary) -> Dictionary:
 		var d := Vec64.apply(Vec64.transpose(ap), Vec64.apply(t["thigh_" + s][0], down))
 		var swing := rad_to_deg(atan2(-d[1], -d[2]))
 		var spread := rad_to_deg(asin(clampf(d[0] if s == "L" else -d[0], -1.0, 1.0)))
-		var k := Vec64.apply(Vec64.transpose(t["thigh_" + s][0]), Vec64.apply(t["shin_" + s][0], down))
-		var bend := rad_to_deg(atan2(-k[1], -k[2]))
-		out[s] = [swing, spread, bend]
+		var k := Vec64.apply(Vec64.transpose(ap), Vec64.apply(t["shin_" + s][0], down))
+		var reach := rad_to_deg(atan2(-k[1], -k[2]))
+		out[s] = [swing, spread, reach]
 	return out
 
 
-## How each cloth bone is turned, under its parent: {bone: matrix}. The front of a skirt follows the leg in front,
-## its back the leg behind (each only that way), its sides their own leg; the bones at the knee follow the same leg's
-## knee (the back's only as far as that leg is behind). A cape follows the leg behind.
+## How each cloth bone is turned, under its parent: {bone: matrix}. At the hip, the front of a skirt follows the thigh
+## furthest forward, its back the thigh furthest back (each only that way), its sides their own thigh. At the knee, the
+## front follows the shin that reaches furthest forward and the back the shin that reaches furthest back (only back),
+## whichever leg it is: in a walk the leg swinging through has its thigh forward and its shin back, and the cloth
+## behind must clear that heel. A side follows its own shin. A cape follows the thigh furthest back.
 static func cloth_turns(t: Dictionary) -> Dictionary:
 	var a := leg_angles(t)
 	var sl: float = a["L"][0]
 	var ol: float = a["L"][1]
-	var bl: float = a["L"][2]
+	var rl: float = a["L"][2]
 	var sr: float = a["R"][0]
 	var orr: float = a["R"][1]
-	var br: float = a["R"][2]
-	var ahead := 1.0 / (1.0 + exp(-(sl - sr) / SOFT))
+	var rr: float = a["R"][2]
+	var front := FOLLOW * maxf(maxf(sl, sr), 0.0)
+	var back := FOLLOW * minf(minf(sl, sr), 0.0)
 	return {
-		"skirt_front": Vec64.rx(-FOLLOW * maxf(maxf(sl, sr), 0.0)),
-		"skirt_back": Vec64.rx(-FOLLOW * minf(minf(sl, sr), 0.0)),
+		"skirt_front": Vec64.rx(-front),
+		"skirt_back": Vec64.rx(-back),
 		"skirt_left": Vec64.matmul(Vec64.rx(-FOLLOW * sl), Vec64.ry(-FOLLOW * ol)),
 		"skirt_right": Vec64.matmul(Vec64.rx(-FOLLOW * sr), Vec64.ry(FOLLOW * orr)),
-		"skirt_front_low": Vec64.rx(-FOLLOW_LOW * (ahead * bl + (1.0 - ahead) * br)),
-		"skirt_back_low": Vec64.rx(-FOLLOW_LOW * clampf(-minf(sl, sr) / BEHIND, 0.0, 1.0) * ((1.0 - ahead) * bl + ahead * br)),
-		"skirt_left_low": Vec64.rx(-FOLLOW_LOW * bl),
-		"skirt_right_low": Vec64.rx(-FOLLOW_LOW * br),
+		"skirt_front_low": Vec64.rx(-(maxf(rl, rr) - front)),
+		"skirt_back_low": Vec64.rx(-(minf(minf(rl, rr), 0.0) - back)),
+		"skirt_left_low": Vec64.rx(-(rl - FOLLOW * sl)),
+		"skirt_right_low": Vec64.rx(-(rr - FOLLOW * sr)),
 		"cape_back": Vec64.rx(-CAPE_FOLLOW * minf(minf(sl, sr), 0.0)),
 	}
 

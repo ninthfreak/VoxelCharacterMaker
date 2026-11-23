@@ -98,8 +98,9 @@ different from 7.4:
   or a cape is a few columns of cloth, each fixed at its top and of fixed length; standing, each column is a taut line
   from its top over whatever of the figure sticks out under it, then straight down, leaning out by the garment's
   flare. In a pose every point follows what its column's top follows and, further down, cloth bones the legs turn:
-  a skirt's front follows the leg in front, its back the leg behind, its sides their own leg, each with a second bone
-  at the knee for the cloth below it; a cape swings back with the leg behind. (Laid afresh for every pose by the
+  a skirt's front follows the thigh furthest forward, its back the thigh furthest back, its sides their own thigh, each
+  with a second bone at the knee that follows the shin reaching furthest that way; a cape swings back with the thigh
+  furthest back. (Laid afresh for every pose by the
   taut-line rule, as first built, the cloth jumped between poses a hair apart, so it would pop in any animation:
   `docs/NOTES.md` 4zh.) Sitting, the cloth cuts the corner where the lap meets the belly by up to about 2 units.
 - A skirt hangs from the waist line (the top of the hips band), over the hips. Its waistband is still the waist band
@@ -519,11 +520,18 @@ Features (roughly in priority order):
 *The game now draws one skinned mesh that bends at its joints, plus its hanging cloth as a second skinned mesh on the
 same skeleton, which has nine cloth bones besides the eleven parts (`runtime/lowpoly_rig.gd`; section 0). The voxel runtime below was removed in phase 5.*
 
+**Animation** (`runtime/animations.gd`): clips of a few key poses, evenly spaced over a length, looping or not; every
+angle moves on a smooth curve through the keys (uniform Catmull-Rom). A clip is a walk on the spot: the game moves the
+node. `RigAnimator` plays one on a rig, blending in from the pose the figure had, and turns only bones each frame
+(cloth follows its bones). Clips so far, as first passes: idle (breathing) and walk (one second, two steps).
+`lowpoly/pose.py` samples clips the same way; `tests/lowpoly_expected.json` holds samples the game is checked
+against, and `lowpoly/check.py` holds the cloth to 0.15 units in eight frames of the walk on every body and outfit.
+
 **`GameCharacter`** (`runtime/game_character.gd`) is the node the game uses: it builds a saved character by its id
 from a wardrobe, through the same assembler as the editor, and shows it with a LowpolyRig. It changes the expression
-(eyelids, mouth) without dressing the figure again, a pose, or the clothes worn (for that node only: the wardrobe is
-not changed). The library of bodies and heads, and a wardrobe read from a file, are read once and shared.
-`runtime/character_demo.tscn` stands the saved characters in a row and takes them through the test poses.
+(eyelids, mouth) without dressing the figure again, a pose, an animation (`play`), or the clothes worn (for that node
+only: the wardrobe is not changed). The library of bodies and heads, and a wardrobe read from a file, are read once and shared.
+`runtime/character_demo.tscn` stands the saved characters in a row, walking on the spot.
 
 - Each part is a mesh under a Node3D at its pivot, parented per §3.1; animation rotates the pivots (AnimationPlayer).
   No skinning.

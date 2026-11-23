@@ -50,6 +50,7 @@ static func run(t: TestReport, ed: CharacterEditor) -> void:
 	_panels_together(t, ed)
 	_preview(t, ed)
 	_characters(t, ed)
+	_animation(t, ed)
 	_undo_timeline(t, ed)
 	_unsaved_guard(t, ed)
 	_hint(t, ed)
@@ -451,6 +452,24 @@ static func _characters(t: TestReport, ed: CharacterEditor) -> void:
 	ed.undo()
 	t.check(ed.wardrobe.character("hero").name == "Hero" and ed.wardrobe.character("hero").skin_tone == "deep",
 		"and further undo goes back through the rename and the update")
+
+
+## The Preview tab plays an animation; a pose stops it.
+static func _animation(t: TestReport, ed: CharacterEditor) -> void:
+	t.group("editor: Preview -- animation")
+	_fresh(ed)
+	ed.show_tab("Preview")
+	var pv := ed.preview
+	pv._play(Animations.WALK)
+	t.check(pv._animator != null and pv._animator.playing and pv.status_extra().contains("Walk (playing)"),
+		"choosing Walk plays it on the figure, and the status line says so", pv.status_extra())
+	pv._animator.advance(0.5)
+	t.check(not pv.view.lowpoly_rig.current_pose().is_empty(), "the figure moves")
+	pv._pose_pick.select(Poses.names().find(Poses.SITTING))
+	pv._pose_pick.item_selected.emit(Poses.names().find(Poses.SITTING))
+	t.check(not pv._animator.playing and pv.animation == "" and pv._anim_pick.selected == 0
+		and pv.view.lowpoly_rig.current_pose() == Poses.get_pose(Poses.SITTING),
+		"choosing a pose stops the animation and shows the pose")
 
 
 # ----------------------------------------------------------------- preview --

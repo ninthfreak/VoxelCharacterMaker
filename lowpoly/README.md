@@ -205,9 +205,9 @@ Three ways, by what the clothing is:
   its bends; a four-sided piece of cloth between two columns that is not flat is split into two triangles along the
   diagonal that folds outward, as cloth over a body does.
   In a pose it **follows bones** (owner's choice, 2026-11): each point follows what its column's top follows and,
-  further down, cloth bones turned by the legs (`pose.py`): a skirt's front follows the leg in front, its back the
-  leg behind, its sides their own leg, each with a second bone at the knee for the cloth below it; a cape swings back
-  with the leg behind. Smooth by construction, and in the game nine bones turned per pose. Laid afresh for every
+  further down, cloth bones turned by the legs (`pose.py`): a skirt's front follows the thigh furthest forward, its
+  back the thigh furthest back, its sides their own thigh, each with a second bone at the knee that follows the shin
+  reaching furthest that way; a cape swings back with the thigh furthest back. Smooth by construction, and in the game nine bones turned per pose. Laid afresh for every
   pose instead (the first build), the cloth jumped between poses a hair apart: a knee coming under a column snapped it
   out at once, so it would pop in any animation. Sitting, it cuts the corner where the lap meets the belly by up to
   about 2 units (`check.py` holds every other test pose to 0.15).

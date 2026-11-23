@@ -1533,10 +1533,13 @@ Left for the owner to judge:
   unsure) and physics (hard, out of scope).
 - **How.** Laid once, standing, by the same rule (bind; standing it is exactly the old cloth, to 1e-15), then every
   point follows fixed shares: what its column's top follows, blended over 1.5 units below the hip line into cloth
-  bones. A skirt has front, back, left and right bones at the hip line (front: the leg in front, back: the leg behind,
-  each only that way; sides: their own leg, swing and spread) and a second at the knee for each, following that
-  leg's knee (the back's only as far as its leg is behind, or sitting would swing the back out like a shelf). A
-  cape's lower part swings back with the leg behind (0.8 of it). Shares by the way a column faces (cosine squared,
+  bones. A skirt has front, back, left and right bones at the hip line (front: the thigh furthest forward, back: the
+  thigh furthest back, each only that way; sides: their own thigh, swing and spread) and a second at the knee for
+  each: the front follows the shin that reaches furthest forward, the back the shin that reaches furthest back (only
+  back), whichever leg it is, the sides their own shin. (First built following "the leg behind"'s knee: in a walk
+  the leg swinging through has its thigh forward and its shin back, and its heel came through the back; following
+  shins by where they reach also keeps the back hanging straight when sitting.) A cape's lower part swings back with
+  the thigh furthest back (0.8 of it). Shares by the way a column faces (cosine squared,
   so they add to one); at most four bones a point, as Godot skins.
 - **Measured.** No jumps: the largest step is the typical step, standing to a stride and to sitting. In the test
   poses but sitting nothing comes through a skirt or a cape (mid-stride 0.00, was 0.8 to 1.4 with one bone at the hip
@@ -1550,6 +1553,32 @@ Left for the owner to judge:
   slow move to under 0.5 units.
 - **What it costs.** The editor's still poses show the game's cloth, so sitting is stiffer than the laid cloth was (a
   lap less hugged). Fine for strides, which matter most for animation.
+
+## 4zi. Animation: clips and the animator (owner's go-ahead)
+
+- **Clips** (`runtime/animations.gd`): a few key poses evenly spaced over a length, looping or not; every angle on a
+  uniform Catmull-Rom curve through the keys, so there is no corner at a key, and a loop runs from its last key back
+  into its first. A walk is on the spot; the game moves the node. Poses are the game's own (part -> Euler degrees).
+- **First clips, as test material:** idle (3 s: the chest leans back a little and settles, the arms ease out and in)
+  and walk (1 s, two steps: contact and passing, then the same mirrored; each arm with the opposite leg; the chest turns
+  against the hips, the head back to face ahead). The owner's list of clips is still to come.
+- **The animator** (`RigAnimator`): plays a clip on a LowpolyRig; changing clips blends from the pose the figure had
+  (0.2 s by default); turns only bones each frame (the cloth follows its bones), so it costs the same with cloth as
+  without. Kept beside the rig, not under it (a rig's children are replaced on every rebuild).
+- **Where:** `GameCharacter.play()` / `stop()` (an `animation` export plays from the start; a new expression does not
+  stop it; a pose does); the Preview tab's Animation choice (choosing a pose stops it); the demo scene walks every
+  saved character, out of step.
+- **Checked:** `lowpoly/pose.py` samples clips the same way; twelve samples of each clip are in
+  `tests/lowpoly_expected.json` and the game matches them to a thousandth of a degree. Clips pass through their keys,
+  loop with no seam, and no angle moves more than 3 degrees in a 120th of a clip. A skirt walking at 60 frames a
+  second moves no point more than 1 unit a frame (0.8 at the fastest part of the swing). `check.py` holds every
+  body's cloth in every outfit to 0.15 units in eight frames of the walk.
+- **Found while building it:** the skirt's knee bones first followed the knee of "the leg in front/behind", picked by
+  the thighs; in the walk's passing frame the swinging leg has its thigh forward and its shin back, so its heel came
+  through the back by up to 1.1 units, and the hand-over between legs flicked the cloth 1.3 units a frame. They now
+  follow the shins by where they reach (4zh).
+- **Not done:** faces in motion (blinks, talking: an open question in SPEC 13), moving over the ground, and an editor
+  for clips (they are written as tables, like the test poses).
 
 ## 5. Still open, for the owner
 

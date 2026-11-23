@@ -149,9 +149,11 @@ else:
     import expected                                                  # what the Godot side is checked against
     on_disk = json.load(open(expected.OUT)) if os.path.exists(expected.OUT) else {}
     fresh = json.loads(json.dumps(expected.data(tables, ld.Wardrobe(game.wardrobe_path()))))
-    expect(all(on_disk.get(k) == fresh[k] for k in ("cases", "dressed", "faces", "tolerance")),
+    expect(all(on_disk.get(k) == fresh[k] for k in ("cases", "dressed", "faces", "animations", "tolerance")),
            f"tests/lowpoly_expected.json ({len(fresh['cases'])} posed figures, {len(fresh['dressed'])} dressed, {len(fresh['faces'])} faces, for the Godot tests) "
            f"is what a rebuild gives (run: python3 lowpoly/expected.py)")
+    walk_clip = tables["animations"]["walk"]                        # the walk, every eighth of its length
+    walk_frames = [(f"walk {k}/8", ps.from_game(ps.sample(walk_clip, k / 8 * walk_clip["length"]))) for k in range(8)]
     known = lambda note: "edge style" in note                       # not built yet; see the README
     chest = lambda q: q["piece"] == "skin" and q["band"] in ("waist", "belly", "lower_chest", "upper_chest", "collar", "neck")
 
@@ -173,7 +175,7 @@ else:
                 hems += 1; inward += int(n @ (q["pts"].mean(axis=0) - parent["pts"].mean(axis=0)) <= 0)
             expect(inward == 0, f"{said}: all {hems} hems face out over their step, away from the garment they edge")
             hems = True; worst = 0.0; sitting = 0.0; longest = 0.0; whole = True
-            for pose_name, pose in poses.items():
+            for pose_name, pose in list(poses.items()) + walk_frames:
                 bent, cloths = ps.laid(b, look, pose)
                 whole &= all(np.isfinite(pts).all() for _, pts in bent)
                 T = ps.transforms(pose, b["pivots"])
@@ -194,7 +196,8 @@ else:
             if look.cloths:
                 expect(not odd and whole and hems and worst < THROUGH and sitting < SIT_THROUGH and longest < 16.0,
                        f"{said}: {len(look.polys) + n_cloth} polygons, {n_cloth} of them hanging cloth; it hangs to its hem; in the {len(poses) - 1} test poses "
-                       f"but sitting nothing comes through it by {THROUGH} units or more (most: {worst:.2f}); sitting, less than {SIT_THROUGH} "
+                       f"but sitting and {len(walk_frames)} frames of the walk nothing comes through it by {THROUGH} units or more (most: {worst:.2f}); "
+                       f"sitting, less than {SIT_THROUGH} "
                        f"(most: {sitting:.2f})" + (f" | NOTES: {odd}" if odd else ""))
             else:
                 expect(not odd and whole, f"{said}: {len(look.polys)} polygons" + (f" | NOTES: {odd}" if odd else ""))

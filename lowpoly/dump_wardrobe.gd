@@ -1,7 +1,7 @@
 extends SceneTree
 # Writes what lowpoly/ needs from the game, so that nothing there is a second copy of it:
 #   --out <file>     the starter wardrobe, as its normal JSON file (items, features, eye sets, palette, outfits)
-#   --tables <file>  the test poses (runtime/poses.gd); every special shape's settings with their defaults; the eyes
+#   --tables <file>  the test poses (runtime/poses.gd), the animation clips (runtime/animations.gd); every special shape's settings with their defaults; the eyes
 #                    (the eye box, the lid states, and every eye set's cells with each lid state applied); and the
 #                    colours the game works out: each skin tone with its lid colour (and the tones' order), and for
 #                    every palette colour the brow and the stubble it gives as a hair colour; and the mouths (Mouths)
@@ -30,13 +30,25 @@ func _init() -> void:
 				var v: Vector3 = p[part]
 				pose[part] = [v.x, v.y, v.z]
 			poses[pose_name] = {"label": Poses.display_name(pose_name), "parts": pose}
+		var animations := {}
+		for clip_name in Animations.names():
+			var c := Animations.clip(clip_name)
+			var keys: Array = []
+			for key in (c["keys"] as Array):
+				var pose := {}
+				for part in (key as Dictionary).keys():
+					var v: Vector3 = key[part]
+					pose[part] = [v.x, v.y, v.z]
+				keys.append(pose)
+			animations[clip_name] = {"label": String(c["label"]), "length": float(c["length"]), "loop": bool(c["loop"]),
+				"keys": keys}
 		var specials := {}
 		for type in SpecialItem.types():
 			specials[type] = SpecialItem.param_spec(type)
 		var tones: Array = []                           # in the game's order, lightest first: JSON sorts a table's names
 		for tone in Palette.SKIN_TONE_NAMES:
 			tones.append(String(tone))
-		_write(tables, {"format": "lowpoly_game_tables", "poses": poses, "specials": specials,
+		_write(tables, {"format": "lowpoly_game_tables", "poses": poses, "animations": animations, "specials": specials,
 			"eyes": _eyes(w), "skin": _skin(), "skin_order": tones, "default_skin": Palette.DEFAULT_SKIN,
 			"hair": _hair(w), "default_brow_hair": Palette.DEFAULT_BROW_HAIR,
 			"mouths": {"order": Mouths.names(), "default": Mouths.DEFAULT, "states": Mouths.STATES}})

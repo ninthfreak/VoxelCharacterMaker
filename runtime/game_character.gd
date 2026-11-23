@@ -7,7 +7,8 @@ extends Node3D
 ##
 ##   setup(wardrobe, "farmer")        build a character (or set wardrobe_path and character_id, and add it to a tree)
 ##   set_expression("angry", "frown") eyelids and mouth; the clothes are not dressed again
-##   set_pose("mid_stride")           a pose from runtime/poses.gd; the cloth follows its bones
+##   set_pose("mid_stride")           a pose from runtime/poses.gd (stops any animation); the cloth follows its bones
+##   play("walk")                     an animation from runtime/animations.gd, blended in from the pose it has
 ##   wear_outfit("travelling")        other clothes for this character, here only: the wardrobe is not changed
 ##
 ## The low-poly library (the bodies and heads) is read once and shared by every GameCharacter; so is a wardrobe read
@@ -20,6 +21,8 @@ signal built
 ## The saved character's id in that wardrobe.
 @export var character_id: String = ""
 @export var pose: String = Poses.REST
+## An animation to play from the start ("" = none: hold the pose).
+@export var animation: String = ""
 
 var wardrobe: Wardrobe = null
 ## The character as built: a copy of the saved one, so what the game changes here (wear_outfit) stays here.
@@ -28,6 +31,7 @@ var lids: String = EyeLids.DEFAULT
 var mouth: String = Mouths.DEFAULT
 var figure: LowpolyFigure = null
 var rig: LowpolyRig = null
+var animator: RigAnimator = null
 
 var _dressed: Array = []
 
@@ -88,8 +92,24 @@ func set_expression(p_lids: String, p_mouth: String = "") -> void:
 
 func set_pose(p_pose: String) -> void:
 	pose = p_pose
+	if animator != null:
+		animator.stop()
 	if rig != null and rig.figure != null:
 		rig.apply_pose(pose)
+
+
+## Play an animation (Animations), blending in from the pose the figure has over `crossfade` seconds.
+func play(clip_name: String, crossfade: float = 0.2) -> void:
+	animation = clip_name
+	if animator != null:
+		animator.play(clip_name, crossfade)
+
+
+## Stop the animation; the figure keeps the pose it has.
+func stop() -> void:
+	animation = ""
+	if animator != null:
+		animator.stop()
 
 
 ## Other clothes, for this character here: Array of {"item": id, "colourway": name}.
@@ -139,6 +159,11 @@ func _show(request: CharacterRequest) -> bool:
 		rig = LowpolyRig.new()
 		rig.name = "Figure"
 		add_child(rig)
-	rig.build(figure, Poses.get_pose(pose))
+		animator = RigAnimator.make(rig)
+		add_child(animator)
+	var playing := animator.playing
+	rig.build(figure, rig.current_pose() if playing else Poses.get_pose(pose))
+	if not playing and not animation.is_empty():
+		animator.play(animation, 0.0)
 	built.emit()
 	return true

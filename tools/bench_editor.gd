@@ -98,6 +98,14 @@ func _run() -> void:
 	_time("build, bare (mesh only)", func() -> void: rig.build(bare, {}))
 	_time("build, travelling (mesh, and its cape bound once)", func() -> void: rig.build(tf, {}))
 	_time("a new pose for travelling (bones turned, the cape with them)", func() -> void: rig.apply_pose("mid_stride"))
+	var animator := RigAnimator.make(rig)
+	root.add_child(animator)
+	animator.play(Animations.WALK, 0.0)
+	_time("one frame of the walk, travelling (bones turned, the cape with them)", func() -> void:
+		animator.advance(1.0 / 60.0))
+	animator.stop()
+	root.remove_child(animator)
+	animator.free()
 	_time("flat to smooth shading and back (mesh made twice)", func() -> void:
 		rig.set_flat_shading(false)
 		rig.set_flat_shading(true))
